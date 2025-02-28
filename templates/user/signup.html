@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create Account</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/static/userSide/signup.css">
+</head>
+<body>
+    <div class="signup-container">
+        <div class="header">
+            <h1>Create Account</h1>
+            <p>Join our community today</p>
+        </div>
+
+        <form id="signupForm" novalidate method="post" action="/user/signup/">
+            <div class="form-group">
+                <label for="name">Name</label>
+                <div class="input-wrapper">
+                    <input type="text" id="name" name="username" placeholder="John Doe" autocomplete="name" required>
+                    <i class="icon fas fa-user"></i>
+                </div>
+                <div class="error-message" id="nameError"></div>
+            </div>
+
+            <div class="form-group">
+                <label for="email">Email</label>
+                <div class="input-wrapper">
+                    <input type="email" id="email" name="email" placeholder="you@example.com" autocomplete="email" required>
+                    <i class="icon fas fa-envelope"></i>
+                </div>
+                <div class="error-message" id="emailError"></div>
+            </div>
+
+            <div class="form-group">
+                <label for="password">Password</label>
+                <div class="input-wrapper">
+                    <input type="password" id="password" name="password" placeholder="••••••••" required>
+                    <i class="icon fas fa-eye toggle-password"></i>
+                </div>
+                <div class="form-group">
+                    <label for="confirmPassword">Confirm Password</label>
+                    <div class="input-wrapper">
+                        <input type="password" id="confirmPassword" name="confirmpassword" placeholder="••••••••" required>
+                        <i class="icon fas fa-eye toggle-confirm-password"></i>
+                    </div>
+                    <div class="error-message" id="confirmPasswordError"></div>
+                </div>
+                <div class="password-strength">
+                    <div class="password-strength-bar"></div>
+                </div>
+                <div class="error-message" id="passwordError"></div>
+            </div>
+
+            <button type="submit" class="submit-btn">Create Account</button>
+        </form>
+
+        <div class="divider">
+            <span>or continue with</span>
+        </div>
+
+        <div class="social-signup">
+            <a href="/auth/google" class="social-btn">
+                <img src="/api/placeholder/20/20" alt="Google Logo">
+                Sign up with Google
+            </a>
+        </div>
+
+        <p class="login-link">
+            Already have an account? <a href="/user">Sign in</a>
+        </p>
+    </div>
+    <script>document.addEventListener('DOMContentLoaded', function() {
+        const form = document.getElementById('signupForm');
+        const passwordInput = document.getElementById('password');
+        const confirmPasswordInput = document.getElementById('confirmPassword');
+        const nameInput = document.getElementById('name');  // Matches your HTML id
+        const emailInput = document.getElementById('email');
+        
+        // Toggle password visibility
+        document.querySelector('.toggle-password').addEventListener('click', function() {
+            togglePasswordVisibility(passwordInput, this);
+        });
+    
+        document.querySelector('.toggle-confirm-password').addEventListener('click', function() {
+            togglePasswordVisibility(confirmPasswordInput, this);
+        });
+    
+        // Real-time validation
+        nameInput.addEventListener('input', validateName);
+        emailInput.addEventListener('input', validateEmail);
+        passwordInput.addEventListener('input', validatePassword);
+        confirmPasswordInput.addEventListener('input', validateConfirmPassword);
+    
+        // Form submission
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // Perform all validations
+            const isNameValid = validateName();
+            const isEmailValid = validateEmail();
+            const isPasswordValid = validatePassword();
+            const isConfirmPasswordValid = validateConfirmPassword();
+    
+            if (isNameValid && isEmailValid && isPasswordValid && isConfirmPasswordValid) {
+                const formData = {
+                    username: nameInput.value.trim(),  // Changed to match backend
+                    email: emailInput.value.trim(),
+                    password: passwordInput.value,
+                    confirmpassword: confirmPasswordInput.value  // Added to match backend
+                };
+    
+                // Send form data to server
+                fetch('/user/signup', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(formData)
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.status === "ok") {
+                        window.location.href = '/user/otp';
+                    } else {
+                        showError('emailError', data.message || 'An error occurred');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showError('emailError', 'An error occurred. Please try again.');
+                });
+            }
+        });
+    
+        // Validation functions
+        function validateName() {
+            const name = nameInput.value.trim();
+            if (name.length < 2) {
+                showError('nameError', 'Name must be at least 2 characters long');
+                return false;
+            }
+            if (!/^[a-zA-Z\s]+$/.test(name)) {
+                showError('nameError', 'Name can only contain letters and spaces');
+                return false;
+            }
+            showError('nameError', '');
+            return true;
+        }
+    
+        function validateEmail() {
+            const email = emailInput.value.trim();
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(email)) {
+                showError('emailError', 'Please enter a valid email address');
+                return false;
+            }
+            showError('emailError', '');
+            return true;
+        }    
+        function showError(elementId, message) {
+            const errorElement = document.getElementById(elementId);
+            errorElement.innerHTML = message;
+            errorElement.style.display = message ? 'block' : 'none';
+        }
+    
+        function togglePasswordVisibility(inputElement, iconElement) {
+            const type = inputElement.getAttribute('type');
+            inputElement.setAttribute('type', type === 'password' ? 'text' : 'password');
+            iconElement.classList.toggle('fa-eye');
+            iconElement.classList.toggle('fa-eye-slash');
+        }
+    });</script>
+
+</div>
+</body>
+</html>

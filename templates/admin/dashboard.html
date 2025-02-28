@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.5.2/dist/css/bootstrap.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Arial', sans-serif;
+        }
+
+        .container-fluid {
+            padding: 20px;
+        }
+
+        /* Sidebar Styles */
+        .sidebar {
+            width: 250px;
+            background: #2c3e50;
+            min-height: 100vh;
+            color: white;
+            padding-top: 20px;
+            position: fixed;
+            left: 0;
+            top: 0;
+        }
+
+        .sidebar-header {
+            padding: 20px;
+            text-align: center;
+            border-bottom: 1px solid #34495e;
+        }
+
+        .sidebar-menu {
+            padding: 20px 0;
+        }
+
+        .menu-item {
+            padding: 15px 25px;
+            display: block;
+            color: white;
+            text-decoration: none;
+            transition: background 0.3s;
+        }
+
+        .menu-item:hover {
+            background: #34495e;
+            text-decoration: none;
+            color: white;
+        }
+
+        .menu-item.active {
+            background: #34495e;
+        }
+
+        /* Main Content Styles */
+        .main-wrapper {
+            display: flex;
+        }
+
+        .content {
+            flex: 1;
+            margin-left: 250px;
+            background: #f4f6f9;
+            min-height: 100vh;
+        }
+
+        /* Card Styles */
+        .card-custom-small {
+            border: none;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .card-custom-small:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+
+        .card-gradient-blue-small {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: #fff;
+        }
+
+        .card-gradient-warning-small {
+            background: linear-gradient(135deg, #f6d365, #fda085);
+            color: #fff;
+        }
+
+        .card-gradient-success-small {
+            background: linear-gradient(135deg, #89f7fe, #66a6ff);
+            color: #fff;
+        }
+
+        .card-gradient-danger-small {
+            background: linear-gradient(135deg, #ff758c, #ff7eb3);
+            color: #fff;
+        }
+
+        .card-icon-small {
+            font-size: 1.5rem;
+            margin-bottom: 5px;
+        }
+
+        .card-title-small {
+            font-size: 1rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .card-text-small {
+            font-size: 0.9rem;
+            margin-bottom: 0;
+        }
+
+        .dashboard-card {
+            border-radius: 8px;
+            padding: 1rem;
+            background: #fff;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            margin-bottom: 1rem;
+        }
+
+        .list-title {
+            font-size: 1.1rem;
+            font-weight: bold;
+            margin-bottom: .5rem;
+        }
+
+        /* Table Styles */
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .table th, .table td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .table th {
+            background: #f8f9fa;
+            font-weight: 600;
+        }
+
+        .table tr:hover {
+            background: #f5f6fa;
+        }
+    </style>
+</head>
+<body>
+    <div class="main-wrapper">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <h2>Admin Panel</h2>
+            </div>
+            <div class="sidebar-menu">
+                <a href="#" class="menu-item active">
+                    <i class="fas fa-tachometer-alt me-2"></i> Dashboard
+                </a>
+                <a href="#" class="menu-item">
+                    <i class="fas fa-users me-2"></i> Customers
+                </a>
+                <a href="#" class="menu-item">
+                    <i class="fas fa-shopping-cart me-2"></i> Orders
+                </a>
+                <a href="#" class="menu-item">
+                    <i class="fas fa-box me-2"></i> Products
+                </a>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="content">
+            <div class="container-fluid">
+                <h2 class="mb-4">Admin Dashboard</h2>
+                
+                <!-- Summary Cards -->
+                <div class="row row-small">
+                    <div class="col-md-4 col-sm-6">
+                        <div class="card card-custom-small card-gradient-blue-small">
+                            <div class="card-body text-center p-2">
+                                <div class="card-icon-small">
+                                    <i class="fas fa-dollar-sign"></i>
+                                </div>
+                                <h5 class="card-title-small">Total Sales</h5>
+                                <p class="card-text-small"><span id="totalSales">0</span></p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Repeat other cards... -->
+                    
+                </div>
+
+                <!-- Charts Section -->
+                <div class="row">
+                    <div class="col-md-8">
+                        <div class="dashboard-card">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h4>Sales Chart</h4>
+                                <select id="chartFilter" class="form-control w-auto">
+                                    <option value="yearly">Yearly</option>
+                                    <option value="monthly">Monthly</option>
+                                    <option value="weekly">Weekly</option>
+                                </select>
+                            </div>
+                            <canvas id="salesChart" height="200"></canvas>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-4">
+                        <div class="dashboard-card text-center">
+                            <h4>Ledger Book</h4>
+                            <p>Generate a detailed ledger report.</p>
+                            <button id="generateLedger" class="btn btn-primary">
+                                <i class="fas fa-file-alt"></i> Generate Ledger
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Lists Section -->
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="dashboard-card">
+                            <div class="list-title">Top 10 Best Selling Products</div>
+                            <ul class="list-group" id="bestProducts"></ul>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-4">
+                        <div class="dashboard-card">
+                            <div class="list-title">Top 10 Best Selling Categories</div>
+                            <ul class="list-group" id="bestCategories"></ul>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-4">
+                        <div class="dashboard-card">
+                            <div class="list-title">Top 10 Best Selling Brands</div>
+                            <ul class="list-group" id="bestBrands"></ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        // Your existing JavaScript code here
+        let salesChart;
+        const ctx = document.getElementById('salesChart').getContext('2d');
+
+        // Add menu item active state handler
+        document.querySelectorAll('.menu-item').forEach(item => {
+            item.addEventListener('click', function() {
+                document.querySelectorAll('.menu-item').forEach(i => i.classList.remove('active'));
+                this.classList.add('active');
+            });
+        });
+
+        // Rest of your existing JavaScript code...
+        // (Chart initialization, data population, etc.)
+    </script>
+</body>
+</html>

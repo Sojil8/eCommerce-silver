@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OTP Verification</title>
+    <link rel="stylesheet" href="/static/userSide/otp.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h3>Email Verification</h3>
+            <p>Enter the OTP sent to your email</p>
+        </div>
+        <form method="post" id="otp-form">
+            <!-- Hidden email field (set this dynamically) -->
+            <input type="hidden" name="email" id="email" value="{{.email}}">
+            <div class="otp-input-container">
+                <input type="text" maxlength="1" pattern="\d" required>
+                <input type="text" maxlength="1" pattern="\d" required>
+                <input type="text" maxlength="1" pattern="\d" required>
+                <input type="text" maxlength="1" pattern="\d" required>
+                <input type="text" maxlength="1" pattern="\d" required>
+                <input type="text" maxlength="1" pattern="\d" required>
+            </div>
+            <div class="timer">
+                Time remaining: <span>60</span> seconds
+            </div>
+            <button type="submit" class="verify-btn">Verify Email</button>
+            <div class="resend">
+                <button type="button" disabled>Resend OTP</button>
+            </div>
+        </form>
+        <div class="login-link">
+            Already verified? <a href="/">Login now</a>
+        </div>
+    </div>
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const otpForm = document.getElementById("otp-form");
+            const otpInputs = document.querySelectorAll(".otp-input-container input");
+            const verifyBtn = document.querySelector(".verify-btn");
+            const resendBtn = document.querySelector(".resend button");
+            const timerSpan = document.querySelector(".timer span");
+            let timeLeft = 60;
+
+            // Auto-focus next input
+            otpInputs.forEach((input, index) => {
+                input.addEventListener("input", (e) => {
+                    if (e.inputType !== "deleteContentBackward" && input.value.length === 1) {
+                        if (index < otpInputs.length - 1) {
+                            otpInputs[index + 1].focus();
+                        }
+                    }
+                });
+                input.addEventListener("keydown", (e) => {
+                    if (e.key === "Backspace" && input.value === "" && index > 0) {
+                        otpInputs[index - 1].focus();
+                    }
+                });
+            });
+
+            // Countdown timer
+            const timer = setInterval(() => {
+                timeLeft--;
+                timerSpan.textContent = timeLeft;
+                if (timeLeft <= 0) {
+                    clearInterval(timer);
+                    resendBtn.disabled = false;
+                }
+            }, 1000);
+
+            // Handle form submission
+            otpForm.addEventListener("submit", (e) => {
+                e.preventDefault();
+
+                const otp = Array.from(otpInputs).map(input => input.value).join("");
+                const email = document.getElementById("email").value;
+
+                if (otp.length !== 6) {
+                    alert("Please enter a 6-digit OTP.");
+                    return;
+                }
+
+                fetch("/user/signup/otp", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({ email: email, otp: otp }),
+                })
+                .then(response => {
+                    if (!response.ok) throw new Error("Invalid response");
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.stauts === "ok") { // Typo in your backend: "stauts" -> "status"
+                        alert("OTP Verified Successfully!");
+                        window.location.href = "/user/login"; // Adjust redirect as needed
+                    } else {
+                        alert("Invalid OTP. Please try again.");
+                    }
+                })
+                .catch(error => {
+                    console.error("Error:", error);
+                    alert("Error verifying OTP. Please try again.");
+                });
+            });
+
+            // Handle Resend OTP (optional)
+            resendBtn.addEventListener("click", () => {
+                // Implement resend logic if needed
+            });
+        });
+    </script>
+</body>
+</html>

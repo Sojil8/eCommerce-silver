@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create Account</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/static/userSide/signup.css">
+</head>
+<body>
+    <div class="signup-container">
+        <div class="header">
+            <h1>Create Account</h1>
+            <p>Join our community today</p>
+        </div>
+
+        <form id="signupForm" novalidate method="post" action="/user/login">
+            <div class="form-group">
+                <div class="error-message" id="nameError"></div>
+            </div>
+            <div class="form-group">
+                <label for="email">Email</label>
+                <div class="input-wrapper">
+                    <input type="email" id="email" name="email" placeholder="you@example.com" autocomplete="email">
+                    <i class="icon fas fa-envelope"></i>
+                </div>
+                <div class="error-message" id="emailError"></div>
+            </div>
+
+            <div class="form-group">
+                <label for="password">Password</label>
+                <div class="input-wrapper">
+                    <input type="password" id="password" name="password" placeholder="••••••••">
+                    <i class="icon fas fa-eye toggle-password"></i>
+                </div>
+                <div class="password-strength">
+                    <div class="password-strength-bar"></div>
+                </div>
+                <div class="error-message" id="passwordError"></div>
+            </div>
+
+            <button type="submit" class="submit-btn">LOGIN</button>
+        </form>
+
+        <div class="divider">
+            <span>or continue with</span>
+        </div>
+
+        <div class="social-signup">
+            <a href="/auth/google" class="social-btn">
+                <img src="/api/placeholder/20/20" alt="Google Logo">
+                Sign up with Google
+            </a>
+        </div>
+
+        <p class="login-link">
+            Are You New in here<a href="/user"> Create An Account</a>
+        </p>
+        <p class="login-link">
+            <a href="/user"> Forgot Password</a>
+        </p>
+    </div>
+
+    <script>
+ document.addEventListener('DOMContentLoaded', function() {
+    // const form = document.getElementById('signupForm');
+    // const emailInput = document.getElementById('email');
+    // const passwordInput = document.getElementById('password');
+    // const passwordStrengthBar = document.querySelector('.password-strength-bar');
+    // const togglePassword = document.querySelector('.toggle-password');
+
+    // Toggle password visibility
+    togglePassword.addEventListener('click', function() {
+        const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+        passwordInput.setAttribute('type', type);
+        this.classList.toggle('fa-eye');
+        this.classList.toggle('fa-eye-slash');
+    });
+
+    // Validate name
+    function validateName() {
+        const nameValue = nameInput.value.trim();
+        const nameError = document.getElementById('nameError');
+        
+        if (nameValue.length < 2) {
+            nameError.textContent = 'Name must be at least 2 characters long';
+            return false;
+        }
+        if (!/^[a-zA-Z\s]*$/.test(nameValue)) {
+            nameError.textContent = 'Name can only contain letters and spaces';
+            return false;
+        }
+        nameError.textContent = '';
+        return true;
+    }
+
+    // Validate email
+    function validateEmail() {
+        const emailValue = emailInput.value.trim();
+        const emailError = document.getElementById('emailError');
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        
+        if (!emailRegex.test(emailValue)) {
+            emailError.textContent = 'Please enter a valid email address';
+            return false;
+        }
+        emailError.textContent = '';
+        return true;
+    }
+
+    // Check password strength
+   
+    // // Form submission
+    // form.addEventListener('submit', async function(e) {
+    //     e.preventDefault();
+
+    //     // Perform all validations
+    //     const isNameValid = validateName();
+    //     const isEmailValid = validateEmail();
+    //     const isPasswordValid = checkPasswordStrength();
+
+    //     if (!isEmailValid) {
+    //         return;
+    //     }
+
+  
+
+        
+    });
+
+    </script>
+</div>
+</body>
+</html>

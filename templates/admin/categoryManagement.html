@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Category Management</title>
+    <link rel="stylesheet" href="/static//adminSide/category.css">
+</head>
+
+<body>
+    <div class="container">
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <h2>Admin Panel</h2>
+            </div>
+            <div class="sidebar-menu">
+                <a href="#" class="menu-item">Dashboard</a>
+                <a href="#" class="menu-item">Categories</a>
+                <a href="#" class="menu-item">Products</a>
+                <a href="#" class="menu-item">Orders</a>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="content-header">
+                <h2>Categories</h2>
+                <button class="btn-add" onclick="openAddModal()">Add Category</button>
+            </div>
+
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Description</th>
+                        <th>Offer</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+
+                </thead>
+                <tbody id="categoryTableBody">
+                    {{range .cat}}
+                    <tr>
+                        <td>{{.name}}</td>
+                        <td>{{.description}}</td>
+                        <td>{{.categoryOffer}}%</td>
+                        <td>{{if .isListed}}Listed{{else}}Unlisted{{end}}</td>
+                        <td>
+                            <button class="btn btn-edit" onclick="editCategory('{{._id}}')">Edit</button>
+                            {{if .isListed}}
+                            <button class="btn btn-unlist" onclick="unlistCategory('{{._id}}')">Unlist</button>
+                            {{else}}
+                            <button class="btn btn-list" onclick="listCategory('{{._id}}')">List</button>
+                            {{end}}
+                        </td>
+                    </tr>
+                    {{end}}
+                </tbody>
+            </table>
+
+            <div class="pagination" id="pagination">
+                <!-- Pagination will be populated by JavaScript -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Add/Edit Category Modal -->
+    <div id="categoryModal" class="modal">
+        <div class="modal-content">
+            <h3 id="modalTitle">Add Category</h3>
+            <form id="categoryForm">
+                <div class="form-group">
+                    <label for="name">Category Name</label>
+                    <input type="text" id="name" name="category_name" required>
+                </div>
+                <div class="form-group">
+                    <label for="description">Description</label>
+                    <textarea id="description" name="description" required></textarea>
+                </div>
+                <button type="submit" class="btn btn-add">Save</button>
+                <button type="button" class="btn btn-unlist" onclick="closeModal()">Cancel</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        let categories = [];
+        let currentPage = 1;
+        const itemsPerPage = 10;
+
+        // Fetch categories from server
+        async function fetchCategories(page) {
+            try {
+                const response = await fetch(`/admin/category?page=${page}`);
+                const data = await response.json();
+                categories = data.cat;
+                renderCategories();
+                renderPagination(data.totalPages);
+            } catch (error) {
+                console.error('Error fetching categories:', error);
+            }
+        }
+
+        // Render categories in table
+        function renderCategories() {
+            const tbody = document.getElementById('categoryTableBody');
+            tbody.innerHTML = categories.map(category => `
+                <tr>
+                    <td>${category.name}</td>
+                    <td>${category.description}</td>
+                    <td>${category.categoryOffer}%</td>
+                    <td>${category.isListed ? 'Listed' : 'Unlisted'}</td>
+                    <td>
+                        <button class="btn btn-edit" onclick="editCategory('${category._id}')">Edit</button>
+                        <button class="btn ${category.isListed ? 'btn-unlist' : 'btn-list'}"
+                                onclick="${category.isListed ? 'unlistCategory' : 'listCategory'}('${category._id}')">
+                            ${category.isListed ? 'Unlist' : 'List'}
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        // Render pagination
+        function renderPagination(totalPages) {
+            const pagination = document.getElementById('pagination');
+            let html = '';
+            for (let i = 1; i <= totalPages; i++) {
+                html += `<a href="#" class="${i === currentPage ? 'active' : ''}" 
+                           onclick="changePage(${i})">${i}</a>`;
+            }
+            pagination.innerHTML = html;
+        }
+
+        // Modal functions
+        function openAddModal() {
+            document.getElementById('modalTitle').textContent = 'Add Category';
+            document.getElementById('categoryForm').reset();
+            document.getElementById('categoryModal').style.display = 'block';
+        }
+
+        function closeModal() {
+            document.getElementById('categoryModal').style.display = 'none';
+        }
+
+        // Form submission
+        document.getElementById('categoryForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const formData = {
+        category_name: document.getElementById('name').value,
+        description: document.getElementById('description').value,
+        status: true  // Include status field
+    };
+
+    try {
+        const response = await fetch('/admin/category/add', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(formData)
+        });
+
+        if (response.ok) {
+            closeModal();
+            fetchCategories(currentPage);
+        } else {
+            const error = await response.json();
+            alert(error.message || 'Failed to add category');
+        }
+    } catch (error) {
+        console.error('Error adding category:', error);
+        alert('Failed to add category');
+    }
+});
+        // Category actions
+        async function listCategory(id) {
+            try {
+                await fetch(`/admin/category/list?id=${id}`);
+                fetchCategories(currentPage);
+            } catch (error) {
+                console.error('Error listing category:', error);
+            }
+        }
+
+        async function unlistCategory(id) {
+            try {
+                await fetch(`/admin/category/unlist?id=${id}`);
+                fetchCategories(currentPage);
+            } catch (error) {
+                console.error('Error unlisting category:', error);
+            }
+        }
+
+        // Initialize
+        fetchCategories(1);
+    </script>
+</body>
+
+</html>
