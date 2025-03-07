@@ -36,7 +36,7 @@ func ShowLoginPage(c *gin.Context) {
 		}
 
 	}
-	c.HTML(http.StatusOK,"adminLogin.html", nil)
+	c.HTML(http.StatusOK, "adminLogin.html", nil)
 }
 
 func AdminLogin(c *gin.Context) {
@@ -44,11 +44,9 @@ func AdminLogin(c *gin.Context) {
 	var adminCheck adminModels.Admin
 
 	if err := c.ShouldBindJSON(&adminReq); err != nil {
-		fmt.Println(adminReq)
 		helper.ResponseWithErr(c, http.StatusBadRequest, "binding data", "Faild to bind data", "")
 		return
 	}
-
 
 	if adminReq.Email == "" || adminReq.Password == "" {
 		helper.ResponseWithErr(c, http.StatusUnauthorized, "Empty Email and Passwod", "Email and Passwod Required", "")
@@ -65,19 +63,29 @@ func AdminLogin(c *gin.Context) {
 		}
 	}
 
-	token, err := middleware.GenerateToken(c, adminCheck.Id, adminCheck.Email, roleAdmin)
+	token, err := middleware.GenerateToken(c, adminCheck.ID, adminCheck.Email, roleAdmin)
 	if err != nil {
 		helper.ResponseWithErr(c, http.StatusInternalServerError, "Error with JWT Token", "JWT token is not creating", "")
 		return
 	}
-	c.SetCookie("token", token, 3600, "/", "", false, true)
+	c.SetCookie("jwtTokensAdmin", token, 3600, "/", "", false, true)
+	// fmt.Println("Cookie set with token:", token)
 	c.JSON(http.StatusOK, gin.H{
-        "status":  "success",
-        "message": "Login successful",
-        "token":   token,
-        "code":    http.StatusOK,
-    })
+		"status":  "success",
+		"message": "Login successful",
+		"token":   token,
+		"code":    http.StatusOK,
+	})
 	fmt.Println("-----------------admin login succesfull--------------------")
-	// c.JSON(http.StatusSeeOther,"/admin/user-management")
+
 }
 
+func AdminLogout(c *gin.Context) {
+	c.SetCookie("jwtTokensAdmin", "", -1, "/", "", false, true)
+
+	c.JSON(http.StatusOK, gin.H{
+		"status":  "success",
+		"message": "Logout successful",
+		"code":    http.StatusOK,
+	})
+}

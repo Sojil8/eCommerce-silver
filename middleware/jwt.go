@@ -67,8 +67,11 @@ func GenerateToken(c *gin.Context, id uint, email string, role string) (string, 
 
 func AuthenticateAdmin() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		cookie, err := c.Cookie("admin_token")
+		ClearCache()
+
+		cookie, err := c.Cookie("jwtTokensAdmin")
 		if err != nil {
+			fmt.Println("No cookie found:", err)
 			c.Redirect(http.StatusSeeOther, "/admin/login")
 			c.Abort()
 			return
@@ -78,32 +81,34 @@ func AuthenticateAdmin() gin.HandlerFunc {
 			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 				return nil, jwt.ErrSignatureInvalid
 			}
-			return []byte(os.Getenv("JWT_SECRET")), nil
+			return []byte(os.Getenv("SECRET_KEY")), nil
 		})
-
 		if err != nil || !token.Valid {
+			fmt.Println("Token invalid or parsing error:", err)
 			c.Redirect(http.StatusSeeOther, "/admin/login")
 			c.Abort()
 			return
 		}
 
 		claims, ok := token.Claims.(*Claims)
-		if !ok || claims.Role != "admin" {
+		if !ok || claims.Role != "Admin" {
+			fmt.Println("Claims issue - Role:", claims.Role, "OK:", ok)
 			c.Redirect(http.StatusSeeOther, "/admin/login")
 			c.Abort()
 			return
 		}
 
-		// Optional: Verify admin exists in DB
 		var admin adminModels.Admin
-		if err := database.DB.First(&admin, claims.Id).Error; err != nil {
+		if err := database.DB.First(&admin, claims.ID).Error; err != nil {
+			fmt.Println("Admin not found in DB:", err)
 			c.Redirect(http.StatusSeeOther, "/admin/login")
 			c.Abort()
 			return
 		}
 
-		c.Set("admin_id", claims.Id)
+		c.Set("admin_id", claims.ID)
 		c.Set("email", claims.Email)
+		// fmt.Println("Admin authenticated:", claims.Email)
 		c.Next()
 	}
 }

@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,251 +7,265 @@
     <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <link rel="stylesheet" href="/static/adminSide/customer.css">
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px;
+            border-radius: 4px;
+            z-index: 1000;
+        }
+        .hover-scale:hover {
+            transform: scale(1.05);
+            transition: transform 0.2s ease-in-out;
+        }
+        a { text-decoration: none; }
+        /* Center the main content while respecting the sidebar */
+        .main-content-wrapper {
+            display: flex;
+            justify-content: center;
+            flex: 1;
+            margin-left: 16rem; /* Matches sidebar width (w-64 = 16rem) */
+            padding: 0 1.5rem; /* Matches p-6 */
+        }
+        .main-content {
+            max-width: 64rem; /* Optional: Limits content width for better readability */
+            width: 100%;
+        }
+    </style>
 </head>
-
-<body>
-    <div class="container">
-        <div class="sidebar">
-            <div class="sidebar-header">
-                <h2>Admin Panel</h2>
+<body class="bg-gray-100 font-sans">
+    <div class="container flex min-h-screen">
+        <!-- Sidebar -->
+        <div class="sidebar w-64 bg-gray-900 text-white p-4 flex flex-col fixed left-0 top-0 h-full">
+            <div class="sidebar-header mb-6">
+                <h2 class="text-2xl font-bold text-center">Admin Panel</h2>
             </div>
-            <div class="sidebar-menu">
-                <a href="#" class="menu-item">Dashboard</a>
-                <a href="/admin/user-management" class="menu-item">Customers</a>
-                <a href="#" class="menu-item">Orders</a>
-                <a href="#" class="menu-item">Products</a>
+            <div class="sidebar-menu space-y-2 flex-grow">
+                <a href="/admin/user-management" class="block py-2 px-3 rounded bg-blue-600 text-white hover:bg-blue-700 transition-colors">Customers</a>
+                <a href="/admin/category" class="block py-2 px-3 rounded hover:bg-gray-700 hover:text-white transition-colors">Category</a>
+                <a href="/admin/products" class="block py-2 px-3 rounded hover:bg-gray-700 hover:text-white transition-colors">Products</a>
+                <a href="#" class="block py-2 px-3 rounded hover:bg-gray-700 hover:text-white transition-colors" onclick="logout(event)">Logout</a>
             </div>
         </div>
 
-        <div class="main-content">
-            <h3>Customers</h3>
+        <!-- Main Content Wrapper for Centering -->
+        <div class="main-content-wrapper">
+            <div class="main-content p-6 mt-10">
+                <h3 class="text-2xl font-semibold text-gray-800 mb-6">Customers</h3>
 
-            <form class="search-form" method="GET" action="/admin/user-management">
-                <input type="text" name="search" placeholder="Search for customers...">
-                <button type="submit">Search</button>
-            </form>
+                <form class="search-form flex mb-6" method="GET" action="/admin/user-management" id="searchForm">
+                    <input type="text" name="search" id="searchInput" placeholder="Search for customers..." class="flex-1 p-2 border border-gray-300 rounded-l-lg focus:ring-blue-500 focus:border-blue-500" value="{{ .searchQuery }}">
+                    <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-r-lg hover:bg-blue-700 hover-scale transition-all">Search</button>
+                    <button type="button" id="clearSearch" class="ml-2 bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600 hover-scale transition-all">Clear</button>
+                </form>
 
-            <table class="table">
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Name</th>
-                        <th>Email</th>
-                        <th>Phone No</th>
-                        <th>Action</th>
-                        <th>Delete</th> <!-- New Delete Column -->
-                    </tr>
-                </thead>
-                <tbody>
-                    {{ range .users }}
-                    <tr>
-                        <td>{{ .Id }}</td>
-                        <td>{{ .UserName }}</td>
-                        <td>{{ .Email }}</td>
-                        <td>{{ .Phone }}</td>
-                        <td>
-                            {{ if .Is_blocked }}
-                            <button class="btn btn-success block-unblock-btn" data-id="{{ .Id }}"
-                                data-action="unblock">Unblock</button>
-                            {{ else }}
-                            <button class="btn btn-danger block-unblock-btn" data-id="{{ .Id }}"
-                                data-action="block">Block</button>
+                <div class="overflow-x-auto bg-white rounded-lg shadow-md">
+                    <table class="w-full table-auto">
+                        <thead class="bg-gray-800 text-white">
+                            <tr>
+                                <th class="py-3 px-4 text-left">ID</th>
+                                <th class="py-3 px-4 text-left">Name</th>
+                                <th class="py-3 px-4 text-left">Email</th>
+                                <th class="py-3 px-4 text-left">Phone No</th>
+                                <th class="py-3 px-4 text-left">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody class="text-gray-700">
+                            {{ range .users }}
+                            <tr class="hover:bg-gray-50 transition-colors">
+                                <td class="py-3 px-4">{{ .Id }}</td>
+                                <td class="py-3 px-4">{{ .UserName }}</td>
+                                <td class="py-3 px-4">{{ .Email }}</td>
+                                <td class="py-3 px-4">{{ .Phone }}</td>
+                                <td class="py-3 px-4">
+                                    {{ if .Is_blocked }}
+                                    <button class="block-unblock-btn bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600 hover-scale transition-all" data-id="{{ .Id }}" data-action="unblock">Unblock</button>
+                                    {{ else }}
+                                    <button class="block-unblock-btn bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 hover-scale transition-all" data-id="{{ .Id }}" data-action="block">Block</button>
+                                    {{ end }}
+                                </td>
+                            </tr>
                             {{ end }}
-                        </td>
-                        <td>
-                            <button class="btn btn-danger delete-btn" data-id="{{ .Id }}">Delete</button>
-                        </td>
-                    </tr>
-                    {{ end }}
-                </tbody>
-            </table>
+                        </tbody>
+                    </table>
+                </div>
 
-            <div class="pagination">
-                <a href="#" class="active">1</a>
-                <a href="#">2</a>
-                <a href="#">3</a>
-                <a href="#">Next</a>
+                <div class="pagination flex justify-center mt-6 space-x-2">
+                    <a href="#" class="px-3 py-1 rounded bg-blue-600 text-white hover:bg-blue-700 transition-colors">1</a>
+                    <a href="#" class="px-3 py-1 rounded bg-gray-200 text-gray-700 hover:bg-gray-300 transition-colors">2</a>
+                    <a href="#" class="px-3 py-1 rounded bg-gray-200 text-gray-700 hover:bg-gray-300 transition-colors">3</a>
+                    <a href="#" class="px-3 py-1 rounded bg-gray-200 text-gray-700 hover:bg-gray-300 transition-colors">Next</a>
+                </div>
             </div>
         </div>
     </div>
 
     <script>
-        document.addEventListener('DOMContentLoaded', function () {
+        document.addEventListener('DOMContentLoaded', () => {
+            // Form elements
+            const searchForm = document.getElementById('searchForm');
+            const searchInput = document.getElementById('searchInput');
+            const clearButton = document.getElementById('clearSearch');
             const actionButtons = document.querySelectorAll('.block-unblock-btn');
-            const deleteButtons = document.querySelectorAll('.delete-btn');
 
-            // Block/Unblock Buttons
+            // Handle search form submission
+            searchForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                if (searchInput.value.trim()) {
+                    searchForm.submit();
+                }
+            });
+
+            // Handle clear button click
+            clearButton.addEventListener('click', () => {
+                searchInput.value = '';
+                window.location.href = '/admin/user-management';
+            });
+
+            // Handle block/unblock buttons
             actionButtons.forEach(button => {
-                button.addEventListener('click', function (e) {
-                    e.preventDefault(); // Prevent any default action
-
-                    const userId = this.getAttribute('data-id');
-                    const action = this.getAttribute('data-action');
-                    const url = `/admin/${action}-user/${userId}`;
-                    const currentButton = this; // Store reference to the button
-
-                    console.log(`Attempting ${action} for user ${userId}`);
-
-                    // Show immediate feedback
-                    currentButton.disabled = true;
-                    currentButton.textContent = 'Processing...';
-
-                    fetch(url, {
-                        method: 'PATCH',
-                        credentials: 'include',
-                        headers: {
-                            'Cache-Control': 'no-cache'
-                        }
-                    })
-                        .then(response => {
-                            console.log(`Response received with status: ${response.status}`);
-                            console.log('Response headers:', [...response.headers].map(h => h.join(': ')).join(', '));
-
-                            if (!response.ok) {
-                                if (response.status === 401) {
-                                    throw new Error('Unauthorized');
-                                }
-                                throw new Error(`Server returned ${response.status}`);
-                            }
-
-                            // Log the response text for debugging
-                            return response.text().then(text => {
-                                console.log('Raw response text:', text);
-                                try {
-                                    return JSON.parse(text);
-                                } catch (e) {
-                                    console.error('JSON parse error:', e);
-                                    throw new Error('Invalid JSON in response: ' + text.substring(0, 100));
-                                }
-                            });
-                        })
-                        .then(data => {
-                            console.log('Data received:', data);
-
-                            // Re-enable button
-                            currentButton.disabled = false;
-
-                            if (data.status === 'OK') {
-                                console.log('Status update successful, updating UI');
-
-                                // Force DOM update
-                                setTimeout(() => {
-                                    if (action === 'block') {
-                                        currentButton.className = 'btn btn-success block-unblock-btn';
-                                        currentButton.textContent = 'Unblock';
-                                        currentButton.setAttribute('data-action', 'unblock');
-                                        showNotification('User blocked successfully', 'success');
-                                    } else {
-                                        currentButton.className = 'btn btn-danger block-unblock-btn';
-                                        currentButton.textContent = 'Block';
-                                        currentButton.setAttribute('data-action', 'block');
-                                        showNotification('User unblocked successfully', 'success');
-                                    }
-                                }, 50);
-                            } else {
-                                throw new Error(data.message || 'Operation failed');
-                            }
-                        })
-                        .catch(error => {
-                            console.error('Error caught:', error);
-                            console.error('Error message:', error.message);
-                            console.error('Error stack:', error.stack);
-                            currentButton.disabled = false;
-
-                            if (error.message === 'Unauthorized') {
-                                showNotification('Session expired. Please login again.', 'error');
-                                setTimeout(() => window.location.href = '/admin/login', 2000);
-                            } else {
-                                // Log more details about the button and its state
-                                console.log('Button action at error time:', action);
-                                console.log('Button current state:', currentButton.outerHTML);
-
-                                // Restore button state - ensure action is defined in this scope
-                                const currentAction = currentButton.getAttribute('data-action');
-                                if (currentAction === 'block') {
-                                    currentButton.textContent = 'Block';
-                                } else {
-                                    currentButton.textContent = 'Unblock';
-                                }
-
-                                // Show a more detailed error message
-                                showNotification(`Failed to update user status: ${error.message}`, 'error');
-                            }
-                        });
-                });
-            });
-
-            // Delete Buttons
-            deleteButtons.forEach(button => {
-                button.addEventListener('click', function (e) {
+                button.addEventListener('click', async (e) => {
                     e.preventDefault();
-
-                    const userId = this.getAttribute('data-id');
-                    const url = `/admin/delete-user/${userId}`;
-                    const currentButton = this;
-
-                    if (!confirm('Are you sure you want to delete this user?')) return;
-
-                    currentButton.disabled = true;
-
-                    fetch(url, {
-                        method: 'DELETE',
-                        credentials: 'include',
-                        headers: {
-                            'Cache-Control': 'no-cache'
-                        }
-                    })
-                        .then(response => {
-                            if (!response.ok) {
-                                if (response.status === 401) {
-                                    throw new Error('Unauthorized');
-                                }
-                                throw new Error('Network response was not ok');
-                            }
-                            return response.json();
-                        })
-                        .then(data => {
-                            if (data.status === 'OK') {
-                                currentButton.closest('tr').remove();
-                                showNotification('User deleted successfully', 'success');
-                            } else {
-                                throw new Error(data.message || 'Delete failed');
-                            }
-                        })
-                        .catch(error => {
-                            console.error('Error:', error);
-                            currentButton.disabled = false;
-
-                            if (error.message === 'Unauthorized') {
-                                showNotification('Session expired. Please login again.', 'error');
-                                setTimeout(() => window.location.href = '/admin/login', 2000);
-                            } else {
-                                showNotification('Failed to delete user', 'error');
-                            }
-                        });
+                    await handleUserAction(button);
                 });
             });
-
-            function showNotification(message, type) {
-                console.log(`Showing notification: ${message} (${type})`);
-                const notification = document.createElement('div');
-                notification.className = `notification ${type}`;
-                notification.textContent = message;
-                notification.style.position = 'fixed';
-                notification.style.top = '20px';
-                notification.style.right = '20px';
-                notification.style.padding = '15px';
-                notification.style.borderRadius = '4px';
-                notification.style.zIndex = '1000';
-                notification.style.backgroundColor = type === 'success' ? '#4CAF50' : '#f44336';
-                notification.style.color = 'white';
-
-                document.body.appendChild(notification);
-                setTimeout(() => notification.remove(), 3000);
-            }
         });
+
+        // Handle user block/unblock action
+        async function handleUserAction(button) {
+            const userId = button.dataset.id;
+            const action = button.dataset.action;
+            const actionText = action === 'block' ? 'Block' : 'Unblock';
+
+            const confirmed = await showConfirmation(action, actionText);
+            if (!confirmed) return;
+
+            button.disabled = true;
+            button.textContent = 'Processing...';
+
+            try {
+                const response = await performActionRequest(userId, action);
+                const data = await response.json();
+
+                if (data.status === 'OK') {
+                    updateButtonState(button, action);
+                    showSuccessAlert(action);
+                } else {
+                    throw new Error(data.message || 'Operation failed');
+                }
+            } catch (error) {
+                handleActionError(button, actionText, error);
+            }
+        }
+
+        // Show confirmation dialog
+        function showConfirmation(action, actionText) {
+            return Swal.fire({
+                title: `Are you sure?`,
+                text: `Do you want to ${action} this user?`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: action === 'block' ? '#ef4444' : '#10b981',
+                cancelButtonColor: '#6b7280',
+                confirmButtonText: `Yes, ${action} user`,
+                cancelButtonText: 'Cancel'
+            }).then(result => result.isConfirmed);
+        }
+
+        // Perform the block/unblock request
+        async function performActionRequest(userId, action) {
+            const url = `/admin/${action}-user/${userId}`;
+            return await fetch(url, {
+                method: 'PATCH',
+                credentials: 'include',
+                headers: { 'Cache-Control': 'no-cache' }
+            });
+        }
+
+        // Update button state after successful action
+        function updateButtonState(button, action) {
+            const isBlocking = action === 'block';
+            button.className = `block-unblock-btn ${isBlocking ? 'bg-green-500' : 'bg-red-500'} text-white px-3 py-1 rounded hover:${isBlocking ? 'bg-green-600' : 'bg-red-600'} hover-scale transition-all`;
+            button.textContent = isBlocking ? 'Unblock' : 'Block';
+            button.dataset.action = isBlocking ? 'unblock' : 'block';
+            button.disabled = false;
+        }
+
+        // Show success alert
+        function showSuccessAlert(action) {
+            Swal.fire({
+                icon: 'success',
+                title: `User ${action}ed`,
+                text: `The user has been ${action}ed successfully`,
+                timer: 2000,
+                showConfirmButton: false
+            });
+        }
+
+        // Handle errors during action
+        function handleActionError(button, actionText, error) {
+            button.disabled = false;
+            button.textContent = actionText;
+            
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: error.message === 'Unauthorized' 
+                    ? 'Session expired. Please login again.' 
+                    : `Failed to ${actionText.toLowerCase()} user: ${error.message}`,
+            });
+
+            if (error.message === 'Unauthorized') {
+                setTimeout(() => window.location.href = '/admin/login', 2000);
+            }
+        }
+
+        // Logout function
+        async function logout(event) {
+            event.preventDefault();
+            
+            const confirmed = await Swal.fire({
+                title: 'Logout',
+                text: 'Are you sure you want to logout?',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#3b82f6',
+                cancelButtonColor: '#6b7280',
+                confirmButtonText: 'Yes, logout',
+                cancelButtonText: 'Cancel'
+            });
+
+            if (!confirmed.isConfirmed) return;
+
+            try {
+                const response = await fetch('/admin/logout', {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+
+                if (response.ok) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Logged out',
+                        text: 'You have been logged out successfully',
+                        timer: 1500,
+                        showConfirmButton: false
+                    }).then(() => window.location.replace('/admin/login'));
+                } else {
+                    throw new Error('Logout failed');
+                }
+            } catch (error) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'An error occurred while logging out'
+                });
+            }
+        }
     </script>
 </body>
-
 </html>

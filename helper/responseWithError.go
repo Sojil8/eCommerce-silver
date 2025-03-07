@@ -15,13 +15,13 @@ func ResponseWithErr(c *gin.Context, status int, err, msg, redirect string) {
 	})
 }
 
-func ValidateRequesFields(c *gin.Context,field map[string]string,redirect string)bool{
-	for key,value:=range field{
-		if value == ""{
-			ResponseWithErr(c,http.StatusBadRequest,key+"is required","Missing required fields",redirect)
-			return false
-		}
-	}
-	return true
+// func ValidateRequesFields(c *gin.Context,field map[string]string,redirect string)bool{
+// 	for key,value:=range field{
+// 		if value == ""{
+// 			ResponseWithErr(c,http.StatusBadRequest,key+"is required","Missing required fields",redirect)
+// 			return false
+// 		}
+// 	}
+// 	return true
 
-}
+// }

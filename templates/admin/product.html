@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - Product Listing</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+    <style>
+        .sidebar { min-height: calc(100vh - 56px); }
+        .image-preview img, .table img {
+            width: 50px;
+            height: 50px;
+            object-fit: cover;
+            margin-right: 5px;
+        }
+        .shadow-glow { box-shadow: 0 4px 15px rgba(0, 123, 255, 0.2); }
+        .hover-scale:hover {
+            transform: scale(1.05);
+            transition: transform 0.2s ease-in-out;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 font-sans">
+    <nav class="navbar navbar-expand-lg bg-gray-800 text-white shadow-md">
+        <div class="container-fluid px-4">
+            <a class="navbar-brand text-xl font-bold text-white hover:text-blue-300 transition-colors" href="/admin/dashboard">Admin Dashboard</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto space-x-4">
+                    <li class="nav-item">
+                        <a class="nav-link text-gray-200 hover:text-blue-300 transition-colors" href="/admin/profile">Profile</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link text-gray-200 hover:text-blue-300 transition-colors" href="#" onclick="logout(event)">Logout</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-md-2 sidebar bg-gray-900 text-white p-4">
+                <!-- <a href="/admin/dashboard" class="block py-2 px-3 rounded hover:bg-gray-700 hover:text-white transition-colors">Dashboard</a> -->
+                <a href="/admin/user-management" class="block py-2 px-3 rounded Josectioned rounded hover:bg-gray-700 hover:text-white transition-colors">Customers</a>
+                <a href="/admin/category" class="block py-2 px-3 rounded hover:bg-gray-700 hover:text-white transition-colors">Categories</a>
+                <a href="/admin/products" class="block py-2 px-3 rounded bg-blue-600 text-white hover:bg-blue-700 transition-colors">Products</a>
+                <!-- <a href="/admin/orders" class="block py-2 px-3 rounded hover:bg-gray-700 hover:text-white transition-colors">Orders</a> -->
+                <a href="#" class="block py-2 px-3 rounded hover:bg-gray-700 hover:text-white transition-colors" onclick="logout(event)">Logout</a>
+            </div>
+
+            <div class="col-md-10 main-content p-6">
+                <div class="content bg-white rounded-lg shadow-md p-6">
+                    <div class="flex justify-between items-center mb-6">
+                        <h4 class="text-2xl font-semibold text-gray-800">Product Listing</h4>
+                        <div class="flex items-center space-x-4">
+                            <div class="flex w-96"> <!-- Changed from w-64 to w-96 for longer search bar -->
+                                <input type="text" class="form-control rounded-l-lg border-gray-300 focus:ring-blue-500 focus:border-blue-500 flex-grow" id="searchInput" placeholder="Search products..." value="{{ .SearchQuery }}">
+                                <button class="btn bg-blue-600 text-white rounded-none hover:bg-blue-700 transition-colors" onclick="searchProducts()">Search</button>
+                                <button class="btn bg-gray-500 text-white rounded-r-lg hover:bg-gray-600 transition-colors" onclick="clearSearch()">Clear</button>
+                            </div>
+                            <button class="btn bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 hover-scale transition-all" onclick="openAddModal()">Add Product</button>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="table table-striped table-bordered w-full">
+                            <thead class="bg-gray-800 text-white">
+                                <tr>
+                                    <th class="py-3 px-4">Product Name</th>
+                                    <th class="py-3 px-4">Category</th>
+                                    <th class="py-3 px-4">Sale Price</th>
+                                    <th class="py-3 px-4">Description</th>
+                                    <th class="py-3 px-4">Images</th>
+                                    <th class="py-3 px-4">Status</th>
+                                    <th class="py-3 px-4">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="productTableBody">
+                                {{if .Products}}
+                                {{range .Products}}
+                                <tr class="hover:bg-gray-50 transition-colors">
+                                    <td class="py-3 px-4">{{.ProductName}}</td>
+                                    <td class="py-3 px-4">{{.Category_id}}</td>
+                                    <td class="py-3 px-4">${{printf "%.2f" .Price}}</td>
+                                    <td class="py-3 px-4">{{.Description}}</td>
+                                    <td class="py-3 px-4">
+                                        {{if .Images}}
+                                        {{range .Images}}
+                                        <img src="{{.}}" alt="Product Image" class="inline-block rounded">
+                                        {{end}}
+                                        {{else}}
+                                        No images
+                                        {{end}}
+                                    </td>
+                                    <td class="py-3 px-4 {{if .IsListed}}text-green-500{{else}}text-red-500{{end}}">
+                                        {{if .IsListed}}Active{{else}}Blocked{{end}}
+                                    </td>
+                                    <td class="py-3 px-4 space-x-2">
+                                        <button class="btn bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 hover-scale transition-all" onclick="openEditModal({{.ID}})">Edit</button>
+                                        <button class="btn {{if .IsListed}}bg-yellow-500{{else}}bg-green-500{{end}} text-white px-3 py-1 rounded hover:{{if .IsListed}}bg-yellow-600{{else}}bg-green-600{{end}} hover-scale transition-all" 
+                                                onclick="toggleProductStatus({{.ID}}, {{.IsListed}})">
+                                            {{if .IsListed}}Unlist{{else}}List{{end}}
+                                        </button>
+                                    </td>
+                                </tr>
+                                {{end}}
+                                {{else}}
+                                <tr>
+                                    <td colspan="7" class="text-center py-4 text-gray-500">No products found</td>
+                                </tr>
+                                {{end}}
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="flex justify-center mt-6" id="pagination">
+                        <!-- Pagination will be handled by the backend template -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="footer bg-gray-800 text-white text-center py-4 mt-6">
+        <p>© 2025 Admin Dashboard. All rights reserved.</p>
+    </div>
+
+    <div class="modal fade" id="productModal" tabindex="-1" aria-labelledby="productModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content rounded-lg shadow-glow">
+                <div class="modal-header bg-gray-800 text-white">
+                    <h5 class="modal-title" id="productModalLabel">Add Product</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-6">
+                    <form id="productForm" enctype="multipart/form-data">
+                        <div class="mb-4">
+                            <label for="productName" class="form-label font-medium text-gray-700">Product Name</label>
+                            <input type="text" class="form-control w-full rounded-lg border-gray-300 focus:ring-blue-500 focus:border-blue-500" id="productName" name="productName" required>
+                        </div>
+                        <div class="mb-4">
+                            <label for="description" class="form-label font-medium text-gray-700">Description</label>
+                            <textarea class="form-control w-full rounded-lg border-gray-300 focus:ring-blue-500 focus:border-blue-500" id="description" name="description" required></textarea>
+                        </div>
+                        <div class="mb-4">
+                            <label for="price" class="form-label font-medium text-gray-700">Price</label>
+                            <input type="number" step="0.01" class="form-control w-full rounded-lg border-gray-300 focus:ring-blue-500 focus:border-blue-500" id="price" name="price" required>
+                        </div>
+                        <div class="mb-4">
+                            <label for="category_id" class="form-label font-medium text-gray-700">Category ID</label>
+                            <input type="number" class="form-control w-full rounded-lg border-gray-300 focus:ring-blue-500 focus:border-blue-500" id="category_id" name="category_id" required>
+                        </div>
+                        <div class="mb-4">
+                            <label for="images" class="form-label font-medium text-gray-700">Images (min 3)</label>
+                            <input type="file" class="form-control w-full rounded-lg border-gray-300" id="images" name="images" multiple accept="image/*" required>
+                            <div class="image-preview mt-2 flex space-x-2" id="imagePreview"></div>
+                        </div>
+                        <input type="hidden" id="productId" name="productId">
+                    </form>
+                </div>
+                <div class="modal-footer bg-gray-100">
+                    <button type="button" class="btn bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition-colors" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 hover-scale transition-all" onclick="saveProduct()">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script>
+       const productModal = new bootstrap.Modal(document.getElementById('productModal'));
+
+document.addEventListener('DOMContentLoaded', () => {
+    const searchInput = document.getElementById('searchInput');
+    
+    // Add Enter key listener for search
+    searchInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            searchProducts();
+        }
+    });
+});
+
+function openAddModal() {
+    document.getElementById('productModalLabel').textContent = 'Add Product';
+    document.getElementById('productForm').reset();
+    document.getElementById('productId').value = '';
+    document.getElementById('imagePreview').innerHTML = '';
+    document.getElementById('images').required = true;
+    productModal.show();
+}
+
+function openEditModal(id) {
+    document.getElementById('productModalLabel').textContent = 'Edit Product';
+    document.getElementById('productId').value = id;
+    document.getElementById('images').required = false;
+    productModal.show();
+}
+
+async function saveProduct() {
+    const form = document.getElementById('productForm');
+    const formData = new FormData(form);
+    const productId = document.getElementById('productId').value;
+    const url = productId ? `/admin/products/edit/${productId}` : '/admin/products/add';
+    const method = productId ? 'PATCH' : 'POST';
+
+    try {
+        const response = await fetch(url, {
+            method: method,
+            body: formData,
+        });
+        const data = await response.json();
+
+        if (response.ok) {
+            Swal.fire("Success", data.message, "success").then(() => {
+                productModal.hide();
+                window.location.reload();
+            });
+        } else {
+            Swal.fire("Error", data.message || "Something went wrong", "error");
+        }
+    } catch (error) {
+        Swal.fire("Error", "Failed to process request", "error");
+    }
+}
+
+async function toggleProductStatus(id, isListed) {
+    const action = isListed ? "unlist" : "list";
+    const result = await Swal.fire({
+        title: `Are you sure you want to ${action} this product?`,
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonColor: "#3085d6",
+        cancelButtonColor: "#d33",
+        confirmButtonText: `Yes, ${action} it!`
+    });
+
+    if (result.isConfirmed) {
+        try {
+            const response = await fetch(`/admin/products/toggle/${id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+            });
+            const data = await response.json();
+            if (response.ok) {
+                Swal.fire("Success", data.message, "success").then(() => {
+                    window.location.reload();
+                });
+            } else {
+                Swal.fire("Error", data.error || "Something went wrong", "error");
+            }
+        } catch (error) {
+            Swal.fire("Error", "Failed to process request", "error");
+        }
+    }
+}
+
+function searchProducts() {
+    const query = document.getElementById('searchInput').value.trim();
+    if (query) {
+        window.location.href = `/admin/products?page=1&search=${encodeURIComponent(query)}`;
+    } else {
+        window.location.href = '/admin/products?page=1'; // Reset to page 1 if search is empty
+    }
+}
+
+function clearSearch() {
+    document.getElementById('searchInput').value = '';
+    window.location.href = '/admin/products?page=1'; // Reset to page 1 without search
+}
+
+async function logout(event) {
+    event.preventDefault();
+    try {
+        const response = await fetch('/admin/logout', {
+            method: 'POST',
+            credentials: 'include'
+        });
+
+        console.log("Logout response status:", response.status);
+
+        if (response.ok) {
+            console.log("Logout successful, redirecting...");
+            window.location.replace("/admin/login");
+        } else {
+            const errorData = await response.json();
+            console.error("Logout failed:", errorData);
+            alert('Logout failed, please try again.');
+        }
+    } catch (error) {
+        console.error('Error during logout:', error);
+        alert('An error occurred while logging out. Please try again.');
+    }
+}
+    </script>
+</body>
+</html>

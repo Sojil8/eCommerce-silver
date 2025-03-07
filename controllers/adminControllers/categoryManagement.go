@@ -5,11 +5,13 @@ import (
 	"strconv"
 
 	"github.com/Sojil8/eCommerce-silver/database"
+	"github.com/Sojil8/eCommerce-silver/middleware"
 	"github.com/Sojil8/eCommerce-silver/models/adminModels"
 	"github.com/gin-gonic/gin"
 )
 
 func GetCategories(c *gin.Context) {
+	middleware.ClearCache()
 	pageStr := c.Query("page")
 	page, err := strconv.Atoi(pageStr)
 	if err != nil || page < 1 {
@@ -31,18 +33,23 @@ func GetCategories(c *gin.Context) {
 	}
 
 	totalPages := (int(total) + itemsPerPage - 1) / itemsPerPage
+	pageRange := make([]int, totalPages)
+	for i := 0; i < totalPages; i++ {
+		pageRange[i] = i + 1
+	}
 
 	categoryData := make([]map[string]interface{}, len(categorys))
 	for i, cat := range categorys {
 		categoryData[i] = map[string]interface{}{
 			"_id":           cat.ID,
-			"name":          cat.Category_name,
+			"name":          cat.CategoryName,
 			"description":   cat.Description,
 			"categoryOffer": 0,
 			"isListed":      cat.DeletedAt.Valid == false,
 		}
 	}
 
+	// Otherwise render HTML
 	c.HTML(http.StatusOK, "categoryManagement.html", gin.H{
 		"cat":        categoryData,
 		"totalPages": totalPages,
@@ -50,6 +57,7 @@ func GetCategories(c *gin.Context) {
 }
 
 func AddCategory(c *gin.Context) {
+	middleware.ClearCache()
 	var category adminModels.Category
 	if err := c.ShouldBindJSON(&category); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -74,7 +82,13 @@ func AddCategory(c *gin.Context) {
 	})
 }
 
+var intput struct {
+	CategoryName string `json:"category_name"`
+	Description  string `json:"description"`
+}
+
 func EditCategory(c *gin.Context) {
+	middleware.ClearCache()
 	idStr := c.Param("id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
@@ -92,10 +106,6 @@ func EditCategory(c *gin.Context) {
 		return
 	}
 
-	var intput struct {
-		CategoryName string `json:"category_name"`
-		Description  string `json:"description"`
-	}
 	if err := c.ShouldBindJSON(&intput); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"message": "Invalid input: " + err.Error(),
@@ -103,7 +113,7 @@ func EditCategory(c *gin.Context) {
 		return
 	}
 
-	category.Category_name = intput.CategoryName
+	category.CategoryName = intput.CategoryName
 	category.Description = intput.Description
 
 	if err := database.DB.Save(&category).Error; err != nil {
@@ -115,4 +125,55 @@ func EditCategory(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Category updated successfully",
 	})
+}
+
+func ListCategory(c *gin.Context) {
+	middleware.ClearCache()
+	idStr := c.Param("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Invalid category ID",
+		})
+		return
+	}
+	var category adminModels.Category
+	if err := database.DB.First(&category, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{
+			"error": "Category not found",
+		})
+		return
+	}
+
+	category.Status = true
+	if err := database.DB.Save(&category).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to list category"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Category listed successfully"})
+}
+
+func UnlistCategory(c *gin.Context) {
+	middleware.ClearCache()
+	idStr := c.Param("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid category ID"})
+		return
+	}
+
+	var category adminModels.Category
+	if err := database.DB.First(&category, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{
+			"error": "Category not found",
+		})
+		return
+	}
+
+	category.Status = false
+	if err := database.DB.Save(&category).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to list category"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Category listed successfully"})
 }

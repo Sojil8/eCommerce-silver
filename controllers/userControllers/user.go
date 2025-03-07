@@ -3,6 +3,7 @@ package controllers
 import (
 	"encoding/json"
 	"fmt"
+
 	"log"
 	"net/http"
 	"time"
@@ -34,130 +35,142 @@ func ShowSignUp(c *gin.Context) {
 	c.HTML(http.StatusOK, "signup.html", nil)
 }
 
-//used ======database.RedisClient
-
 func UserSignUp(c *gin.Context) {
-	fmt.Println("---------------------------user signup--------------------------")
 	var request struct {
-		UserName        string `json:"username" form:"username"`
-		Email           string `json:"email" form:"email"`
-		Password        string `json:"password" form:"password"`
-		ConfirmPassword string `json:"confirmpassword" form:"confirmpassword"`
+		UserName        string `json:"username" form:"username" binding:"required"`
+		Email           string `json:"email" form:"email" binding:"required"`
+		Phone           string `json:"phone" form:"phone" binding:"required"`
+		Password        string `json:"password" form:"password" binding:"required"`
+		ConfirmPassword string `json:"confirmpassword" form:"confirmpassword" binding:"required"`
 	}
+
 	if err := c.ShouldBind(&request); err != nil {
-		helper.ResponseWithErr(c, http.StatusBadRequest, "invalid input", "invalid input", "")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input", "field": "all"})
 		return
 	}
-	fmt.Println(request)
-	var exitsUser userModels.User
-	if err := database.DB.Where("email = ?", request.Email).First(&exitsUser).Error; err == nil {
-		helper.ResponseWithErr(c, http.StatusConflict, "Email already Exits", "Email already Exits", "")
+
+	if database.DB.Where("email = ?", request.Email).First(&userModels.User{}).Error == nil {
+		c.JSON(http.StatusConflict, gin.H{"error": "Email already exists", "field": "email"})
+		return
+	}
+
+	if database.DB.Where("phone = ?", request.Phone).First(&userModels.User{}).Error == nil {
+		c.JSON(http.StatusConflict, gin.H{"error": "Phone number already exists", "field": "phone"})
 		return
 	}
 
 	if request.Password != request.ConfirmPassword {
-		helper.ResponseWithErr(c, http.StatusBadRequest, "Passwords do not match", "Passwords do not match", "")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Passwords do not match", "field": "confirmpassword"})
 		return
 	}
 
 	hashedPassword, err := helper.HashPassword(request.Password)
 	if err != nil {
-		helper.ResponseWithErr(c, http.StatusInternalServerError, "Password Hash error", "Error in password hashing", "")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error", "field": "password"})
 		return
 	}
 
 	otp := helper.GenerateOTP()
-
-	fmt.Println(otp)
+	fmt.Println("Generated OTP:", otp)
 	if otp == "" {
-		log.Fatal("OTP is not creating")
+		log.Println("OTP generation failed")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+		return
 	}
 
 	newUser := map[string]interface{}{
 		"name":       request.UserName,
 		"email":      request.Email,
+		"phone":      request.Phone, // Keep as string for now, convert later
 		"password":   hashedPassword,
 		"otp":        otp,
 		"created_at": time.Now().UTC(),
 	}
+
 	userData, err := json.Marshal(newUser)
 	if err != nil {
-		log.Fatal("error to get marshal")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
 		return
 	}
 
-	userKey := fmt.Sprintf("user%s", request.Email)
-
+	userKey := fmt.Sprintf("user:%s", request.Email)
 	if err := database.RedisClient.Set(database.Ctx, userKey, userData, 15*time.Minute).Err(); err != nil {
-		helper.ResponseWithErr(c, http.StatusInternalServerError, "Redis error", "Failed to store user data in Redis", "")
-		log.Fatal("error in redis storing data")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
 		return
 	}
 
 	if err := helper.SendOTP(request.Email, otp); err != nil {
-		database.RedisClient.Del(database.Ctx, request.Email)
-		helper.ResponseWithErr(c, http.StatusInternalServerError, "Faild to send otp", "Faild to send otp", "")
+		database.RedisClient.Del(database.Ctx, userKey)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to send OTP", "field": "email"})
 		return
 	}
 
-	// In UserSignUp, replace the redirect:
-	c.Redirect(http.StatusSeeOther, fmt.Sprintf("/user/signup/otp?email=%s", request.Email))
-
+	c.JSON(http.StatusOK, gin.H{
+		"status":   "ok",
+		"message":  "OTP sent successfully",
+		"redirect": fmt.Sprintf("/user/signup/otp?email=%s", request.Email),
+	})
 }
 
 func ShowOTPPage(c *gin.Context) {
-	email := c.Query("email") // Get email from query param or another method
+	email := c.Query("email")
 	if email == "" {
-		// Fallback: redirect back to signup if email isn’t provided
 		c.Redirect(http.StatusSeeOther, "/user/signup")
 		return
 	}
 	c.HTML(http.StatusOK, "otp.html", gin.H{
 		"title": "OTP Verification",
-		"email": email, // Pass email to the template
+		"email": email,
 	})
 }
 
 func VerifyOTP(c *gin.Context) {
 	var input struct {
-		Email string `json:"email" form:"email"`
-		OTP   string `json:"otp"  form:"otp"`
+		Email string `json:"email" form:"email" binding:"required"`
+		OTP   string `json:"otp" form:"otp" binding:"required"`
 	}
 	if err := c.ShouldBind(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
 		return
 	}
-	userKey := fmt.Sprintf("user%s", input.Email)
+
+	userKey := fmt.Sprintf("user:%s", input.Email)
 
 	exist, err := database.RedisClient.Exists(database.Ctx, userKey).Result()
-
 	if err != nil {
+		log.Println("Redis Exists Error:", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check Redis key"})
 		return
 	}
-
 	if exist == 0 {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Key not found in Redis"})
+		c.JSON(http.StatusNotFound, gin.H{"error": "OTP expired or not found"})
 		return
 	}
 
 	data, err := database.RedisClient.Get(database.Ctx, userKey).Result()
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Redis data is not passing"})
+		log.Println("Redis Get Error:", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve OTP data"})
 		return
 	}
 
 	var storedData map[string]interface{}
-	json.Unmarshal([]byte(data), &storedData)
+	if err := json.Unmarshal([]byte(data), &storedData); err != nil {
+		log.Println("Unmarshal Error:", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse OTP data"})
+		return
+	}
 
-	storedOTP := fmt.Sprintf("%v", storedData["otp"])
+	storedOTP, ok := storedData["otp"].(string)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid OTP format"})
+		return
+	}
+
 	if storedOTP != input.OTP {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid OTP"})
 		return
 	}
-
-	fmt.Printf("Stored OTP (type: %T, value: %v)\n", storedData["otp"], storedData["otp"])
-	fmt.Printf("Input OTP (type: %T, value: %v)\n", input.OTP, input.OTP)
 
 	name, ok := storedData["name"].(string)
 	if !ok {
@@ -177,23 +190,35 @@ func VerifyOTP(c *gin.Context) {
 		return
 	}
 
+	phone, ok := storedData["phone"].(string)
+	if !ok {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid data format for phone"})
+		return
+	}
+
 	newUser := userModels.User{
 		UserName: name,
 		Email:    email,
 		Password: password,
+		Phone:    phone, // Directly use the string, no conversion needed
 	}
 
 	if err := database.DB.Create(&newUser).Error; err != nil {
+		log.Println("Database Create Error:", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not create user"})
 		return
 	}
 
-	database.RedisClient.Del(c, userKey)
+	database.RedisClient.Del(database.Ctx, userKey)
 
 	c.JSON(http.StatusOK, gin.H{
-		"stauts": "ok",
+		"status":   "ok",
+		"message":  "OTP verified successfully",
+		"redirect": "/user/login",
 	})
 }
+
+// ShowLogin and LoginPostUser remain unchanged
 func ShowLogin(c *gin.Context) {
 	c.HTML(http.StatusOK, "userlogin.html", gin.H{
 		"title": "Login",
@@ -206,24 +231,24 @@ func LoginPostUser(c *gin.Context) {
 		Email    string `json:"email" form:"email" binding:"required"`
 		Password string `json:"password" form:"password" binding:"required"`
 	}
-	
+
 	if err := c.ShouldBind(&request); err != nil {
 		helper.ResponseWithErr(c, http.StatusBadRequest, "Error in binding data", "Error in binding data", "")
 		return
 	}
-	
+
 	var user userModels.User
 	if err := database.DB.Where("email=?", request.Email).First(&user).Error; err != nil {
 		helper.ResponseWithErr(c, http.StatusUnauthorized, "User not Found", "User not Found", "")
 		return
 	}
-	
+
 	if user.Is_blocked {
 		helper.ResponseWithErr(c, http.StatusForbidden, "Account blocked", "Your Account Has Been blocked", "")
 		return
 	}
-	
-	fmt.Println("Request password:",request.Password,"User password:",user.Password)
+
+	// fmt.Println("Request password:",request.Password,"User password:",user.Password)s
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(request.Password)); err != nil {
 		helper.ResponseWithErr(c, http.StatusUnauthorized, "Invalid Credential", "Incorrect Password", "")

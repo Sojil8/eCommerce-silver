@@ -6,6 +6,8 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+var roleAdmin = "Admin"
+
 func AdminRoutes(c *gin.Engine) {
 	adminGroup := c.Group("/admin")
 	{
@@ -15,15 +17,25 @@ func AdminRoutes(c *gin.Engine) {
 		protected := adminGroup.Group("")
 		protected.Use(middleware.AuthenticateAdmin())
 		{
+			//user-management route
+			protected.GET("/user-management", controllers.GetUsers)
+			protected.PATCH("/block-user/:id", controllers.BlockUser)
+			protected.PATCH("/unblock-user/:id", controllers.UnBlockUser)
 
-			adminGroup.GET("/user-management", controllers.GetUsers)
-			adminGroup.PATCH("/block-user/:id", controllers.BlockUser)
-			adminGroup.PATCH("/unblock-user/:id", controllers.UnBlockUser)
-			adminGroup.DELETE("/delete-user/:id", controllers.DeleteUser)
-			adminGroup.GET("/category", controllers.GetCategories)
-			adminGroup.POST("/category/add", controllers.AddCategory)
-			adminGroup.PATCH("/category/edit", controllers.EditCategory)
+			// Category routes
+			protected.GET("/category", controllers.GetCategories)
+			protected.POST("/category/add", controllers.AddCategory)
+			protected.PATCH("/category/edit/:id", controllers.EditCategory) 
+			protected.PATCH("/category/list/:id", controllers.ListCategory)  
+			protected.PATCH("/category/unlist/:id", controllers.UnlistCategory)
+
+			//product roures
+			protected.GET("/products", controllers.GetProducts)
+			protected.POST("/products/add", controllers.AddProduct)
+			protected.PATCH("/products/edit/:id", controllers.EditProduct)
+			protected.PATCH("/products/toggle/:id", controllers.ToggleProductStatus)
+
+			protected.POST("/logout", controllers.AdminLogout)
 		}
 	}
-
 }

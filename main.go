@@ -15,10 +15,12 @@ func init() {
 	router.Static("/static", "./static")
 	router.LoadHTMLGlob("templates/**/*")
 	config.LoadEnv()
+	config.Cloudnary()
 	database.ConnectDb()
 	middleware.SecretKeyCheck()
 	database.MigrageHandler()
 	database.InitRedis()
+
 }
 
 func main() {

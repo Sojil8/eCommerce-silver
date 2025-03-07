@@ -7,7 +7,7 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-// redis start = sudo systemctl start redis
+// redis start = systemctl start redis
 var RedisClient *redis.Client
 var Ctx = context.Background()
 

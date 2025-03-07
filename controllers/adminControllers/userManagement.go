@@ -5,28 +5,42 @@ import (
 
 	"github.com/Sojil8/eCommerce-silver/database"
 	"github.com/Sojil8/eCommerce-silver/helper"
+	"github.com/Sojil8/eCommerce-silver/middleware"
 	"github.com/Sojil8/eCommerce-silver/models/userModels"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
 
 func GetUsers(c *gin.Context) {
+	middleware.ClearCache()
 	var users []userModels.User
+	searchQuery := c.Query("search")
 
-	result := database.DB.Unscoped().Order(" id,user_name, email, phone ").Find(&users)
+	dbQuery := database.DB.Unscoped().Order("id, user_name, email, phone")
+
+	if searchQuery != "" {
+		// Search across multiple fields (name, email, phone)
+		searchPattern := "%" + searchQuery + "%"
+		dbQuery = dbQuery.Where("user_name ILIKE ? OR email ILIKE ? OR phone::text ILIKE ?",
+			searchPattern, searchPattern, searchPattern)
+	}
+
+	result := dbQuery.Find(&users)
 	if result.Error != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": result.Error.Error(),
 		})
 		return
 	}
-	// log.Print("coustomer list", users)
+
 	c.HTML(http.StatusOK, "customer.html", gin.H{
-		"users": users,
+		"users":       users,
+		"searchQuery": searchQuery, // Pass the search query back to maintain state
 	})
 }
 
 func BlockUser(c *gin.Context) {
+	middleware.ClearCache()
 	userID := c.Param("id")
 	var user userModels.User
 
@@ -56,6 +70,7 @@ func BlockUser(c *gin.Context) {
 }
 
 func UnBlockUser(c *gin.Context) {
+	middleware.ClearCache()
 	userID := c.Param("id")
 	var user userModels.User
 
@@ -82,25 +97,4 @@ func UnBlockUser(c *gin.Context) {
 		"status":  "OK",
 		"message": "User Unblocked",
 	})
-}
-
-func DeleteUser(c *gin.Context) {
-	userID := c.Param("id")
-	var user userModels.User
-
-	if err := database.DB.First(&user, userID).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			helper.ResponseWithErr(c, http.StatusNotFound, "User Not Found", "User Not Found", "")
-			return
-		}
-		helper.ResponseWithErr(c, http.StatusInternalServerError, "Error From database", "Error From database", "")
-		return
-	}
-
-	database.DB.Delete(&user)
-	c.JSON(http.StatusOK, gin.H{
-		"status":  "OK",
-		"message": "ok,User deleted",
-	})
-
 }
