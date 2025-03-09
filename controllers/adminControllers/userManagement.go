@@ -16,16 +16,16 @@ func GetUsers(c *gin.Context) {
 	var users []userModels.User
 	searchQuery := c.Query("search")
 
-	dbQuery := database.DB.Unscoped().Order("id, user_name, email, phone")
+	dbQuery := database.DB.Unscoped().Order("id") // Simplified ordering
 
 	if searchQuery != "" {
-		// Search across multiple fields (name, email, phone)
 		searchPattern := "%" + searchQuery + "%"
 		dbQuery = dbQuery.Where("user_name ILIKE ? OR email ILIKE ? OR phone::text ILIKE ?",
 			searchPattern, searchPattern, searchPattern)
 	}
 
-	result := dbQuery.Find(&users)
+	// Enable GORM debug logging
+	result := dbQuery.Debug().Find(&users)
 	if result.Error != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": result.Error.Error(),
@@ -35,7 +35,7 @@ func GetUsers(c *gin.Context) {
 
 	c.HTML(http.StatusOK, "customer.html", gin.H{
 		"users":       users,
-		"searchQuery": searchQuery, // Pass the search query back to maintain state
+		"searchQuery": searchQuery,
 	})
 }
 

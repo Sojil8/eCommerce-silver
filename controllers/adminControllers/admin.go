@@ -22,24 +22,31 @@ type AdminDetails struct {
 	Password string `json:"password"`
 }
 
-func ShowLoginPage(c *gin.Context) {
-	tokenString, err := c.Cookie("jwtTokensAdmin")
-	if err == nil && tokenString != "" {
-		claims := &middleware.Claims{}
-
-		token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
-			return middleware.SecretKey, nil
-		})
-		if err == nil && token.Valid {
-			c.Redirect(http.StatusSeeOther, "/admin/user-management")
-			return
-		}
-
-	}
-	c.HTML(http.StatusOK, "adminLogin.html", nil)
+func ShowLoginPage(c *gin.Context){
+	c.HTML(http.StatusOK,"adminLogin.html",gin.H{
+		"status":"ok",
+	})
 }
 
+
 func AdminLogin(c *gin.Context) {
+
+	if c.Request.Method == "GET" {
+		tokenString, err := c.Cookie("jwtTokensAdmin")
+		if err == nil && tokenString != "" {
+			claims := &middleware.Claims{}
+			token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
+				return middleware.SecretKey, nil
+			})
+			if err == nil && token.Valid {
+				c.Redirect(http.StatusSeeOther, "/admin/user-management")
+				return
+			}
+		}
+		c.HTML(http.StatusOK, "adminLogin.html", nil)
+		return
+	}
+
 	var adminReq AdminDetails
 	var adminCheck adminModels.Admin
 
@@ -63,13 +70,12 @@ func AdminLogin(c *gin.Context) {
 		}
 	}
 
-	token, err := middleware.GenerateToken(c, adminCheck.ID, adminCheck.Email, roleAdmin)
+	token, err := middleware.GenerateToken(c, int(adminCheck.ID), adminCheck.Email, roleAdmin)
 	if err != nil {
 		helper.ResponseWithErr(c, http.StatusInternalServerError, "Error with JWT Token", "JWT token is not creating", "")
 		return
 	}
 	c.SetCookie("jwtTokensAdmin", token, 3600, "/", "", false, true)
-	// fmt.Println("Cookie set with token:", token)
 	c.JSON(http.StatusOK, gin.H{
 		"status":  "success",
 		"message": "Login successful",

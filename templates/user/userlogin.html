@@ -3,132 +3,195 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Create Account</title>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="/static/userSide/signup.css">
+    <title>Login</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            100: '#a5b4fc',
+                            200: '#818cf8',
+                            300: '#6366f1',
+                            400: '#4f46e5',
+                            500: '#4338ca',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
 </head>
-<body>
-    <div class="signup-container">
-        <div class="header">
-            <h1>Create Account</h1>
-            <p>Join our community today</p>
-        </div>
-
-        <form id="signupForm" novalidate method="post" action="/user/login">
-            <div class="form-group">
-                <div class="error-message" id="nameError"></div>
-            </div>
-            <div class="form-group">
-                <label for="email">Email</label>
-                <div class="input-wrapper">
-                    <input type="email" id="email" name="email" placeholder="you@example.com" autocomplete="email">
-                    <i class="icon fas fa-envelope"></i>
-                </div>
-                <div class="error-message" id="emailError"></div>
+<body class="m-0 p-0 font-sans bg-gradient-to-br from-[#2b2d42] to-[#1f2a44] min-h-screen flex justify-center items-center">
+    <div class="w-full max-w-md p-8">
+        <div class="bg-[rgba(31,41,55,0.9)] backdrop-blur-lg rounded-3xl shadow-2xl p-12 border border-[rgba(255,255,255,0.1)]">
+            <div class="text-center mb-8">
+                <h1 class="text-primary-100 text-4xl font-bold mb-2 drop-shadow-sm">Login</h1>
+                <p class="text-slate-400 text-base">Sign in to your account</p>
             </div>
 
-            <div class="form-group">
-                <label for="password">Password</label>
-                <div class="input-wrapper">
-                    <input type="password" id="password" name="password" placeholder="••••••••">
-                    <i class="icon fas fa-eye toggle-password"></i>
+            <form id="loginForm" novalidate>
+                <div class="mb-6">
+                    <label for="email" class="text-slate-200 text-sm font-medium block mb-2">Email</label>
+                    <div class="relative">
+                        <input 
+                            type="email" 
+                            id="email" 
+                            name="email" 
+                            placeholder="you@example.com" 
+                            autocomplete="email" 
+                            required
+                            class="w-full py-3 px-4 pr-10 bg-[rgba(255,255,255,0.1)] border border-[rgba(255,255,255,0.2)] rounded-lg text-white text-base transition-all focus:outline-none focus:border-primary-200 focus:ring-3 focus:ring-primary-200/30"
+                        >
+                        <i class="fas fa-envelope absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                    </div>
+                    <div id="emailError" class="text-red-400 text-sm mt-1 hidden"></div>
                 </div>
-                <div class="password-strength">
-                    <div class="password-strength-bar"></div>
+
+                <div class="mb-6">
+                    <label for="password" class="text-slate-200 text-sm font-medium block mb-2">Password</label>
+                    <div class="relative">
+                        <input 
+                            type="password" 
+                            id="password" 
+                            name="password" 
+                            placeholder="••••••••" 
+                            required
+                            class="w-full py-3 px-4 pr-10 bg-[rgba(255,255,255,0.1)] border border-[rgba(255,255,255,0.2)] rounded-lg text-white text-base transition-all focus:outline-none focus:border-primary-200 focus:ring-3 focus:ring-primary-200/30"
+                        >
+                        <i id="togglePassword" class="fas fa-eye absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 cursor-pointer"></i>
+                    </div>
+                    <div id="passwordError" class="text-red-400 text-sm mt-1 hidden"></div>
                 </div>
-                <div class="error-message" id="passwordError"></div>
+
+                <button 
+                    type="submit" 
+                    class="w-full py-3 px-4 bg-gradient-to-r from-primary-300 to-primary-400 text-white font-semibold text-base rounded-lg cursor-pointer transition-all hover:from-primary-400 hover:to-primary-500 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-primary-400/30"
+                >
+                    LOGIN
+                </button>
+            </form>
+
+            <div class="flex items-center justify-center my-6 text-slate-400">
+                <span class="flex-grow h-px bg-[rgba(255,255,255,0.1)]"></span>
+                <span class="px-4 text-sm">or continue with</span>
+                <span class="flex-grow h-px bg-[rgba(255,255,255,0.1)]"></span>
             </div>
 
-            <button type="submit" class="submit-btn">LOGIN</button>
-        </form>
+            <div class="mb-4">
+                <a 
+                    href="/auth/google" 
+                    class="flex items-center justify-center w-full py-3 px-4 bg-[rgba(255,255,255,0.1)] text-slate-200 rounded-lg no-underline transition-all hover:bg-[rgba(255,255,255,0.15)] hover:-translate-y-0.5"
+                >
+                    <img src="/api/placeholder/20/20" alt="Google Logo" class="mr-2">
+                    Sign in with Google
+                </a>
+            </div>
 
-        <div class="divider">
-            <span>or continue with</span>
+            <p class="text-center text-slate-400 text-sm mt-4">
+                Are you new here? <a href="/user/signup" class="text-primary-100 no-underline transition-colors hover:text-primary-200 hover:underline">Create an Account</a>
+            </p>
+            <p class="text-center text-slate-400 text-sm mt-2">
+                <a href="/user/forgot-password" class="text-primary-100 no-underline transition-colors hover:text-primary-200 hover:underline">Forgot Password?</a>
+            </p>
         </div>
-
-        <div class="social-signup">
-            <a href="/auth/google" class="social-btn">
-                <img src="/api/placeholder/20/20" alt="Google Logo">
-                Sign up with Google
-            </a>
-        </div>
-
-        <p class="login-link">
-            Are You New in here<a href="/user"> Create An Account</a>
-        </p>
-        <p class="login-link">
-            <a href="/user"> Forgot Password</a>
-        </p>
     </div>
 
     <script>
- document.addEventListener('DOMContentLoaded', function() {
-    // const form = document.getElementById('signupForm');
-    // const emailInput = document.getElementById('email');
-    // const passwordInput = document.getElementById('password');
-    // const passwordStrengthBar = document.querySelector('.password-strength-bar');
-    // const togglePassword = document.querySelector('.toggle-password');
+        document.addEventListener('DOMContentLoaded', () => {
+            const form = document.getElementById('loginForm');
+            const inputs = {
+                email: document.getElementById('email'),
+                password: document.getElementById('password')
+            };
+            const togglePassword = document.getElementById('togglePassword');
 
-    // Toggle password visibility
-    togglePassword.addEventListener('click', function() {
-        const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
-        passwordInput.setAttribute('type', type);
-        this.classList.toggle('fa-eye');
-        this.classList.toggle('fa-eye-slash');
+            // Toggle password visibility
+            togglePassword.addEventListener('click', () => {
+                const type = inputs.password.type === 'password' ? 'text' : 'password';
+                inputs.password.type = type;
+                togglePassword.classList.toggle('fa-eye');
+                togglePassword.classList.toggle('fa-eye-slash');
+            });
+
+            // Client-side validation
+            function validateField(field) {
+                const value = inputs[field].value.trim();
+                const errorElement = document.getElementById(`${field}Error`);
+
+                switch (field) {
+                    case 'email':
+                        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+                            showError('emailError', 'Please enter a valid email address');
+                            return false;
+                        }
+                        break;
+                    case 'password':
+                        if (value.length < 1) {
+                            showError('passwordError', 'Password is required');
+                            return false;
+                        }
+                        break;
+                }
+                showError(`${field}Error`, '');
+                return true;
+            }
+
+            // Real-time validation
+            Object.keys(inputs).forEach(key => {
+                inputs[key].addEventListener('input', () => validateField(key));
+            });
+
+            // Form submission
+            form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    // Client-side validation
+    const isValid = Object.keys(inputs).every(key => validateField(key));
+    if (!isValid) return;
+
+    const formData = {
+        email: inputs.email.value.trim(),
+        password: inputs.password.value
+    };
+
+    try {
+    const response = await fetch('/user/login', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+        credentials: 'include'
     });
 
-    // Validate name
-    function validateName() {
-        const nameValue = nameInput.value.trim();
-        const nameError = document.getElementById('nameError');
-        
-        if (nameValue.length < 2) {
-            nameError.textContent = 'Name must be at least 2 characters long';
-            return false;
-        }
-        if (!/^[a-zA-Z\s]*$/.test(nameValue)) {
-            nameError.textContent = 'Name can only contain letters and spaces';
-            return false;
-        }
-        nameError.textContent = '';
-        return true;
+    if (!response.ok) {
+        const data = await response.json();
+        showError('emailError', data.message || 'Login failed');
+        return;
     }
 
-    // Validate email
-    function validateEmail() {
-        const emailValue = emailInput.value.trim();
-        const emailError = document.getElementById('emailError');
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        
-        if (!emailRegex.test(emailValue)) {
-            emailError.textContent = 'Please enter a valid email address';
-            return false;
-        }
-        emailError.textContent = '';
-        return true;
-    }
+    // Redirect manually after successful login
+    window.location.href = "/user/home"; // Update with the correct path
 
-    // Check password strength
-   
-    // // Form submission
-    // form.addEventListener('submit', async function(e) {
-    //     e.preventDefault();
+} catch (error) {
+    showError('emailError', 'Network error occurred. Please try again.');
+    console.error('Error:', error);
+}
 
-    //     // Perform all validations
-    //     const isNameValid = validateName();
-    //     const isEmailValid = validateEmail();
-    //     const isPasswordValid = checkPasswordStrength();
 
-    //     if (!isEmailValid) {
-    //         return;
-    //     }
+});
 
-  
 
-        
-    });
-
+            // Error display function
+            function showError(elementId, message) {
+                const errorElement = document.getElementById(elementId);
+                errorElement.textContent = message;
+                errorElement.classList.toggle('hidden', !message);
+            }
+        });
     </script>
-</div>
 </body>
 </html>

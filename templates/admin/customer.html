@@ -77,17 +77,21 @@
                         <tbody class="text-gray-700">
                             {{ range .users }}
                             <tr class="hover:bg-gray-50 transition-colors">
-                                <td class="py-3 px-4">{{ .Id }}</td>
+                                <td class="py-3 px-4">{{ .ID }}</td>
                                 <td class="py-3 px-4">{{ .UserName }}</td>
                                 <td class="py-3 px-4">{{ .Email }}</td>
                                 <td class="py-3 px-4">{{ .Phone }}</td>
                                 <td class="py-3 px-4">
                                     {{ if .Is_blocked }}
-                                    <button class="block-unblock-btn bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600 hover-scale transition-all" data-id="{{ .Id }}" data-action="unblock">Unblock</button>
+                                    <button class="block-unblock-btn bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600 hover-scale transition-all" data-id="{{ .ID }}" data-action="unblock">Unblock</button>
                                     {{ else }}
-                                    <button class="block-unblock-btn bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 hover-scale transition-all" data-id="{{ .Id }}" data-action="block">Block</button>
+                                    <button class="block-unblock-btn bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 hover-scale transition-all" data-id="{{ .ID }}" data-action="block">Block</button>
                                     {{ end }}
                                 </td>
+                            </tr>
+                            {{ else }}
+                            <tr>
+                                <td colspan="5" class="py-3 px-4 text-center text-gray-500">No users found</td>
                             </tr>
                             {{ end }}
                         </tbody>

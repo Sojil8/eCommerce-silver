@@ -13,6 +13,7 @@ import (
 )
 
 func GetProducts(c *gin.Context) {
+	fmt.Println("GetProducts handler called")
 	middleware.ClearCache()
 	pageStr := c.Query("page")
 	searchQuery := c.Query("search")
@@ -27,22 +28,20 @@ func GetProducts(c *gin.Context) {
 
 	var products []adminModels.Product
 	var total int64
-
 	dbQuery := database.DB.Model(&adminModels.Product{})
 
-	// Apply search filter if query exists
 	if searchQuery != "" {
 		searchPattern := "%" + searchQuery + "%"
-		dbQuery = dbQuery.Where("product_name ILIKE ? OR description ILIKE ?", searchPattern, searchPattern)
+		// Updated to include CategoryName in search if desired
+		dbQuery = dbQuery.Where("product_name ILIKE ? OR description ILIKE ? OR category_name ILIKE ?", searchPattern, searchPattern, searchPattern)
 	}
 
-	// Count total items (filtered or not)
 	if err := dbQuery.Count(&total).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to count products"})
 		return
 	}
 
-	// Fetch paginated results
+	// Preload Category if you have a relationship, otherwise just fetch products
 	if err := dbQuery.Order("product_name").Offset(offset).Limit(itemsPerPage).Find(&products).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch products"})
 		return
@@ -54,191 +53,198 @@ func GetProducts(c *gin.Context) {
 		"Products":    products,
 		"CurrentPage": page,
 		"TotalPages":  totalPages,
-		"SearchQuery": searchQuery, // Pass search query to maintain state
+		"SearchQuery": searchQuery,
 	})
 }
-
 func AddProduct(c *gin.Context) {
-	middleware.ClearCache()
-	form, err := c.MultipartForm()
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"status":  "error",
-			"message": "Failed to parse form data",
-			"error":   err.Error(),
-		})
-		return
-	}
+    middleware.ClearCache()
+    form, err := c.MultipartForm()
+    if err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to parse form data"})
+        return
+    }
 
-	name := form.Value["productName"][0]
-	description := form.Value["description"][0]
-	priceStr := form.Value["price"][0]
-	categoryIdStr := form.Value["category_id"][0]
+    // Add quantity field
+    quantityValues, qtyOk := form.Value["quantity"]
+    nameValues, nameOk := form.Value["productName"]
+    descriptionValues, descOk := form.Value["description"]
+    priceValues, priceOk := form.Value["price"]
+    categoryValues, catOk := form.Value["categoryName"]
 
-	if name == "" || description == "" || priceStr == "" || categoryIdStr == "" {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"status":  "error",
-			"message": "All fields are required",
-		})
-		return
-	}
+    if !nameOk || len(nameValues) == 0 || !descOk || len(descriptionValues) == 0 ||
+       !priceOk || len(priceValues) == 0 || !catOk || len(categoryValues) == 0 ||
+       !qtyOk || len(quantityValues) == 0 {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "All fields are required"})
+        return
+    }
 
-	price, err := strconv.ParseFloat(priceStr, 64)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"status":  "error",
-			"message": "Invalid price format",
-		})
-		return
-	}
+    name := nameValues[0]
+    description := descriptionValues[0]
+    priceStr := priceValues[0]
+    categoryName := categoryValues[0]
+    quantityStr := quantityValues[0]
 
-	categoryID, err := strconv.Atoi(categoryIdStr)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"status":  "error",
-			"message": "Invalid category ID",
-		})
-		return
-	}
+    price, err := strconv.ParseFloat(priceStr, 64)
+    if err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid price format"})
+        return
+    }
 
-	files := form.File["images"]
-	if len(files) < 3 {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"status":  "error",
-			"message": "At least 3 images are required",
-		})
-		return
-	}
+    quantity, err := strconv.ParseUint(quantityStr, 10, 32)
+    if err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid quantity format"})
+        return
+    }
 
-	var imageURLs []string
-	for _, file := range files {
-		f, err := file.Open()
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"status":  "error",
-				"message": "Failed to open image",
-				"error":   err.Error(),
-			})
-			return
-		}
-		defer f.Close()
+    // Category validation remains the same
+    var category adminModels.Category
+    if err := database.DB.Where("category_name = ?", categoryName).First(&category).Error; err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid category name"})
+        return
+    }
+    if !category.Status {
+        c.JSON(http.StatusBadRequest, gin.H{
+            "error": fmt.Sprintf("Category '%s' is unlisted and cannot be used", categoryName),
+        })
+        return
+    }
 
-		// Pass the Gin context (c) to ProcessImage
-		url, err := helper.ProcessImage(c, f, file)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"status":  "error",
-				"message": "Failed to process image",
-				"error":   err.Error(),
-			})
-			return
-		}
-		imageURLs = append(imageURLs, url)
-	}
+    files := form.File["images"]
+    if len(files) < 3 {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "At least 3 images are required"})
+        return
+    }
 
-	product := adminModels.Product{
-		ProductName: name,
-		Description: description,
-		Price:       price,
-		Category_id: uint(categoryID),
-		Images:      imageURLs,
-	}
+    var imageURLs []string
+    for _, file := range files {
+        f, err := file.Open()
+        if err != nil {
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to open image"})
+            return
+        }
+        defer f.Close()
 
-	if err := database.DB.Create(&product).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"status":  "error",
-			"message": "Failed to create product",
-			"error":   err.Error(),
-		})
-		return
-	}
+        url, err := helper.ProcessImage(c, f, file)
+        if err != nil {
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process image"})
+            return
+        }
+        imageURLs = append(imageURLs, url)
+    }
 
-	c.JSON(http.StatusOK, gin.H{
-		"status":  "success",
-		"message": "Product added successfully",
-		"product": product,
-	})
+    product := adminModels.Product{
+        ProductName:  name,
+        Description:  description,
+        Price:        price,
+        Quantity:     uint(quantity),
+        CategoryName: categoryName,
+        Images:       imageURLs,
+    }
+
+    if err := database.DB.Create(&product).Error; err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create product"})
+        return
+    }
+
+    c.JSON(http.StatusOK, gin.H{
+        "status":  "success",
+        "message": "Product added successfully",
+        "product": product,
+    })
 }
-
 func EditProduct(c *gin.Context) {
-	middleware.ClearCache()
-	idStr := c.Param("id")
-	id, err := strconv.Atoi(idStr)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid product ID"})
-		return
-	}
+    middleware.ClearCache()
+    idStr := c.Param("id")
+    id, err := strconv.Atoi(idStr)
+    if err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid product ID"})
+        return
+    }
 
-	var product adminModels.Product
-	if err := database.DB.First(&product, id).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Product not found"})
-		return
-	}
+    var product adminModels.Product
+    if err := database.DB.First(&product, id).Error; err != nil {
+        c.JSON(http.StatusNotFound, gin.H{"error": "Product not found"})
+        return
+    }
 
-	form, err := c.MultipartForm()
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to parse form data"})
-		return
-	}
-	if name := c.PostForm("productName"); name != "" {
-		product.ProductName = name
-	}
-	if desc := c.PostForm("description"); desc != "" {
-		product.Description = desc
-	}
-	if priceStr := c.PostForm("price"); priceStr != "" {
-		price, err := strconv.ParseFloat(priceStr, 64)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid price format"})
-			return
-		}
-		product.Price = price
-	}
-	if catIDStr := c.PostForm("category_id"); catIDStr != "" {
-		catID, err := strconv.Atoi(catIDStr)
-		if err != nil || catID <= 0 {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid category ID"})
-			return
-		}
-		product.Category_id = uint(catID)
-	}
+    form, err := c.MultipartForm()
+    if err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to parse form data"})
+        return
+    }
 
-	if files := form.File["images"]; len(files) > 0 {
-		if len(files) < 3 {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "At least 3 images are required for update"})
-			return
-		}
-		var imagePaths []string
-		for _, file := range files {
-			openedFile, err := file.Open()
-			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to open image file"})
-				return
-			}
-			defer openedFile.Close()
+    if name := c.PostForm("productName"); name != "" {
+        product.ProductName = name
+    }
+    if desc := c.PostForm("description"); desc != "" {
+        product.Description = desc
+    }
+    if priceStr := c.PostForm("price"); priceStr != "" {
+        price, err := strconv.ParseFloat(priceStr, 64)
+        if err != nil {
+            c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid price format"})
+            return
+        }
+        product.Price = price
+    }
+    if quantityStr := c.PostForm("quantity"); quantityStr != "" {
+        quantity, err := strconv.ParseUint(quantityStr, 10, 32)
+        if err != nil {
+            c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid quantity format"})
+            return
+        }
+        product.Quantity = uint(quantity)
+    }
+    if categoryName := c.PostForm("categoryName"); categoryName != "" {
+        var category adminModels.Category
+        if err := database.DB.Where("category_name = ?", categoryName).First(&category).Error; err != nil {
+            c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid category name"})
+            return
+        }
+        if !category.Status {
+            c.JSON(http.StatusBadRequest, gin.H{
+                "error": fmt.Sprintf("Category '%s' is unlisted and cannot be used", categoryName),
+            })
+            return
+        }
+        product.CategoryName = categoryName
+    }
 
-			// Pass the Gin context (c) to ProcessImage
-			path, err := helper.ProcessImage(c, openedFile, file)
-			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-				return
-			}
-			imagePaths = append(imagePaths, path)
-		}
-		product.Images = imagePaths
-	}
-	if err := database.DB.Save(&product).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update product"})
-		return
-	}
+    if files := form.File["images"]; len(files) > 0 {
+        if len(files) < 3 {
+            c.JSON(http.StatusBadRequest, gin.H{"error": "At least 3 images are required for update"})
+            return
+        }
+        var imagePaths []string
+        for _, file := range files {
+            openedFile, err := file.Open()
+            if err != nil {
+                c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to open image file"})
+                return
+            }
+            defer openedFile.Close()
 
-	c.JSON(http.StatusOK, gin.H{
-		"status":  "success",
-		"message": "Product updated successfully",
-		"product": product,
-	})
+            path, err := helper.ProcessImage(c, openedFile, file)
+            if err != nil {
+                c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+                return
+            }
+            imagePaths = append(imagePaths, path)
+        }
+        product.Images = imagePaths
+    }
+
+    if err := database.DB.Save(&product).Error; err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update product"})
+        return
+    }
+
+    c.JSON(http.StatusOK, gin.H{
+        "status":  "success",
+        "message": "Product updated successfully",
+        "product": product,
+    })
 }
-
 func ToggleProductStatus(c *gin.Context) {
 	middleware.ClearCache()
 	idStr := c.Param("id")

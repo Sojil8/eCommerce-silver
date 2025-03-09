@@ -17,7 +17,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-var roleUser string = "user"
+var roleUser string = "User"
 
 func ShowSignUp(c *gin.Context) {
 	tokenString, err := c.Cookie("jwtTokensUser")
@@ -35,14 +35,15 @@ func ShowSignUp(c *gin.Context) {
 	c.HTML(http.StatusOK, "signup.html", nil)
 }
 
+var request struct {
+	UserName        string `json:"username" form:"username" binding:"required"`
+	Email           string `json:"email" form:"email" binding:"required"`
+	Phone           string `json:"phone" form:"phone" binding:"required"`
+	Password        string `json:"password" form:"password" binding:"required"`
+	ConfirmPassword string `json:"confirmpassword" form:"confirmpassword" binding:"required"`
+}
+
 func UserSignUp(c *gin.Context) {
-	var request struct {
-		UserName        string `json:"username" form:"username" binding:"required"`
-		Email           string `json:"email" form:"email" binding:"required"`
-		Phone           string `json:"phone" form:"phone" binding:"required"`
-		Password        string `json:"password" form:"password" binding:"required"`
-		ConfirmPassword string `json:"confirmpassword" form:"confirmpassword" binding:"required"`
-	}
 
 	if err := c.ShouldBind(&request); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input", "field": "all"})
@@ -81,7 +82,7 @@ func UserSignUp(c *gin.Context) {
 	newUser := map[string]interface{}{
 		"name":       request.UserName,
 		"email":      request.Email,
-		"phone":      request.Phone, // Keep as string for now, convert later
+		"phone":      request.Phone,
 		"password":   hashedPassword,
 		"otp":        otp,
 		"created_at": time.Now().UTC(),
@@ -124,11 +125,13 @@ func ShowOTPPage(c *gin.Context) {
 	})
 }
 
+var input struct {
+	Email string `json:"email" form:"email" binding:"required"`
+	OTP   string `json:"otp" form:"otp" binding:"required"`
+}
+
 func VerifyOTP(c *gin.Context) {
-	var input struct {
-		Email string `json:"email" form:"email" binding:"required"`
-		OTP   string `json:"otp" form:"otp" binding:"required"`
-	}
+
 	if err := c.ShouldBind(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
 		return
@@ -200,7 +203,7 @@ func VerifyOTP(c *gin.Context) {
 		UserName: name,
 		Email:    email,
 		Password: password,
-		Phone:    phone, // Directly use the string, no conversion needed
+		Phone:    phone,
 	}
 
 	if err := database.DB.Create(&newUser).Error; err != nil {
@@ -218,7 +221,6 @@ func VerifyOTP(c *gin.Context) {
 	})
 }
 
-// ShowLogin and LoginPostUser remain unchanged
 func ShowLogin(c *gin.Context) {
 	c.HTML(http.StatusOK, "userlogin.html", gin.H{
 		"title": "Login",
@@ -239,32 +241,37 @@ func LoginPostUser(c *gin.Context) {
 
 	var user userModels.User
 	if err := database.DB.Where("email=?", request.Email).First(&user).Error; err != nil {
-		helper.ResponseWithErr(c, http.StatusUnauthorized, "User not Found", "User not Found", "")
+		helper.ResponseWithErr(c, http.StatusUnauthorized, "User not found", "User not found", "")
 		return
 	}
 
 	if user.Is_blocked {
-		helper.ResponseWithErr(c, http.StatusForbidden, "Account blocked", "Your Account Has Been blocked", "")
+		helper.ResponseWithErr(c, http.StatusForbidden, "Account blocked", "Your account has been blocked", "")
 		return
 	}
-
-	// fmt.Println("Request password:",request.Password,"User password:",user.Password)s
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(request.Password)); err != nil {
-		helper.ResponseWithErr(c, http.StatusUnauthorized, "Invalid Credential", "Incorrect Password", "")
+		helper.ResponseWithErr(c, http.StatusUnauthorized, "Invalid credentials", "Incorrect password", "")
 		return
 	}
 
-	token, err := middleware.GenerateToken(c, user.ID, user.UserName, roleUser)
+	token, err := middleware.GenerateToken(c, int(user.ID), user.Email, roleUser) // Use Email instead of UserName
 	if err != nil {
-		helper.ResponseWithErr(c, http.StatusInternalServerError, "Token generation failed", "Error In jwt Creating", "")
+		helper.ResponseWithErr(c, http.StatusInternalServerError, "Token generation failed", "Error in JWT creation", "")
 		return
 	}
-
+	// fmt.Println("The token----------",token)
+	// Set the cookie (secure and HTTP-only)
 	c.SetCookie("jwt_token", token, 24*60*60, "/", "", false, true)
 
-	c.JSON(http.StatusOK, gin.H{
+	c.HTML(http.StatusOK, "home.html", gin.H{
 		"status":  "OK",
 		"message": "Login successful",
+		"token":   token,
 	})
+}
+
+func LogoutUser(c *gin.Context) {
+	c.SetCookie("jwt_token", "", -1, "/", "", false, true) // Expire the cookie
+	c.Redirect(http.StatusSeeOther, "/user/login")
 }

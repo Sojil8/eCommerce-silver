@@ -20,7 +20,6 @@ func init() {
 	middleware.SecretKeyCheck()
 	database.MigrageHandler()
 	database.InitRedis()
-
 }
 
 func main() {

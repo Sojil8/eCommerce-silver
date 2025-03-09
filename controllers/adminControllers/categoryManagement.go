@@ -21,11 +21,12 @@ func GetCategories(c *gin.Context) {
 	const itemsPerPage = 10
 	offset := (page - 1) * itemsPerPage
 
-	var categorys []adminModels.Category
+	var categories []adminModels.Category
 	var total int64
 
-	database.DB.Unscoped().Model(&adminModels.Category{}).Count(&total)
-	if err := database.DB.Unscoped().Order("category_name").Offset(offset).Limit(itemsPerPage).Find(&categorys).Error; err != nil {
+	// Use regular DB (not Unscoped) to respect soft deletes if applicable
+	database.DB.Model(&adminModels.Category{}).Count(&total)
+	if err := database.DB.Order("category_name").Offset(offset).Limit(itemsPerPage).Find(&categories).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": "Failed to fetch categories",
 		})
@@ -38,18 +39,17 @@ func GetCategories(c *gin.Context) {
 		pageRange[i] = i + 1
 	}
 
-	categoryData := make([]map[string]interface{}, len(categorys))
-	for i, cat := range categorys {
+	categoryData := make([]map[string]interface{}, len(categories))
+	for i, cat := range categories {
 		categoryData[i] = map[string]interface{}{
 			"_id":           cat.ID,
 			"name":          cat.CategoryName,
 			"description":   cat.Description,
 			"categoryOffer": 0,
-			"isListed":      cat.DeletedAt.Valid == false,
+			"isListed":      cat.Status, // Use Status instead of DeletedAt
 		}
 	}
-
-	// Otherwise render HTML
+	
 	c.HTML(http.StatusOK, "categoryManagement.html", gin.H{
 		"cat":        categoryData,
 		"totalPages": totalPages,
@@ -132,16 +132,13 @@ func ListCategory(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "Invalid category ID",
-		})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid category ID"})
 		return
 	}
+
 	var category adminModels.Category
 	if err := database.DB.First(&category, id).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{
-			"error": "Category not found",
-		})
+		c.JSON(http.StatusNotFound, gin.H{"error": "Category not found"})
 		return
 	}
 
@@ -150,7 +147,10 @@ func ListCategory(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to list category"})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"message": "Category listed successfully"})
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Category listed successfully",
+		"category": category, // Return updated category
+	})
 }
 
 func UnlistCategory(c *gin.Context) {
