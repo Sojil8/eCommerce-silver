@@ -23,16 +23,15 @@
             transition: transform 0.2s ease-in-out;
         }
         a { text-decoration: none; }
-        /* Center the main content while respecting the sidebar */
         .main-content-wrapper {
             display: flex;
             justify-content: center;
             flex: 1;
-            margin-left: 16rem; /* Matches sidebar width (w-64 = 16rem) */
-            padding: 0 1.5rem; /* Matches p-6 */
+            margin-left: 16rem;
+            padding: 0 1.5rem;
         }
         .main-content {
-            max-width: 64rem; /* Optional: Limits content width for better readability */
+            max-width: 80rem; /* Increased from 64rem to 80rem (1280px) */
             width: 100%;
         }
     </style>
@@ -71,6 +70,7 @@
                                 <th class="py-3 px-4 text-left">Name</th>
                                 <th class="py-3 px-4 text-left">Email</th>
                                 <th class="py-3 px-4 text-left">Phone No</th>
+                                <th class="py-3 px-4 text-left">Status</th>
                                 <th class="py-3 px-4 text-left">Action</th>
                             </tr>
                         </thead>
@@ -83,6 +83,13 @@
                                 <td class="py-3 px-4">{{ .Phone }}</td>
                                 <td class="py-3 px-4">
                                     {{ if .Is_blocked }}
+                                        <span class="text-red-500 font-medium">Blocked</span>
+                                    {{ else }}
+                                        <span class="text-green-500 font-medium">Active</span>
+                                    {{ end }}
+                                </td>
+                                <td class="py-3 px-4">
+                                    {{ if .Is_blocked }}
                                     <button class="block-unblock-btn bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600 hover-scale transition-all" data-id="{{ .ID }}" data-action="unblock">Unblock</button>
                                     {{ else }}
                                     <button class="block-unblock-btn bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 hover-scale transition-all" data-id="{{ .ID }}" data-action="block">Block</button>
@@ -91,7 +98,7 @@
                             </tr>
                             {{ else }}
                             <tr>
-                                <td colspan="5" class="py-3 px-4 text-center text-gray-500">No users found</td>
+                                <td colspan="6" class="py-3 px-4 text-center text-gray-500">No users found</td>
                             </tr>
                             {{ end }}
                         </tbody>

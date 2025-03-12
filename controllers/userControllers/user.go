@@ -109,14 +109,14 @@ func UserSignUp(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"status":   "ok",
 		"message":  "OTP sent successfully",
-		"redirect": fmt.Sprintf("/user/signup/otp?email=%s", request.Email),
+		"redirect": fmt.Sprintf("/signup/otp?email=%s", request.Email),
 	})
 }
 
 func ShowOTPPage(c *gin.Context) {
 	email := c.Query("email")
 	if email == "" {
-		c.Redirect(http.StatusSeeOther, "/user/signup")
+		c.Redirect(http.StatusSeeOther, "/signup")
 		return
 	}
 	c.HTML(http.StatusOK, "otp.html", gin.H{
@@ -217,7 +217,7 @@ func VerifyOTP(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"status":   "ok",
 		"message":  "OTP verified successfully",
-		"redirect": "/user/login",
+		"redirect": "/login",
 	})
 }
 
@@ -264,14 +264,15 @@ func LoginPostUser(c *gin.Context) {
 	// Set the cookie (secure and HTTP-only)
 	c.SetCookie("jwt_token", token, 24*60*60, "/", "", false, true)
 
-	c.HTML(http.StatusOK, "home.html", gin.H{
-		"status":  "OK",
-		"message": "Login successful",
-		"token":   token,
-	})
+	// c.HTML(http.StatusOK, "home.html", gin.H{
+	// 	"status":  "OK",
+	// 	"message": "Login successful",
+	// 	"token":   token,
+	// })
+	c.Redirect(http.StatusSeeOther, "/home")
 }
 
 func LogoutUser(c *gin.Context) {
 	c.SetCookie("jwt_token", "", -1, "/", "", false, true) // Expire the cookie
-	c.Redirect(http.StatusSeeOther, "/user/login")
+	c.Redirect(http.StatusSeeOther, "/login")
 }

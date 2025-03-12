@@ -67,7 +67,7 @@
             <p id="error-msg" class="text-red-400 text-center hidden"></p>
         </form>
         <div class="text-center mt-4 text-gray-400">
-            Already verified? <a href="/user/login" class="text-indigo-400 hover:underline">Login now</a>
+            Already verified? <a href="/login" class="text-indigo-400 hover:underline">Login now</a>
         </div>
     </div>
     <script>
@@ -79,7 +79,7 @@
             const errorMsg = document.getElementById("error-msg");
             let timeLeft = 60;
 
-            // Auto-focus next input
+            // Auto-focus next input on typing
             otpInputs.forEach((input, index) => {
                 input.addEventListener("input", (e) => {
                     if (e.inputType !== "deleteContentBackward" && input.value.length === 1) {
@@ -91,6 +91,21 @@
                 input.addEventListener("keydown", (e) => {
                     if (e.key === "Backspace" && input.value === "" && index > 0) {
                         otpInputs[index - 1].focus();
+                    }
+                });
+
+                // Handle paste event
+                input.addEventListener("paste", (e) => {
+                    e.preventDefault();
+                    const pastedData = (e.clipboardData || window.clipboardData).getData("text").trim();
+                    if (/^\d{6}$/.test(pastedData)) { // Check if it's a 6-digit number
+                        const digits = pastedData.split("");
+                        otpInputs.forEach((inp, i) => {
+                            inp.value = digits[i] || "";
+                        });
+                        otpInputs[otpInputs.length - 1].focus(); // Focus the last input
+                    } else {
+                        showError("Please paste a valid 6-digit OTP.");
                     }
                 });
             });
@@ -118,7 +133,7 @@
                 }
 
                 try {
-                    const response = await fetch("/user/signup/otp", {
+                    const response = await fetch("/signup/otp", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({ email, otp }),
@@ -130,9 +145,9 @@
                     }
 
                     const data = await response.json();
-                    if (data.status === "ok") { // Fixed typo from "stauts" to "status"
+                    if (data.status === "ok") {
                         alert("OTP Verified Successfully!");
-                        window.location.href = data.redirect || "/user/login";
+                        window.location.href = data.redirect || "/login";
                     } else {
                         showError(data.error || "Invalid OTP. Please try again.");
                     }
@@ -142,10 +157,35 @@
                 }
             });
 
-            // Handle Resend OTP (placeholder)
-            resendBtn.addEventListener("click", () => {
-                console.log("Resend OTP clicked");
-                // Add resend logic here if needed
+            // Handle Resend OTP
+            resendBtn.addEventListener("click", async () => {
+                const email = document.getElementById("email").value;
+                try {
+                    const response = await fetch("/signup/otp/resend", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ email }),
+                    });
+                    const data = await response.json();
+                    if (data.status === "ok") {
+                        alert("OTP resent successfully!");
+                        timeLeft = 60;
+                        timerSpan.textContent = timeLeft;
+                        resendBtn.disabled = true;
+                        const newTimer = setInterval(() => {
+                            timeLeft--;
+                            timerSpan.textContent = timeLeft;
+                            if (timeLeft <= 0) {
+                                clearInterval(newTimer);
+                                resendBtn.disabled = false;
+                            }
+                        }, 1000);
+                    } else {
+                        showError(data.error || "Failed to resend OTP.");
+                    }
+                } catch (error) {
+                    showError("Error resending OTP.");
+                }
             });
 
             function showError(message) {

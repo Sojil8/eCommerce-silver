@@ -13,23 +13,23 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            margin: 0; /* Remove default margin */
+            margin: 0;
         }
         .signup-container {
             width: 100%;
-            max-width: 28rem; /* Slightly smaller max-width for better fit */
+            max-width: 28rem;
             height: auto;
-            max-height: 100vh; /* Fit within full viewport height */
+            max-height: 100vh;
             overflow-y: auto;
             scrollbar-width: thin;
             scrollbar-color: #4a5568 #2d3748;
         }
         @media (max-height: 600px) {
             .signup-container {
-                padding: 1rem; /* Reduce padding on very small screens */
+                padding: 1rem;
             }
             .signup-container .space-y-5 {
-                space-y: 1rem; /* Reduce spacing */
+                space-y: 1rem;
             }
         }
     </style>
@@ -41,7 +41,7 @@
             <p class="text-gray-400">Join our community today</p>
         </div>
 
-        <form id="signupForm" class="space-y-5" method="post" action="/user/signup/">
+        <form id="signupForm" class="space-y-5" method="post" action="/signup/">
             <div>
                 <label for="name" class="block text-sm font-medium text-gray-300">Name</label>
                 <div class="relative">
@@ -97,12 +97,12 @@
         </div>
 
         <a href="/auth/google" class="flex items-center justify-center w-full bg-gray-700 p-2 rounded-md hover:bg-gray-600 transition duration-200">
-            <img src="/api/placeholder/20/20" alt="Google Logo" class="mr-2">
+            <i class="fab fa-google mr-2 text-white"></i>
             <span class="text-gray-300">Sign up with Google</span>
         </a>
 
         <p class="text-center mt-4 text-gray-400">
-            Already have an account? <a href="/user" class="text-indigo-400 hover:underline">Sign in</a>
+            Already have an account? <a href="/login" class="text-indigo-400 hover:underline">Sign in</a>
         </p>
     </div>
 
@@ -147,7 +147,7 @@
                 };
 
                 try {
-                    const response = await fetch('/user/signup', {
+                    const response = await fetch('/signup', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(formData)

@@ -120,7 +120,7 @@ func AuthenticateUser() gin.HandlerFunc {
 		cookie, err := c.Cookie("jwt_token")
 		if err != nil {
 			fmt.Println("No user cookie found:", err)
-			c.Redirect(http.StatusSeeOther, "/user/login")
+			c.Redirect(http.StatusSeeOther, "/login")
 			c.Abort()
 			return
 		}
@@ -133,7 +133,7 @@ func AuthenticateUser() gin.HandlerFunc {
 		})
 		if err != nil || !token.Valid {
 			fmt.Println("Token invalid or parsing error:", err)
-			c.Redirect(http.StatusSeeOther, "/user/login")
+			c.Redirect(http.StatusSeeOther, "/login")
 			c.Abort()
 			return
 		}
@@ -141,7 +141,7 @@ func AuthenticateUser() gin.HandlerFunc {
 		claims, ok := token.Claims.(*Claims)
 		if !ok || claims.Role != "User" {
 			fmt.Println("Claims issue - Role:", claims.Role, "OK:", ok)
-			c.Redirect(http.StatusSeeOther, "/user/login")
+			c.Redirect(http.StatusSeeOther, "/login")
 			c.Abort()
 			return
 		}
@@ -149,7 +149,7 @@ func AuthenticateUser() gin.HandlerFunc {
 		var user userModels.User
 		if err := database.DB.First(&user, claims.ID).Error; err != nil {
 			fmt.Println("User not found in DB - ID:", claims.ID, "Error:", err)
-			c.Redirect(http.StatusSeeOther, "/user/login")
+			c.Redirect(http.StatusSeeOther, "/login")
 			c.Abort()
 			return
 		}
@@ -164,7 +164,7 @@ func AuthenticateUser() gin.HandlerFunc {
 		c.Set("email", claims.Email)
 		c.Set("role", claims.Role)
 		c.Set("user_name", user.UserName) // Ensure UserName is set
-		fmt.Println("User authenticated - ID:", claims.ID, "Email:", claims.Email, "UserName:", user.UserName)
+		// fmt.Println("User authenticated - ID:", claims.ID, "Email:", claims.Email, "UserName:", user.UserName)
 		c.Next()
 	}
 }

@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ .Product.ProductName }} - Product Details</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+        .img-zoom-container { position: relative; width: 100%; overflow: hidden; }
+        .main-img { width: 100%; display: block; transition: transform 0.3s ease; }
+        .img-zoom-box { position: absolute; width: 200px; height: 200px; border: 2px solid #ddd; background-color: white; display: none; overflow: hidden; pointer-events: none; z-index: 10; }
+        .zoomed-img { position: absolute; max-width: none; transform-origin: 0 0; }
+        .img-zoom-container:hover .img-zoom-box { display: block; }
+        .quantity-control { display: flex; align-items: center; border-radius: 0.375rem; border: 1px solid #e5e7eb; overflow: hidden; }
+        .quantity-btn { display: flex; align-items: center; justify-content: center; width: 2.5rem; height: 2.5rem; background-color: #f3f4f6; cursor: pointer; transition: background-color 0.2s; }
+        .quantity-btn:hover { background-color: #e5e7eb; }
+        .quantity-input { width: 3rem; height: 2.5rem; border: none; text-align: center; -moz-appearance: textfield; }
+        .quantity-input::-webkit-outer-spin-button, .quantity-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        .variant-btn.active { background-color: #4f46e5; color: white; border-color: #4f46e5; }
+    </style>
+</head>
+<body class="bg-gray-100 font-sans antialiased">
+    <!-- Breadcrumb -->
+    <div class="container mx-auto px-4 py-6">
+        <nav class="flex items-center text-sm text-gray-600">
+            <a href="/home" class="hover:text-indigo-600 transition-colors">Home</a>
+            <i class="fas fa-angle-right mx-2 text-gray-400"></i>
+            <a href="/products" class="hover:text-indigo-600 transition-colors">{{ .Category }}</a>
+            <i class="fas fa-angle-right mx-2 text-gray-400"></i>
+            <span class="text-gray-800 font-medium">{{ .Product.ProductName }}</span>
+        </nav>
+    </div>
+
+    <!-- Product Detail Section -->
+    <section class="py-12 bg-white">
+        <div class="container mx-auto px-4">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <!-- Product Images -->
+                <div class="relative">
+                    <div class="img-zoom-container rounded-xl overflow-hidden shadow-lg">
+                        {{ if gt (len .Product.Images) 0 }}
+                            <img src="{{ index .Product.Images 0 }}" alt="{{ .Product.ProductName }}" class="main-img hover:scale-105" id="main-image">
+                            <div class="img-zoom-box">
+                                <img src="{{ index .Product.Images 0 }}" alt="{{ .Product.ProductName }}" class="zoomed-img" id="zoomed-image">
+                            </div>
+                        {{ else }}
+                            <img src="/static/default-product.jpg" alt="Default Image" class="main-img hover:scale-105" id="main-image">
+                            <div class="img-zoom-box">
+                                <img src="/static/default-product.jpg" alt="Default Image" class="zoomed-img" id="zoomed-image">
+                            </div>
+                        {{ end }}
+                    </div>
+                    <div class="mt-4 flex space-x-2 overflow-x-auto" id="thumbnail-container">
+                        {{ range .Product.Images }}
+                            <img src="{{ . }}" alt="Thumbnail" class="w-20 h-20 object-cover rounded-lg cursor-pointer hover:ring-2 hover:ring-indigo-500 transition-all thumbnail" data-src="{{ . }}">
+                        {{ end }}
+                    </div>
+                </div>
+
+                <!-- Product Info -->
+                <div class="space-y-6">
+                    <h1 class="text-3xl font-bold text-gray-900">{{ .Product.ProductName }}</h1>
+                    
+                    <!-- Ratings -->
+                    <div class="flex items-center">
+                        <div class="flex text-yellow-400">
+                            <i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="far fa-star"></i>
+                        </div>
+                        <span class="ml-2 text-gray-600 text-sm">(4.0 - 120 reviews)</span>
+                    </div>
+
+                    <!-- Price and Discount -->
+                    <div class="flex items-center space-x-4">
+                        <span class="text-3xl font-bold text-indigo-600" id="current-price">₹{{ printf "%.2f" .Product.Price }}</span>
+                        <span class="text-lg text-gray-500 line-through" id="original-price">₹{{ printf "%.2f" .OriginalPrice }}</span>
+                        <span class="bg-green-100 text-green-800 text-sm font-medium px-3 py-1 rounded-full" id="discount">{{ .DiscountPercentage }}% Off</span>
+                    </div>
+
+                    <!-- Description -->
+                    <p class="text-gray-700 leading-relaxed">{{ .Product.Description }}</p>
+
+                    <!-- Variants -->
+                    {{ if .Product.Variants }}
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Select Variant</label>
+                        <div class="flex flex-wrap gap-2" id="variant-container">
+                            {{ range .Product.Variants }}
+                            <button class="variant-btn px-4 py-2 bg-gray-100 rounded-lg hover:bg-indigo-100 focus:ring-2 focus:ring-indigo-500 transition-colors"
+                                    data-variant-id="{{ .ID }}"
+                                    data-color="{{ .Color }}"
+                                    data-extra-price="{{ .ExtraPrice }}"
+                                    data-stock="{{ .Stock }}">
+                                {{ .Color }}
+                            </button>
+                            {{ end }}
+                        </div>
+                    </div>
+                    {{ end }}
+
+                    <!-- Quantity -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Quantity</label>
+                        <div class="quantity-control w-32">
+                            <div class="quantity-btn" id="quantity-down"><i class="fas fa-minus text-gray-600"></i></div>
+                            <input type="number" id="product-quantity" class="quantity-input" value="1" min="1" 
+                                   {{ if .Product.Variants }}{{ with index .Product.Variants 0 }}max="{{ .Stock }}"{{ end }}{{ else }}max="0"{{ end }}>
+                            <div class="quantity-btn" id="quantity-up"><i class="fas fa-plus text-gray-600"></i></div>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="flex space-x-4">
+                        <button id="add-to-cart" data-product-id="{{ .Product.ID }}" class="flex-1 bg-indigo-600 text-white py-3 px-6 rounded-lg hover:bg-indigo-700 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            Add to Cart
+                        </button>
+                        <button id="add-to-wishlist" class="bg-gray-200 text-gray-700 p-3 rounded-lg hover:bg-gray-300 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-400">
+                            <i class="far fa-heart"></i>
+                        </button>
+                    </div>
+
+                    <!-- Stock Availability -->
+                    <div class="text-gray-700">
+                        <span class="font-medium">Availability:</span>
+                        <span id="availability" class="text-green-600">In Stock (<span id="stock-quantity">
+                            {{ if .Product.Variants }}{{ with index .Product.Variants 0 }}{{ .Stock }}{{ end }}{{ else }}0{{ end }}
+                        </span>)</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Related Products Section -->
+    <section class="py-12 bg-gray-50">
+        <div class="container mx-auto px-4">
+            <h2 class="text-2xl font-bold text-gray-900 text-center mb-10">Related Products</h2>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                {{ range .RelatedProducts }}
+                <div class="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-all group relative">
+                    {{ if gt (len .Images) 0 }}
+                        <img src="{{ index .Images 0 }}" alt="{{ .ProductName }}" class="w-full h-64 object-cover group-hover:scale-105 transition-transform">
+                    {{ else }}
+                        <img src="/static/default-product.jpg" alt="{{ .ProductName }}" class="w-full h-64 object-cover group-hover:scale-105 transition-transform">
+                    {{ end }}
+                    <div class="absolute inset-0 bg-black bg-opacity-30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <a href="/product/details/{{ .ID }}" class="bg-white text-gray-800 py-2 px-6 rounded-full font-medium hover:bg-indigo-100 transition-colors">View Product</a>
+                    </div>
+                    <div class="p-4">
+                        <a href="/product/details/{{ .ID }}" class="block text-gray-900 font-semibold hover:text-indigo-600 transition-colors">{{ .ProductName }}</a>
+                        <div class="flex justify-between items-center mt-2">
+                            <span class="text-indigo-600 font-bold">₹{{ printf "%.2f" .Price }}</span>
+                            <button class="text-gray-500 hover:text-red-500 transition-colors">
+                                <i class="far fa-heart"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                {{ else }}
+                <p class="text-center text-gray-600 col-span-full">No related products available.</p>
+                {{ end }}
+            </div>
+        </div>
+    </section>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const quantityInput = document.getElementById('product-quantity');
+            const btnQuantityUp = document.getElementById('quantity-up');
+            const btnQuantityDown = document.getElementById('quantity-down');
+            const addToCartBtn = document.getElementById('add-to-cart');
+            const variantButtons = document.querySelectorAll('.variant-btn');
+            const currentPriceEl = document.getElementById('current-price');
+            const originalPriceEl = document.getElementById('original-price');
+            const discountEl = document.getElementById('discount');
+            const stockQuantityEl = document.getElementById('stock-quantity');
+
+            let basePrice = {{ .Product.Price }};
+            let baseOriginalPrice = {{ .OriginalPrice }};
+            let selectedVariant = null;
+
+            // Select the first variant by default if available
+            if (variantButtons.length > 0) {
+                variantButtons[0].click(); // Trigger click to set initial variant
+            }
+
+            // Variant selection
+            variantButtons.forEach(btn => {
+                btn.addEventListener('click', function() {
+                    variantButtons.forEach(b => b.classList.remove('active'));
+                    this.classList.add('active');
+
+                    selectedVariant = {
+                        id: this.dataset.variantId,
+                        color: this.dataset.color,
+                        extraPrice: parseFloat(this.dataset.extraPrice),
+                        stock: parseInt(this.dataset.stock)
+                    };
+
+                    // Update price and stock
+                    const newPrice = basePrice + selectedVariant.extraPrice;
+                    const newOriginalPrice = baseOriginalPrice + selectedVariant.extraPrice;
+                    const discountPercentage = Math.round(((newOriginalPrice - newPrice) / newOriginalPrice) * 100);
+
+                    currentPriceEl.textContent = `₹${newPrice.toFixed(2)}`;
+                    originalPriceEl.textContent = `₹${newOriginalPrice.toFixed(2)}`;
+                    discountEl.textContent = `${discountPercentage}% Off`;
+                    stockQuantityEl.textContent = selectedVariant.stock;
+                    quantityInput.max = selectedVariant.stock;
+                    if (parseInt(quantityInput.value) > selectedVariant.stock) {
+                        quantityInput.value = selectedVariant.stock;
+                    }
+                });
+            });
+
+            // Quantity controls
+            btnQuantityUp.addEventListener('click', function() {
+                let currentValue = parseInt(quantityInput.value, 10);
+                const max = selectedVariant ? selectedVariant.stock : 0;
+                if (currentValue < max) {
+                    quantityInput.value = currentValue + 1;
+                } else {
+                    Swal.fire({
+                        title: "Max Quantity Reached",
+                        text: "You cannot add more than available stock.",
+                        icon: "info",
+                        timer: 2000,
+                        showConfirmButton: false
+                    });
+                }
+            });
+
+            btnQuantityDown.addEventListener('click', function() {
+                let currentValue = parseInt(quantityInput.value, 10);
+                if (currentValue > 1) {
+                    quantityInput.value = currentValue - 1;
+                }
+            });
+
+            quantityInput.addEventListener('input', function() {
+                let currentValue = parseInt(quantityInput.value, 10);
+                const max = selectedVariant ? selectedVariant.stock : 0;
+                if (currentValue > max) {
+                    quantityInput.value = max;
+                    Swal.fire({
+                        title: "Max Quantity Reached",
+                        text: "You cannot add more than available stock.",
+                        icon: "info",
+                        timer: 2000,
+                        showConfirmButton: false
+                    });
+                } else if (currentValue < 1 || isNaN(currentValue)) {
+                    quantityInput.value = 1;
+                }
+            });
+
+            // Image zoom functionality
+            const containers = document.querySelectorAll('.img-zoom-container');
+            containers.forEach(container => {
+                const mainImg = container.querySelector('.main-img');
+                const zoomBox = container.querySelector('.img-zoom-box');
+                const zoomedImg = container.querySelector('.zoomed-img');
+                const zoomLevel = 1.5;
+
+                container.addEventListener('mousemove', (e) => {
+                    const rect = container.getBoundingClientRect();
+                    const x = e.clientX - rect.left;
+                    const y = e.clientY - rect.top;
+
+                    let boxX = x - zoomBox.offsetWidth / 2;
+                    let boxY = y - zoomBox.offsetHeight / 2;
+                    boxX = Math.max(0, Math.min(boxX, container.offsetWidth - zoomBox.offsetWidth));
+                    boxY = Math.max(0, Math.min(boxY, container.offsetHeight - zoomBox.offsetHeight));
+
+                    zoomBox.style.left = `${boxX}px`;
+                    zoomBox.style.top = `${boxY}px`;
+
+                    const ratioX = x / container.offsetWidth;
+                    const ratioY = y / container.offsetHeight;
+                    const zoomedX = -ratioX * (zoomedImg.offsetWidth - zoomBox.offsetWidth);
+                    const zoomedY = -ratioY * (zoomedImg.offsetHeight - zoomBox.offsetHeight);
+
+                    zoomedImg.style.width = `${mainImg.offsetWidth * zoomLevel}px`;
+                    zoomedImg.style.height = `${mainImg.offsetHeight * zoomLevel}px`;
+                    zoomedImg.style.left = `${zoomedX}px`;
+                    zoomedImg.style.top = `${zoomedY}px`;
+                });
+
+                mainImg.addEventListener('load', () => {
+                    zoomedImg.style.width = `${mainImg.offsetWidth * zoomLevel}px`;
+                    zoomedImg.style.height = `${mainImg.offsetHeight * zoomLevel}px`;
+                });
+            });
+
+            // Thumbnail click to change main image
+            const thumbnails = document.querySelectorAll('.thumbnail');
+            thumbnails.forEach(thumb => {
+                thumb.addEventListener('click', function() {
+                    document.getElementById('main-image').src = this.dataset.src;
+                    document.getElementById('zoomed-image').src = this.dataset.src;
+                });
+            });
+
+            // Add to Cart
+            addToCartBtn.addEventListener('click', async function() {
+                const productId = this.getAttribute('data-product-id');
+                const quantity = parseInt(quantityInput.value, 10);
+                const variantId = selectedVariant ? selectedVariant.id : null;
+
+                if (!variantId) {
+                    Swal.fire({
+                        title: "Select a Variant",
+                        text: "Please select a variant before adding to cart.",
+                        icon: "warning",
+                        timer: 2000,
+                        showConfirmButton: false
+                    });
+                    return;
+                }
+
+                try {
+                    const response = await fetch('/cart/add', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ product_id: productId, quantity: quantity, variant_id: variantId }),
+                        credentials: 'include'
+                    });
+
+                    const data = await response.json();
+                    if (data.status === 'OK') {
+                        Swal.fire({
+                            title: "Added to Cart",
+                            text: data.message,
+                            icon: "success",
+                            timer: 1500,
+                            showConfirmButton: false
+                        });
+                    } else {
+                        Swal.fire({
+                            title: "Error",
+                            text: data.error || "Product is unavailable",
+                            icon: "error",
+                            timer: 2000,
+                            showConfirmButton: false
+                        });
+                        if (data.redirect) {
+                            setTimeout(() => window.location.href = data.redirect, 2000);
+                        }
+                    }
+                } catch (error) {
+                    Swal.fire({
+                        title: "Error",
+                        text: "Failed to add to cart. Please try again.",
+                        icon: "error",
+                        timer: 2000,
+                        showConfirmButton: false
+                    });
+                    console.error('Error:', error);
+                }
+            });
+        });
+    </script>
+</body>
+</html>

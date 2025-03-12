@@ -10,13 +10,16 @@ import (
 
 type Product struct {
 	*gorm.Model
-	ProductName  string    `gorm:"not null" json:"productName"`
-	Description  string    `gorm:"not null" json:"description"`
-	Price        float64   `gorm:"not null" json:"price"`
-	Quantity     uint      `gorm:"not null" json:"quantity"`
-	CategoryName string    `gorm:"not null" json:"categoryName"`
-	Images       ImageURLs `gorm:"type:text" json:"images"`
-	IsListed     bool      `gorm:"default:true"`
+	ProductName   string    `gorm:"not null" json:"productName"`
+	Description   string    `gorm:"not null" json:"description"`
+	Price         float64   `gorm:"not null" json:"price"`
+	OriginalPrice float64   `json:"originalPrice"`
+	// Quantity      uint      `gorm:"not null" json:"quantity"`
+	CategoryName  string    `gorm:"not null" json:"categoryName"`
+	Images        ImageURLs `gorm:"type:text" json:"images"`
+	Specs         string    `gorm:"type:text" json:"specs"`
+	IsListed      bool      `gorm:"default:true"`
+	Variants      []Variants `gorm:"foreignKey:ProductID" json:"variants,omitempty"`
 }
 
 type ImageURLs []string

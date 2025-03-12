@@ -16,10 +16,13 @@ func init() {
 	router.LoadHTMLGlob("templates/**/*")
 	config.LoadEnv()
 	config.Cloudnary()
+	config.InitGoogleOAuth()
 	database.ConnectDb()
 	middleware.SecretKeyCheck()
 	database.MigrageHandler()
 	database.InitRedis()
+	// fmt.Println("GOOGLE_CLIENT_ID:", os.Getenv("GOOGLE_CLIENT_ID"))
+	// fmt.Println("GOOGLE_CLIENT_SECRET:", os.Getenv("GOOGLE_CLIENT_SECRET"))
 }
 
 func main() {

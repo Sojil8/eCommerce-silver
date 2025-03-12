@@ -6,5 +6,5 @@ import (
 )
 
 func MigrageHandler() {
-	DB.AutoMigrate(&userModels.User{}, adminModels.Admin{},adminModels.Category{},&adminModels.Product{})
+	DB.AutoMigrate(&userModels.User{}, adminModels.Admin{},adminModels.Category{},&adminModels.Product{},&adminModels.Variants{})
 }

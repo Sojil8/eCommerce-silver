@@ -36,15 +36,8 @@
                 <div class="mb-6">
                     <label for="email" class="text-slate-200 text-sm font-medium block mb-2">Email</label>
                     <div class="relative">
-                        <input 
-                            type="email" 
-                            id="email" 
-                            name="email" 
-                            placeholder="you@example.com" 
-                            autocomplete="email" 
-                            required
-                            class="w-full py-3 px-4 pr-10 bg-[rgba(255,255,255,0.1)] border border-[rgba(255,255,255,0.2)] rounded-lg text-white text-base transition-all focus:outline-none focus:border-primary-200 focus:ring-3 focus:ring-primary-200/30"
-                        >
+                        <input type="email" id="email" name="email" placeholder="you@example.com" autocomplete="email" required
+                            class="w-full py-3 px-4 pr-10 bg-[rgba(255,255,255,0.1)] border border-[rgba(255,255,255,0.2)] rounded-lg text-white text-base transition-all focus:outline-none focus:border-primary-200 focus:ring-3 focus:ring-primary-200/30">
                         <i class="fas fa-envelope absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
                     </div>
                     <div id="emailError" class="text-red-400 text-sm mt-1 hidden"></div>
@@ -53,23 +46,14 @@
                 <div class="mb-6">
                     <label for="password" class="text-slate-200 text-sm font-medium block mb-2">Password</label>
                     <div class="relative">
-                        <input 
-                            type="password" 
-                            id="password" 
-                            name="password" 
-                            placeholder="••••••••" 
-                            required
-                            class="w-full py-3 px-4 pr-10 bg-[rgba(255,255,255,0.1)] border border-[rgba(255,255,255,0.2)] rounded-lg text-white text-base transition-all focus:outline-none focus:border-primary-200 focus:ring-3 focus:ring-primary-200/30"
-                        >
+                        <input type="password" id="password" name="password" placeholder="••••••••" required
+                            class="w-full py-3 px-4 pr-10 bg-[rgba(255,255,255,0.1)] border border-[rgba(255,255,255,0.2)] rounded-lg text-white text-base transition-all focus:outline-none focus:border-primary-200 focus:ring-3 focus:ring-primary-200/30">
                         <i id="togglePassword" class="fas fa-eye absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 cursor-pointer"></i>
                     </div>
                     <div id="passwordError" class="text-red-400 text-sm mt-1 hidden"></div>
                 </div>
 
-                <button 
-                    type="submit" 
-                    class="w-full py-3 px-4 bg-gradient-to-r from-primary-300 to-primary-400 text-white font-semibold text-base rounded-lg cursor-pointer transition-all hover:from-primary-400 hover:to-primary-500 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-primary-400/30"
-                >
+                <button type="submit" class="w-full py-3 px-4 bg-gradient-to-r from-primary-300 to-primary-400 text-white font-semibold text-base rounded-lg cursor-pointer transition-all hover:from-primary-400 hover:to-primary-500 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-primary-400/30">
                     LOGIN
                 </button>
             </form>
@@ -81,20 +65,17 @@
             </div>
 
             <div class="mb-4">
-                <a 
-                    href="/auth/google" 
-                    class="flex items-center justify-center w-full py-3 px-4 bg-[rgba(255,255,255,0.1)] text-slate-200 rounded-lg no-underline transition-all hover:bg-[rgba(255,255,255,0.15)] hover:-translate-y-0.5"
-                >
-                    <img src="/api/placeholder/20/20" alt="Google Logo" class="mr-2">
-                    Sign in with Google
+                <a href="/auth/google" class="flex items-center justify-center w-full py-3 px-4 bg-[rgba(255,255,255,0.1)] text-slate-200 rounded-lg no-underline transition-all hover:bg-[rgba(255,255,255,0.15)] hover:-translate-y-0.5">
+                    <i class="fab fa-google mr-2 text-white"></i>
+                    <span>Sign in with Google</span>
                 </a>
             </div>
 
             <p class="text-center text-slate-400 text-sm mt-4">
-                Are you new here? <a href="/user/signup" class="text-primary-100 no-underline transition-colors hover:text-primary-200 hover:underline">Create an Account</a>
+                Are you new here? <a href="/signup" class="text-primary-100 no-underline transition-colors hover:text-primary-200 hover:underline">Create an Account</a>
             </p>
             <p class="text-center text-slate-400 text-sm mt-2">
-                <a href="/user/forgot-password" class="text-primary-100 no-underline transition-colors hover:text-primary-200 hover:underline">Forgot Password?</a>
+                <a href="/forgot-password" class="text-primary-100 no-underline transition-colors hover:text-primary-200 hover:underline">Forgot Password?</a>
             </p>
         </div>
     </div>
@@ -146,46 +127,37 @@
 
             // Form submission
             form.addEventListener('submit', async (e) => {
-    e.preventDefault();
+                e.preventDefault();
 
-    // Client-side validation
-    const isValid = Object.keys(inputs).every(key => validateField(key));
-    if (!isValid) return;
+                const isValid = Object.keys(inputs).every(key => validateField(key));
+                if (!isValid) return;
 
-    const formData = {
-        email: inputs.email.value.trim(),
-        password: inputs.password.value
-    };
+                const formData = {
+                    email: inputs.email.value.trim(),
+                    password: inputs.password.value
+                };
 
-    try {
-    const response = await fetch('/user/login', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData),
-        credentials: 'include'
-    });
+                try {
+                    const response = await fetch('/login', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(formData),
+                        credentials: 'include'
+                    });
 
-    if (!response.ok) {
-        const data = await response.json();
-        showError('emailError', data.message || 'Login failed');
-        return;
-    }
+                    if (!response.ok) {
+                        const data = await response.json();
+                        showError('emailError', data.message || 'Login failed');
+                        return
+                    }
 
-    // Redirect manually after successful login
-    window.location.href = "/user/home"; // Update with the correct path
+                    window.location.href = "/home";
+                } catch (error) {
+                    showError('emailError', 'Network error occurred. Please try again.');
+                    console.error('Error:', error);
+                }
+            });
 
-} catch (error) {
-    showError('emailError', 'Network error occurred. Please try again.');
-    console.error('Error:', error);
-}
-
-
-});
-
-
-            // Error display function
             function showError(elementId, message) {
                 const errorElement = document.getElementById(elementId);
                 errorElement.textContent = message;
