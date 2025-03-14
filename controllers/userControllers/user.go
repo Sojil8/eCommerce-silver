@@ -20,14 +20,14 @@ import (
 var roleUser string = "User"
 
 func ShowSignUp(c *gin.Context) {
-	tokenString, err := c.Cookie("jwtTokensUser")
+	tokenString, err := c.Cookie("jwt_token") // Updated from "jwtTokensUser"
 	if err == nil && tokenString != "" {
 		claims := &middleware.Claims{}
-		token, err := jwt.ParseWithClaims(tokenString, claims, func(c *jwt.Token) (interface{}, error) {
+		token, err := jwt.ParseWithClaims(tokenString, claims, func(t *jwt.Token) (interface{}, error) {
 			return middleware.SecretKey, nil
 		})
 		if err == nil && token.Valid {
-			c.Redirect(http.StatusSeeOther, "/")
+			c.Redirect(http.StatusSeeOther, "/home") // Redirect to /home instead of "/"
 			c.Abort()
 			return
 		}
@@ -222,11 +222,26 @@ func VerifyOTP(c *gin.Context) {
 }
 
 func ShowLogin(c *gin.Context) {
+	// Check for existing JWT token in cookie
+	tokenString, err := c.Cookie("jwt_token") // Note: Cookie name is "jwt_token" from LoginPostUser
+	if err == nil && tokenString != "" {
+		claims := &middleware.Claims{}
+		token, err := jwt.ParseWithClaims(tokenString, claims, func(t *jwt.Token) (interface{}, error) {
+			return middleware.SecretKey, nil
+		})
+		if err == nil && token.Valid {
+			// User is already authenticated, redirect to home
+			c.Redirect(http.StatusSeeOther, "/home")
+			c.Abort()
+			return
+		}
+	}
+
+	// If no valid token, show the login page
 	c.HTML(http.StatusOK, "userlogin.html", gin.H{
 		"title": "Login",
 	})
 }
-
 func LoginPostUser(c *gin.Context) {
 	fmt.Println("----------------user login------------------")
 	var request struct {

@@ -9,17 +9,17 @@ import (
 	"os"
 	"time"
 
-	
-    _ "golang.org/x/image/webp"
-	_ "image/gif"  
-	_ "image/jpeg" 
-	_ "image/png" 
+	_ "image/gif"
+	_ "image/jpeg"
+	_ "image/png"
+
+	_ "golang.org/x/image/webp"
 
 	"github.com/cloudinary/cloudinary-go/v2"
 	"github.com/cloudinary/cloudinary-go/v2/api/uploader"
 	"github.com/disintegration/imaging"
 	"github.com/gin-gonic/gin"
-	_ "golang.org/x/image/bmp" 
+	_ "golang.org/x/image/bmp"
 	_ "golang.org/x/image/tiff"
 )
 
@@ -48,7 +48,7 @@ func InitCloudinary() error {
 func ProcessImage(c *gin.Context, file multipart.File, header *multipart.FileHeader) (string, error) {
 	log.Printf("[INFO] Processing image: %s", header.Filename)
 
-	
+	// Ensure the file pointer is at the start
 	if seeker, ok := file.(interface {
 		Seek(int64, int) (int64, error)
 	}); ok {
@@ -63,6 +63,7 @@ func ProcessImage(c *gin.Context, file multipart.File, header *multipart.FileHea
 		return "", fmt.Errorf("file does not support seeking")
 	}
 
+	// Decode the image
 	img, format, err := image.Decode(file)
 	if err != nil {
 		log.Printf("[ERROR] Failed to decode image %s (format: %s): %v", header.Filename, format, err)
@@ -70,27 +71,49 @@ func ProcessImage(c *gin.Context, file multipart.File, header *multipart.FileHea
 	}
 	log.Printf("[INFO] Image decoded successfully, format: %s", format)
 
+	// Skip cropping (handled by frontend)
+	// Resize to target dimensions if necessary
 	bounds := img.Bounds()
-	minSide := min(bounds.Dx(), bounds.Dy())
-	cropped := imaging.CropCenter(img, minSide, minSide)
-	log.Printf("[INFO] Image cropped to %d x %d", minSide, minSide)
+	if bounds.Dx() != targetWidth || bounds.Dy() != targetHeight {
+		resized := imaging.Resize(img, targetWidth, targetHeight, imaging.Lanczos)
+		log.Printf("[INFO] Image resized to %d x %d", targetWidth, targetHeight)
 
-	resized := imaging.Resize(cropped, targetWidth, targetHeight, imaging.Lanczos)
-	log.Printf("[INFO] Image resized to %d x %d", targetWidth, targetHeight)
+		// Save to temporary file
+		tempFile := fmt.Sprintf("temp_%d_%s.png", time.Now().UnixNano(), header.Filename)
+		err = imaging.Save(resized, tempFile)
+		if err != nil {
+			log.Printf("[ERROR] Failed to save temp image %s: %v", tempFile, err)
+			return "", fmt.Errorf("failed to save temp image: %v", err)
+		}
+		log.Printf("[INFO] Temporary file saved: %s", tempFile)
+		defer os.Remove(tempFile)
 
-	tempFile := fmt.Sprintf("temp_%d_%s.png", time.Now().UnixNano(), header.Filename)
-	err = imaging.Save(resized, tempFile)
+		// Upload to Cloudinary
+		if cld == nil {
+			log.Printf("[ERROR] Cloudinary client not initialized")
+			return "", fmt.Errorf("Cloudinary client not initialized")
+		}
+
+		ctx := context.Background()
+		uploadResult, err := cld.Upload.Upload(ctx, tempFile, uploader.UploadParams{
+			Folder: "ecommerce/products",
+		})
+		if err != nil {
+			log.Printf("[ERROR] Failed to upload %s to Cloudinary: %v", tempFile, err)
+			return "", fmt.Errorf("failed to upload to Cloudinary: %v", err)
+		}
+		log.Printf("[INFO] Image uploaded to Cloudinary, URL: %s", uploadResult.SecureURL)
+		return uploadResult.SecureURL, nil
+	}
+
+	// If already correct size, upload directly
+	tempFile := fmt.Sprintf("temp_%d_%s", time.Now().UnixNano(), header.Filename)
+	err = imaging.Save(img, tempFile)
 	if err != nil {
 		log.Printf("[ERROR] Failed to save temp image %s: %v", tempFile, err)
 		return "", fmt.Errorf("failed to save temp image: %v", err)
 	}
-	log.Printf("[INFO] Temporary file saved: %s", tempFile)
-	defer os.Remove(tempFile) 
-    
-	if cld == nil {
-		log.Printf("[ERROR] Cloudinary client not initialized")
-		return "", fmt.Errorf("Cloudinary client not initialized")
-	}
+	defer os.Remove(tempFile)
 
 	ctx := context.Background()
 	uploadResult, err := cld.Upload.Upload(ctx, tempFile, uploader.UploadParams{
@@ -101,7 +124,6 @@ func ProcessImage(c *gin.Context, file multipart.File, header *multipart.FileHea
 		return "", fmt.Errorf("failed to upload to Cloudinary: %v", err)
 	}
 	log.Printf("[INFO] Image uploaded to Cloudinary, URL: %s", uploadResult.SecureURL)
-
 	return uploadResult.SecureURL, nil
 }
 
@@ -114,7 +136,7 @@ func min(a, b int) int {
 
 func TestWebPDecoder() {
 	log.Printf("[INFO] Verifying WebP decoder registration")
-	f, err := os.Open("test.webp") 
+	f, err := os.Open("test.webp")
 	if err != nil {
 		log.Printf("[ERROR] Failed to open test WebP file: %v", err)
 		return

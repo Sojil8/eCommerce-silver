@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shop - Your Store</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://kit.fontawesome.com/a076d05399.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+</head>
+<body class="bg-gray-50 flex flex-col min-h-screen">
+  <!-- Navbar -->
+  <header class="bg-white shadow-lg py-4 px-6 sticky top-0 z-10">
+    <div class="container mx-auto flex justify-between items-center">
+      <h1 class="text-3xl font-extrabold text-gray-900 tracking-tight">
+        <a href="/home" class="hover:text-indigo-600 transition-colors">Your Store</a>
+      </h1>
+      <nav class="hidden md:flex space-x-8">
+        <a href="/home" class="text-gray-700 font-medium hover:text-indigo-600 transition-colors duration-200">Home</a>
+        <a href="/shop" class="text-indigo-600 font-semibold border-b-2 border-indigo-600">Shop</a>
+      </nav>
+      <div class="flex items-center space-x-6 text-gray-700">
+        <a href="/wishlist" class="hover:text-indigo-600 transition-colors" title="Wishlist"><i class="fas fa-heart text-xl"></i></a>
+        <a href="/cart" class="hover:text-indigo-600 transition-colors" title="Cart"><i class="fas fa-shopping-cart text-xl"></i></a>
+        <a href="/profile" class="hover:text-indigo-600 transition-colors" title="Profile"><i class="fas fa-user text-xl"></i></a>
+        <span class="text-gray-800 font-medium">{{.UserName}}</span>
+        <form action="/logout" method="POST" class="inline">
+          <button type="submit" class="bg-red-600 text-white px-4 py-1 rounded-full hover:bg-red-700 transition-colors">Logout</button>
+        </form>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <div class="container mx-auto p-6 flex-grow">
+    <h2 class="text-3xl font-bold text-gray-900 mb-8 tracking-tight">Shop Our Collection</h2>
+
+    <!-- Filters and Search -->
+    <div class="bg-white p-4 rounded-lg shadow-md mb-6">
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <!-- Search -->
+        <div class="relative">
+          <input type="text" id="search" class="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Search products..." value="{{.Query.Search}}">
+          <button id="clear-search" class="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-red-600"><i class="fas fa-times"></i></button>
+        </div>
+
+        <!-- Sort -->
+        <select id="sort" class="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+          <option value="" {{if eq .Query.Sort ""}}selected{{end}}>Default</option>
+          <option value="price_low_to_high" {{if eq .Query.Sort "price_low_to_high"}}selected{{end}}>Price: Low to High</option>
+          <option value="price_high_to_low" {{if eq .Query.Sort "price_high_to_low"}}selected{{end}}>Price: High to Low</option>
+          <option value="a_to_z" {{if eq .Query.Sort "a_to_z"}}selected{{end}}>A to Z</option>
+          <option value="z_to_a" {{if eq .Query.Sort "z_to_a"}}selected{{end}}>Z to A</option>
+        </select>
+
+        <!-- Category Filter -->
+        <select id="category" class="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+          <option value="" {{if eq .Query.Category ""}}selected{{end}}>All Categories</option>
+          {{range .Categories}}
+            <option value="{{.CategoryName}}" {{if eq $.Query.Category .CategoryName}}selected{{end}}>{{.CategoryName}}</option>
+          {{end}}
+        </select>
+
+        <!-- Pre-built Price Range -->
+        <select id="price-range" class="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+          <option value="" {{if and (eq .Query.PriceMin 0.0) (eq .Query.PriceMax 0.0)}}selected{{end}}>All Prices</option>
+          <option value="0-500" {{if and (eq .Query.PriceMin 0.0) (eq .Query.PriceMax 500.0)}}selected{{end}}>₹0 - ₹500</option>
+          <option value="500-1000" {{if and (eq .Query.PriceMin 500.0) (eq .Query.PriceMax 1000.0)}}selected{{end}}>₹500 - ₹1,000</option>
+          <option value="1000-2000" {{if and (eq .Query.PriceMin 1000.0) (eq .Query.PriceMax 2000.0)}}selected{{end}}>₹1,000 - ₹2,000</option>
+          <option value="2000-5000" {{if and (eq .Query.PriceMin 2000.0) (eq .Query.PriceMax 5000.0)}}selected{{end}}>₹2,000 - ₹5,000</option>
+          <option value="5000-" {{if and (eq .Query.PriceMin 5000.0) (eq .Query.PriceMax 0.0)}}selected{{end}}>₹5,000+</option>
+        </select>
+      </div>
+      <button id="apply-filters" class="mt-4 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors">Apply Filters</button>
+    </div>
+
+    <!-- Product Listing -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
+      {{if .Products}}
+        {{range .Products}}
+          <div class="relative bg-white rounded-xl shadow-md overflow-hidden group transform transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
+            <div class="relative">
+              {{if gt (len .Images) 0}}
+                <img src="{{index .Images 0}}" alt="{{.ProductName}}" class="w-full h-56 object-cover transition-opacity duration-300 group-hover:opacity-75">
+              {{else}}
+                <img src="/static/default-product.jpg" alt="{{.ProductName}}" class="w-full h-56 object-cover transition-opacity duration-300 group-hover:opacity-75">
+              {{end}}
+              <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                <a href="/product/details/{{.ID}}" class="bg-indigo-600 text-white px-6 py-2 rounded-full font-medium hover:bg-indigo-700 transition-colors duration-200">View Product</a>
+              </div>
+            </div>
+            <div class="p-4">
+              <h3 class="text-lg font-semibold text-gray-900 truncate">{{.ProductName}}</h3>
+              <p class="text-gray-500 text-sm">{{.CategoryName}}</p>
+              <div class="flex justify-between items-center mt-2">
+                <p class="text-indigo-600 font-bold text-lg">₹{{printf "%.2f" .Price}}</p>
+                <button class="text-indigo-600 hover:text-indigo-800 transition-colors" onclick="addToCart('{{.ID}}')">
+                  <i class="fas fa-cart-plus text-xl"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+        {{end}}
+      {{else}}
+        <p class="text-center text-gray-500 col-span-full text-lg">No products found</p>
+      {{end}}
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="bg-gray-900 text-white p-6 mt-auto">
+    <div class="container mx-auto flex flex-col md:flex-row justify-between items-center">
+      <p class="text-sm">© 2025 Your Company. All rights reserved.</p>
+      <div class="mt-4 md:mt-0 space-x-6">
+        <a href="#" class="text-gray-300 hover:text-white transition-colors duration-200">Privacy Policy</a>
+        <a href="#" class="text-gray-300 hover:text-white transition-colors duration-200">Terms of Service</a>
+      </div>
+    </div>
+  </footer>
+
+  <!-- JavaScript -->
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const searchInput = document.getElementById('search');
+      const clearSearchBtn = document.getElementById('clear-search');
+      const sortSelect = document.getElementById('sort');
+      const categorySelect = document.getElementById('category');
+      const priceRangeSelect = document.getElementById('price-range');
+      const applyFiltersBtn = document.getElementById('apply-filters');
+
+      // Clear search
+      clearSearchBtn.addEventListener('click', function() {
+        searchInput.value = '';
+        applyFilters();
+      });
+
+      // Apply filters
+      applyFiltersBtn.addEventListener('click', applyFilters);
+
+      function applyFilters() {
+        const priceRange = priceRangeSelect.value.split('-');
+        let priceMin = 0;
+        let priceMax = 0;
+        if (priceRange[0] !== '') {
+          priceMin = parseFloat(priceRange[0]);
+          priceMax = priceRange[1] ? parseFloat(priceRange[1]) : 0;
+        }
+
+        const query = {
+          search: searchInput.value.trim(),
+          sort: sortSelect.value,
+          category: categorySelect.value,
+          price_min: priceMin,
+          price_max: priceMax
+        };
+
+        fetch('/shop', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(query),
+          credentials: 'include'
+        })
+        .then(response => {
+          if (!response.ok) throw new Error('Failed to fetch products');
+          return response.text(); // Get HTML response
+        })
+        .then(html => {
+          document.open();
+          document.write(html);
+          document.close();
+        })
+        .catch(error => {
+          Swal.fire('Error', 'Failed to load products', 'error');
+          console.error(error);
+        });
+      }
+
+      // Add to Cart
+      window.addToCart = async function(productId) {
+        try {
+          const response = await fetch(`/cart/add`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ product_id: productId, quantity: 1 }),
+            credentials: 'include'
+          });
+          const data = await response.json();
+          if (response.ok) {
+            Swal.fire({
+              icon: 'success',
+              title: 'Added to Cart!',
+              text: 'Product has been added to your cart.',
+              timer: 1500,
+              showConfirmButton: false
+            });
+          } else {
+            Swal.fire('Error', data.error || 'Failed to add to cart', 'error');
+          }
+        } catch (error) {
+          Swal.fire('Error', 'Something went wrong', 'error');
+          console.error(error);
+        }
+      };
+    });
+  </script>
+</body>
+</html>

@@ -48,12 +48,15 @@
                     <div class="relative">
                         <input type="password" id="password" name="password" placeholder="••••••••" required
                             class="w-full py-3 px-4 pr-10 bg-[rgba(255,255,255,0.1)] border border-[rgba(255,255,255,0.2)] rounded-lg text-white text-base transition-all focus:outline-none focus:border-primary-200 focus:ring-3 focus:ring-primary-200/30">
-                        <i id="togglePassword" class="fas fa-eye absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 cursor-pointer"></i>
+                        <button id="togglePassword" type="button" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 cursor-pointer">
+                            <i class="fa fa-eye"></i>
+                        </button>
                     </div>
                     <div id="passwordError" class="text-red-400 text-sm mt-1 hidden"></div>
                 </div>
 
-                <button type="submit" class="w-full py-3 px-4 bg-gradient-to-r from-primary-300 to-primary-400 text-white font-semibold text-base rounded-lg cursor-pointer transition-all hover:from-primary-400 hover:to-primary-500 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-primary-400/30">
+                <button type="submit"
+                    class="w-full py-3 px-4 bg-gradient-to-r from-primary-300 to-primary-400 text-white font-semibold text-base rounded-lg cursor-pointer transition-all hover:from-primary-400 hover:to-primary-500 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-primary-400/30">
                     LOGIN
                 </button>
             </form>
@@ -65,17 +68,20 @@
             </div>
 
             <div class="mb-4">
-                <a href="/auth/google" class="flex items-center justify-center w-full py-3 px-4 bg-[rgba(255,255,255,0.1)] text-slate-200 rounded-lg no-underline transition-all hover:bg-[rgba(255,255,255,0.15)] hover:-translate-y-0.5">
+                <a href="/auth/google"
+                    class="flex items-center justify-center w-full py-3 px-4 bg-[rgba(255,255,255,0.1)] text-slate-200 rounded-lg no-underline transition-all hover:bg-[rgba(255,255,255,0.15)] hover:-translate-y-0.5">
                     <i class="fab fa-google mr-2 text-white"></i>
                     <span>Sign in with Google</span>
                 </a>
             </div>
 
             <p class="text-center text-slate-400 text-sm mt-4">
-                Are you new here? <a href="/signup" class="text-primary-100 no-underline transition-colors hover:text-primary-200 hover:underline">Create an Account</a>
+                Are you new here? <a href="/signup"
+                    class="text-primary-100 no-underline transition-colors hover:text-primary-200 hover:underline">Create an Account</a>
             </p>
             <p class="text-center text-slate-400 text-sm mt-2">
-                <a href="/forgot-password" class="text-primary-100 no-underline transition-colors hover:text-primary-200 hover:underline">Forgot Password?</a>
+                <a href="/forgot-password"
+                    class="text-primary-100 no-underline transition-colors hover:text-primary-200 hover:underline">Forgot Password?</a>
             </p>
         </div>
     </div>
@@ -89,19 +95,21 @@
             };
             const togglePassword = document.getElementById('togglePassword');
 
-            // Toggle password visibility
-            togglePassword.addEventListener('click', () => {
-                const type = inputs.password.type === 'password' ? 'text' : 'password';
-                inputs.password.type = type;
-                togglePassword.classList.toggle('fa-eye');
-                togglePassword.classList.toggle('fa-eye-slash');
-            });
+            if (togglePassword) {
+                togglePassword.addEventListener('click', () => {
+                    console.log("togglePassword clicked");
+                    const isPassword = inputs.password.type === 'password';
+                    inputs.password.type = isPassword ? 'text' : 'password';
+                    togglePassword.classList.toggle('fa-eye');
+                    togglePassword.classList.toggle('fa-eye-slash');
+                });
+            } else {
+                console.error('togglePassword element not found');
+            }
 
             // Client-side validation
             function validateField(field) {
                 const value = inputs[field].value.trim();
-                const errorElement = document.getElementById(`${field}Error`);
-
                 switch (field) {
                     case 'email':
                         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
@@ -128,7 +136,6 @@
             // Form submission
             form.addEventListener('submit', async (e) => {
                 e.preventDefault();
-
                 const isValid = Object.keys(inputs).every(key => validateField(key));
                 if (!isValid) return;
 
@@ -148,7 +155,7 @@
                     if (!response.ok) {
                         const data = await response.json();
                         showError('emailError', data.message || 'Login failed');
-                        return
+                        return;
                     }
 
                     window.location.href = "/home";

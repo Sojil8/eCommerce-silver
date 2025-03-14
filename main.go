@@ -13,6 +13,7 @@ var router *gin.Engine
 func init() {
 	router = gin.Default()
 	router.Static("/static", "./static")
+	router.SetFuncMap(config.SetupTemplateFunctions())
 	router.LoadHTMLGlob("templates/**/*")
 	config.LoadEnv()
 	config.Cloudnary()
@@ -28,6 +29,8 @@ func init() {
 func main() {
 	routes.AdminRoutes(router)
 	routes.UserRoutes(router)
+	
 
+	
 	router.Run()
 }

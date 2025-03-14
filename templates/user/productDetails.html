@@ -16,7 +16,9 @@
         .quantity-control { display: flex; align-items: center; border-radius: 0.375rem; border: 1px solid #e5e7eb; overflow: hidden; }
         .quantity-btn { display: flex; align-items: center; justify-content: center; width: 2.5rem; height: 2.5rem; background-color: #f3f4f6; cursor: pointer; transition: background-color 0.2s; }
         .quantity-btn:hover { background-color: #e5e7eb; }
+        .quantity-btn:disabled { background-color: #d1d5db; cursor: not-allowed; }
         .quantity-input { width: 3rem; height: 2.5rem; border: none; text-align: center; -moz-appearance: textfield; }
+        .quantity-input:disabled { background-color: #d1d5db; cursor: not-allowed; }
         .quantity-input::-webkit-outer-spin-button, .quantity-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
         .variant-btn.active { background-color: #4f46e5; color: white; border-color: #4f46e5; }
     </style>
@@ -74,8 +76,10 @@
                     <!-- Price and Discount -->
                     <div class="flex items-center space-x-4">
                         <span class="text-3xl font-bold text-indigo-600" id="current-price">₹{{ printf "%.2f" .Product.Price }}</span>
-                        <span class="text-lg text-gray-500 line-through" id="original-price">₹{{ printf "%.2f" .OriginalPrice }}</span>
-                        <span class="bg-green-100 text-green-800 text-sm font-medium px-3 py-1 rounded-full" id="discount">{{ .DiscountPercentage }}% Off</span>
+                        {{ if gt .OriginalPrice .Product.Price }}
+                            <span class="text-lg text-gray-500 line-through" id="original-price">₹{{ printf "%.2f" .OriginalPrice }}</span>
+                            <span class="bg-green-100 text-green-800 text-sm font-medium px-3 py-1 rounded-full" id="discount">{{ .DiscountPercentage }}% Off</span>
+                        {{ end }}
                     </div>
 
                     <!-- Description -->
@@ -103,10 +107,10 @@
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">Quantity</label>
                         <div class="quantity-control w-32">
-                            <div class="quantity-btn" id="quantity-down"><i class="fas fa-minus text-gray-600"></i></div>
+                            <div class="quantity-btn" id="quantity-down" disabled><i class="fas fa-minus text-gray-600"></i></div>
                             <input type="number" id="product-quantity" class="quantity-input" value="1" min="1" 
-                                   {{ if .Product.Variants }}{{ with index .Product.Variants 0 }}max="{{ .Stock }}"{{ end }}{{ else }}max="0"{{ end }}>
-                            <div class="quantity-btn" id="quantity-up"><i class="fas fa-plus text-gray-600"></i></div>
+                                   {{ if .Product.Variants }}{{ with index .Product.Variants 0 }}max="{{ .Stock }}"{{ end }}{{ else }}max="0"{{ end }} disabled>
+                            <div class="quantity-btn" id="quantity-up" disabled><i class="fas fa-plus text-gray-600"></i></div>
                         </div>
                     </div>
 
@@ -183,6 +187,10 @@
             // Select the first variant by default if available
             if (variantButtons.length > 0) {
                 variantButtons[0].click(); // Trigger click to set initial variant
+            } else {
+                addToCartBtn.disabled = true;
+                addToCartBtn.classList.add('bg-gray-400', 'cursor-not-allowed');
+                addToCartBtn.classList.remove('bg-indigo-600', 'hover:bg-indigo-700');
             }
 
             // Variant selection
@@ -201,23 +209,45 @@
                     // Update price and stock
                     const newPrice = basePrice + selectedVariant.extraPrice;
                     const newOriginalPrice = baseOriginalPrice + selectedVariant.extraPrice;
-                    const discountPercentage = Math.round(((newOriginalPrice - newPrice) / newOriginalPrice) * 100);
+                    const discountPercentage = newOriginalPrice > newPrice ? Math.round(((newOriginalPrice - newPrice) / newOriginalPrice) * 100) : 0;
 
                     currentPriceEl.textContent = `₹${newPrice.toFixed(2)}`;
-                    originalPriceEl.textContent = `₹${newOriginalPrice.toFixed(2)}`;
-                    discountEl.textContent = `${discountPercentage}% Off`;
+                    if (discountPercentage > 0) {
+                        originalPriceEl.textContent = `₹${newOriginalPrice.toFixed(2)}`;
+                        discountEl.textContent = `${discountPercentage}% Off`;
+                        originalPriceEl.style.display = 'inline';
+                        discountEl.style.display = 'inline';
+                    } else {
+                        originalPriceEl.style.display = 'none';
+                        discountEl.style.display = 'none';
+                    }
                     stockQuantityEl.textContent = selectedVariant.stock;
                     quantityInput.max = selectedVariant.stock;
                     if (parseInt(quantityInput.value) > selectedVariant.stock) {
                         quantityInput.value = selectedVariant.stock;
                     }
+
+                    // Enable quantity controls
+                    btnQuantityUp.disabled = false;
+                    btnQuantityDown.disabled = false;
+                    quantityInput.disabled = false;
                 });
             });
 
             // Quantity controls
             btnQuantityUp.addEventListener('click', function() {
+                if (!selectedVariant) {
+                    Swal.fire({
+                        title: "Select a Variant",
+                        text: "Please select a variant before adjusting quantity.",
+                        icon: "warning",
+                        timer: 2000,
+                        showConfirmButton: false
+                    });
+                    return;
+                }
                 let currentValue = parseInt(quantityInput.value, 10);
-                const max = selectedVariant ? selectedVariant.stock : 0;
+                const max = selectedVariant.stock;
                 if (currentValue < max) {
                     quantityInput.value = currentValue + 1;
                 } else {
@@ -232,6 +262,16 @@
             });
 
             btnQuantityDown.addEventListener('click', function() {
+                if (!selectedVariant) {
+                    Swal.fire({
+                        title: "Select a Variant",
+                        text: "Please select a variant before adjusting quantity.",
+                        icon: "warning",
+                        timer: 2000,
+                        showConfirmButton: false
+                    });
+                    return;
+                }
                 let currentValue = parseInt(quantityInput.value, 10);
                 if (currentValue > 1) {
                     quantityInput.value = currentValue - 1;
@@ -239,10 +279,21 @@
             });
 
             quantityInput.addEventListener('input', function() {
-                let currentValue = parseInt(quantityInput.value, 10);
-                const max = selectedVariant ? selectedVariant.stock : 0;
+                if (!selectedVariant) {
+                    Swal.fire({
+                        title: "Select a Variant",
+                        text: "Please select a variant before adjusting quantity.",
+                        icon: "warning",
+                        timer: 2000,
+                        showConfirmButton: false
+                    });
+                    this.value = 1;
+                    return;
+                }
+                let currentValue = parseInt(this.value, 10);
+                const max = selectedVariant.stock;
                 if (currentValue > max) {
-                    quantityInput.value = max;
+                    this.value = max;
                     Swal.fire({
                         title: "Max Quantity Reached",
                         text: "You cannot add more than available stock.",
@@ -251,7 +302,7 @@
                         showConfirmButton: false
                     });
                 } else if (currentValue < 1 || isNaN(currentValue)) {
-                    quantityInput.value = 1;
+                    this.value = 1;
                 }
             });
 

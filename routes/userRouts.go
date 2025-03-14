@@ -22,6 +22,8 @@ func UserRoutes(c *gin.Engine) {
 		{
 			protected.GET("/home", controllers.GetUserProducts)
 			protected.GET("/product/details/:id", controllers.GetProductDetails)
+			protected.GET("/shop",controllers.GetUserShop)
+			protected.POST("/shop",controllers.GetUserShop)
 
 			protected.POST("/logout", controllers.LogoutUser) 
 		}

@@ -33,20 +33,6 @@ func GetUserProducts(c *gin.Context) {
 		db = db.Where("LOWER(products.product_name) LIKE ?", searchTerm)
 	}
 
-	// Apply sorting
-	switch query.Sort {
-	case "price_low_to_high":
-		db = db.Order("products.price ASC")
-	case "price_high_to_low":
-		db = db.Order("products.price DESC")
-	case "a_to_z":
-		db = db.Order("products.product_name ASC")
-	case "z_to_a":
-		db = db.Order("products.product_name DESC")
-	default:
-		db = db.Order("products.id DESC")
-	}
-
 	// Fetch products with preloaded variants
 	var products []adminModels.Product
 	if err := db.Preload("Variants").Find(&products).Error; err != nil {

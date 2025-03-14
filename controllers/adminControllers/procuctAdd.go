@@ -12,11 +12,58 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// ShowAddProductForm renders the add product form with categories
 func ShowAddProductForm(c *gin.Context) {
+	var categories []adminModels.Category
+	if err := database.DB.Where("status = ?", true).Find(&categories).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch categories"})
+		return
+	}
+
 	c.HTML(http.StatusOK, "productAdd.html", gin.H{
-		"Product": nil, // No product data for "Add" mode
+		"Product":    nil, // No product data for "Add" mode
+		"Categories": categories,
 	})
 }
+
+// ShowEditProductForm renders the edit product form with categories and product data
+func ShowEditProductForm(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid product ID"})
+		return
+	}
+
+	var product adminModels.Product
+	if err := database.DB.Preload("Variants").First(&product, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Product not found"})
+		return
+	}
+
+	var categories []adminModels.Category
+	if err := database.DB.Where("status = ?", true).Find(&categories).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch categories"})
+		return
+	}
+
+	c.HTML(http.StatusOK, "productAdd.html", gin.H{
+		"Product":    &product,
+		"Categories": categories,
+	})
+}
+
+// GetCategoriesAPI provides a JSON endpoint for fetching categories (used by frontend fetchCategories)
+func GetCategoriesAPI(c *gin.Context) {
+	var categories []adminModels.Category
+	if err := database.DB.Where("status = ?", true).Find(&categories).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch categories"})
+		return
+	}
+	c.JSON(http.StatusOK, categories)
+}
+
+// AddProduct handles adding a new product
 func AddProduct(c *gin.Context) {
 	middleware.ClearCache()
 
@@ -29,10 +76,10 @@ func AddProduct(c *gin.Context) {
 
 	// Validate required fields
 	requiredFields := map[string]string{
-		"productName":  form.Value["productName"][0],
-		"description":  form.Value["description"][0],
-		"price":        form.Value["price"][0],
-		"categoryName": form.Value["categoryName"][0],
+		"productName":  c.PostForm("productName"),
+		"description":  c.PostForm("description"),
+		"price":        c.PostForm("price"),
+		"categoryName": c.PostForm("categoryName"),
 	}
 	for field, value := range requiredFields {
 		if value == "" {
@@ -42,8 +89,8 @@ func AddProduct(c *gin.Context) {
 	}
 
 	price, err := strconv.ParseFloat(requiredFields["price"], 64)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid price format"})
+	if err != nil || price <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid price format or value"})
 		return
 	}
 
@@ -87,6 +134,7 @@ func AddProduct(c *gin.Context) {
 		Price:        price,
 		CategoryName: requiredFields["categoryName"],
 		Images:       imageURLs,
+		IsListed:     true,
 	}
 
 	// Handle variants
@@ -133,7 +181,7 @@ func AddProduct(c *gin.Context) {
 	})
 }
 
-// EditProduct updates an existing product with optional color variants
+// EditProduct updates an existing product
 func EditProduct(c *gin.Context) {
 	middleware.ClearCache()
 	idStr := c.Param("id")
@@ -155,6 +203,7 @@ func EditProduct(c *gin.Context) {
 		return
 	}
 
+	// Update fields if provided
 	if name := c.PostForm("productName"); name != "" {
 		product.ProductName = name
 	}
@@ -163,8 +212,8 @@ func EditProduct(c *gin.Context) {
 	}
 	if priceStr := c.PostForm("price"); priceStr != "" {
 		price, err := strconv.ParseFloat(priceStr, 64)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid price format"})
+		if err != nil || price <= 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid price format or value"})
 			return
 		}
 		product.Price = price
@@ -182,9 +231,11 @@ func EditProduct(c *gin.Context) {
 		product.CategoryName = categoryName
 	}
 
-	if files := form.File["images"]; len(files) > 0 {
-		if len(files) < 3 {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "At least 3 images are required for update"})
+	// Handle images
+	files := form.File["images"]
+	if len(files) > 0 { // New images provided
+		if len(files) + len(product.Images) < 3 && len(files) < 3 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "At least 3 images are required when updating images"})
 			return
 		}
 		var imagePaths []string
@@ -202,13 +253,20 @@ func EditProduct(c *gin.Context) {
 			}
 			imagePaths = append(imagePaths, path)
 		}
+		// Replace existing images with new ones if provided
 		product.Images = imagePaths
+	} else {
+		// Check if remaining images meet the minimum requirement
+		if len(product.Images) < 3 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "At least 3 images are required"})
+			return
+		}
 	}
 
 	// Handle color variants update (replace existing variants)
-	colors := form.Value["color"]
-	variantPrices := form.Value["variantPrice"]
-	variantStocks := form.Value["variantStock"]
+	colors := form.Value["color[]"]
+	variantPrices := form.Value["variantPrice[]"]
+	variantStocks := form.Value["variantStock[]"]
 	if len(colors) > 0 {
 		if len(colors) != len(variantPrices) || len(colors) != len(variantStocks) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Mismatch in variant fields (color, price, stock)"})
@@ -235,8 +293,12 @@ func EditProduct(c *gin.Context) {
 				Stock:      uint(stock),
 			})
 		}
+	} else if len(product.Variants) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "At least one variant is required"})
+		return
 	}
 
+	// Save to database
 	if err := database.DB.Save(&product).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update product"})
 		return

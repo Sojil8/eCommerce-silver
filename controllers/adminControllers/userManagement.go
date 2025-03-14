@@ -16,7 +16,7 @@ func GetUsers(c *gin.Context) {
 	var users []userModels.User
 	searchQuery := c.Query("search")
 
-	dbQuery := database.DB.Unscoped().Order("id") // Simplified ordering
+	dbQuery := database.DB.Unscoped().Order("id") 
 
 	if searchQuery != "" {
 		searchPattern := "%" + searchQuery + "%"
