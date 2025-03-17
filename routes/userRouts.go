@@ -14,6 +14,7 @@ func UserRoutes(c *gin.Engine) {
 		userGroup.POST("/signup", controllers.UserSignUp)
 		userGroup.GET("/signup/otp", controllers.ShowOTPPage)
 		userGroup.POST("/signup/otp", controllers.VerifyOTP)
+		userGroup.POST("/signup/otp/resend",controllers.ResendOTP)
 		userGroup.GET("/login", controllers.ShowLogin)
 		userGroup.POST("/login", controllers.LoginPostUser)
 

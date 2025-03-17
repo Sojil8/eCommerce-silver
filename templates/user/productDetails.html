@@ -24,6 +24,35 @@
     </style>
 </head>
 <body class="bg-gray-100 font-sans antialiased">
+    <!-- Navigation Bar -->
+    <nav class="bg-white shadow-md py-4">
+        <div class="container mx-auto px-4 flex items-center justify-between">
+            <!-- Logo -->
+            <a href="/home" class="text-2xl font-bold text-indigo-600 hover:text-indigo-800 transition-colors">Silver</a>
+            <!-- Menu Links -->
+            <div class="hidden md:flex space-x-6">
+                <a href="/home" class="text-gray-700 hover:text-indigo-600 transition-colors">Home</a>
+                <a href="/shope" class="text-gray-700 hover:text-indigo-600 transition-colors">shope</a>
+                <!-- <a href="/categories" class="text-gray-700 hover:text-indigo-600 transition-colors">Categories</a> -->
+                <!-- <a href="/about" class="text-gray-700 hover:text-indigo-600 transition-colors">About</a> -->
+                <!-- <a href="/contact" class="text-gray-700 hover:text-indigo-600 transition-colors">Contact</a> -->
+            </div>
+            <!-- Icons -->
+            <div class="flex items-center space-x-4">
+                <a href="/cart" class="text-gray-700 hover:text-indigo-600 transition-colors">
+                    <i class="fas fa-shopping-cart"></i>
+                </a>
+                <a href="/profile" class="text-gray-700 hover:text-indigo-600 transition-colors">
+                    <i class="fas fa-user"></i>
+                </a>
+                <!-- Mobile Menu Button -->
+                <button class="md:hidden text-gray-700 hover:text-indigo-600 focus:outline-none">
+                    <i class="fas fa-bars"></i>
+                </button>
+            </div>
+        </div>
+    </nav>
+
     <!-- Breadcrumb -->
     <div class="container mx-auto px-4 py-6">
         <nav class="flex items-center text-sm text-gray-600">
@@ -170,247 +199,305 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            const quantityInput = document.getElementById('product-quantity');
-            const btnQuantityUp = document.getElementById('quantity-up');
-            const btnQuantityDown = document.getElementById('quantity-down');
-            const addToCartBtn = document.getElementById('add-to-cart');
-            const variantButtons = document.querySelectorAll('.variant-btn');
-            const currentPriceEl = document.getElementById('current-price');
-            const originalPriceEl = document.getElementById('original-price');
-            const discountEl = document.getElementById('discount');
-            const stockQuantityEl = document.getElementById('stock-quantity');
+    // Elements
+    const mainImage = document.getElementById('main-image');
+    const zoomedImage = document.getElementById('zoomed-image');
+    const zoomBox = document.querySelector('.img-zoom-box');
+    const thumbnails = document.querySelectorAll('.thumbnail');
+    const quantityInput = document.getElementById('product-quantity');
+    const btnQuantityUp = document.getElementById('quantity-up');
+    const btnQuantityDown = document.getElementById('quantity-down');
+    const addToCartBtn = document.getElementById('add-to-cart');
+    const variantButtons = document.querySelectorAll('.variant-btn');
+    const currentPriceEl = document.getElementById('current-price');
+    const originalPriceEl = document.getElementById('original-price');
+    const discountEl = document.getElementById('discount');
+    const stockQuantityEl = document.getElementById('stock-quantity');
+    const availabilityEl = document.getElementById('availability');
+    const imgZoomContainer = document.querySelector('.img-zoom-container');
 
-            let basePrice = {{ .Product.Price }};
-            let baseOriginalPrice = {{ .OriginalPrice }};
-            let selectedVariant = null;
+    // Base product info
+    let basePrice = parseFloat(currentPriceEl.textContent.replace('₹', ''));
+    let baseOriginalPrice = originalPriceEl ? parseFloat(originalPriceEl.textContent.replace('₹', '')) : basePrice;
+    let selectedVariant = null;
 
-            // Select the first variant by default if available
-            if (variantButtons.length > 0) {
-                variantButtons[0].click(); // Trigger click to set initial variant
+    // Image zoom functionality
+    function initZoom() {
+        if (!mainImage || !zoomedImage || !zoomBox) return;
+
+        const zoomRatio = 2.5; // Zoom magnification level
+
+        imgZoomContainer.addEventListener('mousemove', function(e) {
+            // Get relative cursor position
+            const rect = mainImage.getBoundingClientRect();
+            const cursorX = e.clientX - rect.left;
+            const cursorY = e.clientY - rect.top;
+
+            // Calculate zoom box position
+            const boxHalfWidth = zoomBox.offsetWidth / 2;
+            const boxHalfHeight = zoomBox.offsetHeight / 2;
+            
+            // Keep zoom box within image boundaries
+            let boxX = cursorX - boxHalfWidth;
+            let boxY = cursorY - boxHalfHeight;
+            
+            boxX = Math.max(0, Math.min(boxX, rect.width - zoomBox.offsetWidth));
+            boxY = Math.max(0, Math.min(boxY, rect.height - zoomBox.offsetHeight));
+            
+            // Position zoom box
+            zoomBox.style.left = `${boxX}px`;
+            zoomBox.style.top = `${boxY}px`;
+
+            // Calculate zoomed image position
+            const zoomPosX = (cursorX / rect.width) * 100;
+            const zoomPosY = (cursorY / rect.height) * 100;
+            
+            // Position zoomed image
+            zoomedImage.style.width = `${rect.width * zoomRatio}px`;
+            zoomedImage.style.height = `${rect.height * zoomRatio}px`;
+            zoomedImage.style.transform = `translate(-${zoomPosX}%, -${zoomPosY}%)`;
+        });
+
+        // Handle mouse enter/leave
+        imgZoomContainer.addEventListener('mouseenter', function() {
+            zoomBox.style.display = 'block';
+        });
+
+        imgZoomContainer.addEventListener('mouseleave', function() {
+            zoomBox.style.display = 'none';
+        });
+    }
+
+    // Thumbnail click handler
+    thumbnails.forEach(thumb => {
+        thumb.addEventListener('click', function() {
+            const newSrc = this.getAttribute('data-src');
+            // Update active thumbnail
+            thumbnails.forEach(t => t.classList.remove('ring-2', 'ring-indigo-500'));
+            this.classList.add('ring-2', 'ring-indigo-500');
+            
+            // Update main image and zoomed image
+            mainImage.src = newSrc;
+            zoomedImage.src = newSrc;
+        });
+    });
+
+    // Select first thumbnail as active
+    if (thumbnails.length > 0) {
+        thumbnails[0].classList.add('ring-2', 'ring-indigo-500');
+    }
+
+    // Function to update stock display
+    function updateStockDisplay(stock) {
+        if (stockQuantityEl) {
+            stockQuantityEl.textContent = stock;
+        }
+        
+        if (availabilityEl) {
+            if (stock > 0) {
+                availabilityEl.innerHTML = `In Stock (<span id="stock-quantity">${stock}</span>)`;
+                availabilityEl.classList.remove('text-red-600');
+                availabilityEl.classList.add('text-green-600');
+                
+                // Enable add to cart and quantity controls
+                addToCartBtn.disabled = false;
+                addToCartBtn.classList.remove('bg-gray-400', 'cursor-not-allowed');
+                addToCartBtn.classList.add('bg-indigo-600', 'hover:bg-indigo-700');
+                
+                btnQuantityUp.disabled = false;
+                btnQuantityDown.disabled = false;
+                quantityInput.disabled = false;
+                
+                // Update max quantity
+                quantityInput.max = stock;
+                
+                // Ensure quantity is not more than stock
+                if (parseInt(quantityInput.value) > stock) {
+                    quantityInput.value = stock;
+                }
             } else {
+                availabilityEl.innerHTML = 'Out of Stock';
+                availabilityEl.classList.remove('text-green-600');
+                availabilityEl.classList.add('text-red-600');
+                
+                // Disable add to cart and quantity controls
                 addToCartBtn.disabled = true;
                 addToCartBtn.classList.add('bg-gray-400', 'cursor-not-allowed');
                 addToCartBtn.classList.remove('bg-indigo-600', 'hover:bg-indigo-700');
+                
+                btnQuantityUp.disabled = true;
+                btnQuantityDown.disabled = true;
+                quantityInput.disabled = true;
             }
+        }
+    }
 
-            // Variant selection
-            variantButtons.forEach(btn => {
-                btn.addEventListener('click', function() {
-                    variantButtons.forEach(b => b.classList.remove('active'));
-                    this.classList.add('active');
-
-                    selectedVariant = {
-                        id: this.dataset.variantId,
-                        color: this.dataset.color,
-                        extraPrice: parseFloat(this.dataset.extraPrice),
-                        stock: parseInt(this.dataset.stock)
-                    };
-
-                    // Update price and stock
-                    const newPrice = basePrice + selectedVariant.extraPrice;
-                    const newOriginalPrice = baseOriginalPrice + selectedVariant.extraPrice;
-                    const discountPercentage = newOriginalPrice > newPrice ? Math.round(((newOriginalPrice - newPrice) / newOriginalPrice) * 100) : 0;
-
-                    currentPriceEl.textContent = `₹${newPrice.toFixed(2)}`;
-                    if (discountPercentage > 0) {
-                        originalPriceEl.textContent = `₹${newOriginalPrice.toFixed(2)}`;
-                        discountEl.textContent = `${discountPercentage}% Off`;
-                        originalPriceEl.style.display = 'inline';
-                        discountEl.style.display = 'inline';
-                    } else {
-                        originalPriceEl.style.display = 'none';
-                        discountEl.style.display = 'none';
-                    }
-                    stockQuantityEl.textContent = selectedVariant.stock;
-                    quantityInput.max = selectedVariant.stock;
-                    if (parseInt(quantityInput.value) > selectedVariant.stock) {
-                        quantityInput.value = selectedVariant.stock;
-                    }
-
-                    // Enable quantity controls
-                    btnQuantityUp.disabled = false;
-                    btnQuantityDown.disabled = false;
-                    quantityInput.disabled = false;
-                });
-            });
-
-            // Quantity controls
-            btnQuantityUp.addEventListener('click', function() {
-                if (!selectedVariant) {
-                    Swal.fire({
-                        title: "Select a Variant",
-                        text: "Please select a variant before adjusting quantity.",
-                        icon: "warning",
-                        timer: 2000,
-                        showConfirmButton: false
-                    });
-                    return;
-                }
-                let currentValue = parseInt(quantityInput.value, 10);
-                const max = selectedVariant.stock;
-                if (currentValue < max) {
-                    quantityInput.value = currentValue + 1;
+    // Variant selection
+    variantButtons.forEach(btn => {
+        btn.addEventListener('click', function() {
+            // Update active variant button
+            variantButtons.forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+            
+            // Get variant data
+            selectedVariant = {
+                id: this.getAttribute('data-variant-id'),
+                color: this.getAttribute('data-color'),
+                extraPrice: parseFloat(this.getAttribute('data-extra-price')),
+                stock: parseInt(this.getAttribute('data-stock'))
+            };
+            
+            // Update price display
+            const newPrice = basePrice + selectedVariant.extraPrice;
+            const newOriginalPrice = baseOriginalPrice + selectedVariant.extraPrice;
+            const discountPercentage = newOriginalPrice > newPrice ? 
+                Math.round(((newOriginalPrice - newPrice) / newOriginalPrice) * 100) : 0;
+            
+            currentPriceEl.textContent = `₹${newPrice.toFixed(2)}`;
+            
+            if (originalPriceEl && discountEl) {
+                if (discountPercentage > 0) {
+                    originalPriceEl.textContent = `₹${newOriginalPrice.toFixed(2)}`;
+                    discountEl.textContent = `${discountPercentage}% Off`;
+                    originalPriceEl.style.display = 'inline';
+                    discountEl.style.display = 'inline';
                 } else {
-                    Swal.fire({
-                        title: "Max Quantity Reached",
-                        text: "You cannot add more than available stock.",
-                        icon: "info",
-                        timer: 2000,
-                        showConfirmButton: false
-                    });
+                    originalPriceEl.style.display = 'none';
+                    discountEl.style.display = 'none';
                 }
-            });
-
-            btnQuantityDown.addEventListener('click', function() {
-                if (!selectedVariant) {
-                    Swal.fire({
-                        title: "Select a Variant",
-                        text: "Please select a variant before adjusting quantity.",
-                        icon: "warning",
-                        timer: 2000,
-                        showConfirmButton: false
-                    });
-                    return;
-                }
-                let currentValue = parseInt(quantityInput.value, 10);
-                if (currentValue > 1) {
-                    quantityInput.value = currentValue - 1;
-                }
-            });
-
-            quantityInput.addEventListener('input', function() {
-                if (!selectedVariant) {
-                    Swal.fire({
-                        title: "Select a Variant",
-                        text: "Please select a variant before adjusting quantity.",
-                        icon: "warning",
-                        timer: 2000,
-                        showConfirmButton: false
-                    });
-                    this.value = 1;
-                    return;
-                }
-                let currentValue = parseInt(this.value, 10);
-                const max = selectedVariant.stock;
-                if (currentValue > max) {
-                    this.value = max;
-                    Swal.fire({
-                        title: "Max Quantity Reached",
-                        text: "You cannot add more than available stock.",
-                        icon: "info",
-                        timer: 2000,
-                        showConfirmButton: false
-                    });
-                } else if (currentValue < 1 || isNaN(currentValue)) {
-                    this.value = 1;
-                }
-            });
-
-            // Image zoom functionality
-            const containers = document.querySelectorAll('.img-zoom-container');
-            containers.forEach(container => {
-                const mainImg = container.querySelector('.main-img');
-                const zoomBox = container.querySelector('.img-zoom-box');
-                const zoomedImg = container.querySelector('.zoomed-img');
-                const zoomLevel = 1.5;
-
-                container.addEventListener('mousemove', (e) => {
-                    const rect = container.getBoundingClientRect();
-                    const x = e.clientX - rect.left;
-                    const y = e.clientY - rect.top;
-
-                    let boxX = x - zoomBox.offsetWidth / 2;
-                    let boxY = y - zoomBox.offsetHeight / 2;
-                    boxX = Math.max(0, Math.min(boxX, container.offsetWidth - zoomBox.offsetWidth));
-                    boxY = Math.max(0, Math.min(boxY, container.offsetHeight - zoomBox.offsetHeight));
-
-                    zoomBox.style.left = `${boxX}px`;
-                    zoomBox.style.top = `${boxY}px`;
-
-                    const ratioX = x / container.offsetWidth;
-                    const ratioY = y / container.offsetHeight;
-                    const zoomedX = -ratioX * (zoomedImg.offsetWidth - zoomBox.offsetWidth);
-                    const zoomedY = -ratioY * (zoomedImg.offsetHeight - zoomBox.offsetHeight);
-
-                    zoomedImg.style.width = `${mainImg.offsetWidth * zoomLevel}px`;
-                    zoomedImg.style.height = `${mainImg.offsetHeight * zoomLevel}px`;
-                    zoomedImg.style.left = `${zoomedX}px`;
-                    zoomedImg.style.top = `${zoomedY}px`;
-                });
-
-                mainImg.addEventListener('load', () => {
-                    zoomedImg.style.width = `${mainImg.offsetWidth * zoomLevel}px`;
-                    zoomedImg.style.height = `${mainImg.offsetHeight * zoomLevel}px`;
-                });
-            });
-
-            // Thumbnail click to change main image
-            const thumbnails = document.querySelectorAll('.thumbnail');
-            thumbnails.forEach(thumb => {
-                thumb.addEventListener('click', function() {
-                    document.getElementById('main-image').src = this.dataset.src;
-                    document.getElementById('zoomed-image').src = this.dataset.src;
-                });
-            });
-
-            // Add to Cart
-            addToCartBtn.addEventListener('click', async function() {
-                const productId = this.getAttribute('data-product-id');
-                const quantity = parseInt(quantityInput.value, 10);
-                const variantId = selectedVariant ? selectedVariant.id : null;
-
-                if (!variantId) {
-                    Swal.fire({
-                        title: "Select a Variant",
-                        text: "Please select a variant before adding to cart.",
-                        icon: "warning",
-                        timer: 2000,
-                        showConfirmButton: false
-                    });
-                    return;
-                }
-
-                try {
-                    const response = await fetch('/cart/add', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ product_id: productId, quantity: quantity, variant_id: variantId }),
-                        credentials: 'include'
-                    });
-
-                    const data = await response.json();
-                    if (data.status === 'OK') {
-                        Swal.fire({
-                            title: "Added to Cart",
-                            text: data.message,
-                            icon: "success",
-                            timer: 1500,
-                            showConfirmButton: false
-                        });
-                    } else {
-                        Swal.fire({
-                            title: "Error",
-                            text: data.error || "Product is unavailable",
-                            icon: "error",
-                            timer: 2000,
-                            showConfirmButton: false
-                        });
-                        if (data.redirect) {
-                            setTimeout(() => window.location.href = data.redirect, 2000);
-                        }
-                    }
-                } catch (error) {
-                    Swal.fire({
-                        title: "Error",
-                        text: "Failed to add to cart. Please try again.",
-                        icon: "error",
-                        timer: 2000,
-                        showConfirmButton: false
-                    });
-                    console.error('Error:', error);
-                }
-            });
+            }
+            
+            // Update stock display
+            updateStockDisplay(selectedVariant.stock);
         });
-    </script>
+    });
+
+    // Select the first variant by default
+    if (variantButtons.length > 0) {
+        variantButtons[0].click();
+    } else {
+        // No variants available
+        addToCartBtn.disabled = true;
+        addToCartBtn.classList.add('bg-gray-400', 'cursor-not-allowed');
+        addToCartBtn.classList.remove('bg-indigo-600', 'hover:bg-indigo-700');
+        updateStockDisplay(0);
+    }
+
+    // Quantity control buttons
+    btnQuantityUp.addEventListener('click', function() {
+        if (!selectedVariant) return;
+        
+        let currentValue = parseInt(quantityInput.value, 10);
+        const max = selectedVariant.stock;
+        
+        if (currentValue < max) {
+            quantityInput.value = currentValue + 1;
+        } else {
+            Swal.fire({
+                title: "Max Quantity Reached",
+                text: "You cannot add more than available stock.",
+                icon: "info",
+                timer: 2000,
+                showConfirmButton: false
+            });
+        }
+    });
+
+    btnQuantityDown.addEventListener('click', function() {
+        if (!selectedVariant) return;
+        
+        let currentValue = parseInt(quantityInput.value, 10);
+        if (currentValue > 1) {
+            quantityInput.value = currentValue - 1;
+        }
+    });
+
+    // Quantity input validation
+    quantityInput.addEventListener('input', function() {
+        if (!selectedVariant) return;
+        
+        let currentValue = parseInt(this.value, 10);
+        const max = selectedVariant.stock;
+        
+        if (isNaN(currentValue) || currentValue < 1) {
+            this.value = 1;
+        } else if (currentValue > max) {
+            this.value = max;
+            Swal.fire({
+                title: "Max Quantity Reached",
+                text: "You cannot add more than available stock.",
+                icon: "info",
+                timer: 2000,
+                showConfirmButton: false
+            });
+        }
+    });
+
+    // Add to cart functionality
+    addToCartBtn.addEventListener('click', async function() {
+        if (!selectedVariant) {
+            Swal.fire({
+                title: "Select a Variant",
+                text: "Please select a variant before adding to cart.",
+                icon: "warning",
+                timer: 2000,
+                showConfirmButton: false
+            });
+            return;
+        }
+
+        const productId = this.getAttribute('data-product-id');
+        const quantity = parseInt(quantityInput.value, 10);
+        const variantId = selectedVariant.id;
+
+        try {
+            const response = await fetch('/cart/add', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    product_id: productId, 
+                    quantity: quantity, 
+                    variant_id: variantId 
+                }),
+                credentials: 'include'
+            });
+
+            const data = await response.json();
+            if (data.status === 'OK') {
+                Swal.fire({
+                    title: "Added to Cart",
+                    text: data.message,
+                    icon: "success",
+                    timer: 1500,
+                    showConfirmButton: false
+                });
+            } else {
+                Swal.fire({
+                    title: "Error",
+                    text: data.error || "Product is unavailable",
+                    icon: "error",
+                    timer: 2000,
+                    showConfirmButton: false
+                });
+                if (data.redirect) {
+                    setTimeout(() => window.location.href = data.redirect, 2000);
+                }
+            }
+        } catch (error) {
+            Swal.fire({
+                title: "Error",
+                text: "Failed to add to cart. Please try again.",
+                icon: "error",
+                timer: 2000,
+                showConfirmButton: false
+            });
+            console.error('Error:', error);
+        }
+    });
+
+    // Initialize zoom functionality
+    initZoom();
+});
+        </script>
 </body>
 </html>

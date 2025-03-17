@@ -22,8 +22,6 @@ func init() {
 	middleware.SecretKeyCheck()
 	database.MigrageHandler()
 	database.InitRedis()
-	// fmt.Println("GOOGLE_CLIENT_ID:", os.Getenv("GOOGLE_CLIENT_ID"))
-	// fmt.Println("GOOGLE_CLIENT_SECRET:", os.Getenv("GOOGLE_CLIENT_SECRET"))
 }
 
 func main() {
@@ -31,6 +29,5 @@ func main() {
 	routes.UserRoutes(router)
 	
 
-	
 	router.Run()
 }

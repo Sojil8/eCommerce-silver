@@ -10,6 +10,10 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
+var rdb = redis.NewClient(&redis.Options{
+	Addr: "localhost:6379",
+})
+
 func GenerateOTP() string {
 	const otpLength = 6
 	const digits = "0123456789"
@@ -18,20 +22,15 @@ func GenerateOTP() string {
 	for i := 0; i < otpLength; i++ {
 		num, err := rand.Int(rand.Reader, big.NewInt(10))
 		if err != nil {
-			return "123456" 
+			return fmt.Sprintf("%06d", i+1) // Fallback to sequential digits if rand fails
 		}
 		otp[i] = digits[num.Int64()]
 	}
-
 	return string(otp)
 }
 
-var rdb = redis.NewClient(&redis.Options{
-	Addr: "localhost:6379",
-})
-
 func GenerateAndStoreOTP(userID string) (string, error) {
-	otp := GenerateOTP() 
+	otp := GenerateOTP()
 	expiry := 5 * time.Minute
 
 	ctx := context.Background()
@@ -39,6 +38,5 @@ func GenerateAndStoreOTP(userID string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("error storing OTP: %v", err)
 	}
-
 	return otp, nil
 }

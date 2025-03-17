@@ -78,6 +78,27 @@
             const timerSpan = document.getElementById("timer");
             const errorMsg = document.getElementById("error-msg");
             let timeLeft = 60;
+            let timerId = null;
+
+            // Function to start or restart the timer
+            function startTimer() {
+                if (timerId) {
+                    clearInterval(timerId); // Clear any existing timer
+                }
+                timeLeft = 60;
+                timerSpan.textContent = timeLeft;
+                resendBtn.disabled = true;
+
+                timerId = setInterval(() => {
+                    timeLeft--;
+                    timerSpan.textContent = timeLeft;
+                    if (timeLeft <= 0) {
+                        clearInterval(timerId);
+                        timerId = null;
+                        resendBtn.disabled = false;
+                    }
+                }, 1000);
+            }
 
             // Auto-focus next input on typing
             otpInputs.forEach((input, index) => {
@@ -98,27 +119,20 @@
                 input.addEventListener("paste", (e) => {
                     e.preventDefault();
                     const pastedData = (e.clipboardData || window.clipboardData).getData("text").trim();
-                    if (/^\d{6}$/.test(pastedData)) { // Check if it's a 6-digit number
+                    if (/^\d{6}$/.test(pastedData)) {
                         const digits = pastedData.split("");
                         otpInputs.forEach((inp, i) => {
                             inp.value = digits[i] || "";
                         });
-                        otpInputs[otpInputs.length - 1].focus(); // Focus the last input
+                        otpInputs[otpInputs.length - 1].focus();
                     } else {
                         showError("Please paste a valid 6-digit OTP.");
                     }
                 });
             });
 
-            // Countdown timer
-            const timer = setInterval(() => {
-                timeLeft--;
-                timerSpan.textContent = timeLeft;
-                if (timeLeft <= 0) {
-                    clearInterval(timer);
-                    resendBtn.disabled = false;
-                }
-            }, 1000);
+            // Start the initial timer
+            startTimer();
 
             // Handle form submission
             otpForm.addEventListener("submit", async (e) => {
@@ -169,21 +183,15 @@
                     const data = await response.json();
                     if (data.status === "ok") {
                         alert("OTP resent successfully!");
-                        timeLeft = 60;
-                        timerSpan.textContent = timeLeft;
-                        resendBtn.disabled = true;
-                        const newTimer = setInterval(() => {
-                            timeLeft--;
-                            timerSpan.textContent = timeLeft;
-                            if (timeLeft <= 0) {
-                                clearInterval(newTimer);
-                                resendBtn.disabled = false;
-                            }
-                        }, 1000);
+                        startTimer(); // Restart the timer after successful resend
+                        // Clear previous OTP inputs
+                        otpInputs.forEach(input => input.value = "");
+                        otpInputs[0].focus();
                     } else {
                         showError(data.error || "Failed to resend OTP.");
                     }
                 } catch (error) {
+                    console.error("Error:", error);
                     showError("Error resending OTP.");
                 }
             });

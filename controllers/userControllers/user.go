@@ -3,7 +3,6 @@ package controllers
 import (
 	"encoding/json"
 	"fmt"
-
 	"log"
 	"net/http"
 	"time"
@@ -19,15 +18,16 @@ import (
 
 var roleUser string = "User"
 
+// ShowSignUp - unchanged
 func ShowSignUp(c *gin.Context) {
-	tokenString, err := c.Cookie("jwt_token") // Updated from "jwtTokensUser"
+	tokenString, err := c.Cookie("jwt_token")
 	if err == nil && tokenString != "" {
 		claims := &middleware.Claims{}
 		token, err := jwt.ParseWithClaims(tokenString, claims, func(t *jwt.Token) (interface{}, error) {
 			return middleware.SecretKey, nil
 		})
 		if err == nil && token.Valid {
-			c.Redirect(http.StatusSeeOther, "/home") // Redirect to /home instead of "/"
+			c.Redirect(http.StatusSeeOther, "/home")
 			c.Abort()
 			return
 		}
@@ -35,54 +35,54 @@ func ShowSignUp(c *gin.Context) {
 	c.HTML(http.StatusOK, "signup.html", nil)
 }
 
-var request struct {
+var signupRequest struct {
 	UserName        string `json:"username" form:"username" binding:"required"`
-	Email           string `json:"email" form:"email" binding:"required"`
+	Email           string `json:"email" form:"email" binding:"required,email"`
 	Phone           string `json:"phone" form:"phone" binding:"required"`
-	Password        string `json:"password" form:"password" binding:"required"`
+	Password        string `json:"password" form:"password" binding:"required,min=8"`
 	ConfirmPassword string `json:"confirmpassword" form:"confirmpassword" binding:"required"`
 }
 
+// UserSignUp - updated with better validation
 func UserSignUp(c *gin.Context) {
-
-	if err := c.ShouldBind(&request); err != nil {
+	if err := c.ShouldBind(&signupRequest); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input", "field": "all"})
 		return
 	}
 
-	if database.DB.Where("email = ?", request.Email).First(&userModels.User{}).Error == nil {
+	if database.DB.Where("email = ?", signupRequest.Email).First(&userModels.User{}).Error == nil {
 		c.JSON(http.StatusConflict, gin.H{"error": "Email already exists", "field": "email"})
 		return
 	}
 
-	if database.DB.Where("phone = ?", request.Phone).First(&userModels.User{}).Error == nil {
+	if database.DB.Where("phone = ?", signupRequest.Phone).First(&userModels.User{}).Error == nil {
 		c.JSON(http.StatusConflict, gin.H{"error": "Phone number already exists", "field": "phone"})
 		return
 	}
 
-	if request.Password != request.ConfirmPassword {
+	if signupRequest.Password != signupRequest.ConfirmPassword {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Passwords do not match", "field": "confirmpassword"})
 		return
 	}
 
-	hashedPassword, err := helper.HashPassword(request.Password)
+	hashedPassword, err := helper.HashPassword(signupRequest.Password)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error", "field": "password"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to hash password", "field": "password"})
 		return
 	}
 
-	otp := helper.GenerateOTP()
-	fmt.Println("Generated OTP:", otp)
-	if otp == "" {
-		log.Println("OTP generation failed")
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+	otp, err := helper.GenerateAndStoreOTP(signupRequest.Email)
+	if err != nil {
+		log.Println("OTP generation/storage failed:", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate OTP"})
 		return
 	}
+	fmt.Println(otp)
 
 	newUser := map[string]interface{}{
-		"name":       request.UserName,
-		"email":      request.Email,
-		"phone":      request.Phone,
+		"name":       signupRequest.UserName,
+		"email":      signupRequest.Email,
+		"phone":      signupRequest.Phone,
 		"password":   hashedPassword,
 		"otp":        otp,
 		"created_at": time.Now().UTC(),
@@ -90,17 +90,17 @@ func UserSignUp(c *gin.Context) {
 
 	userData, err := json.Marshal(newUser)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to serialize user data"})
 		return
 	}
 
-	userKey := fmt.Sprintf("user:%s", request.Email)
+	userKey := fmt.Sprintf("user:%s", signupRequest.Email)
 	if err := database.RedisClient.Set(database.Ctx, userKey, userData, 15*time.Minute).Err(); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to store user data in Redis"})
 		return
 	}
 
-	if err := helper.SendOTP(request.Email, otp); err != nil {
+	if err := helper.SendOTP(signupRequest.Email, otp); err != nil {
 		database.RedisClient.Del(database.Ctx, userKey)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to send OTP", "field": "email"})
 		return
@@ -109,10 +109,11 @@ func UserSignUp(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"status":   "ok",
 		"message":  "OTP sent successfully",
-		"redirect": fmt.Sprintf("/signup/otp?email=%s", request.Email),
+		"redirect": fmt.Sprintf("/signup/otp?email=%s", signupRequest.Email),
 	})
 }
 
+// ShowOTPPage - unchanged
 func ShowOTPPage(c *gin.Context) {
 	email := c.Query("email")
 	if email == "" {
@@ -125,27 +126,26 @@ func ShowOTPPage(c *gin.Context) {
 	})
 }
 
-var input struct {
-	Email string `json:"email" form:"email" binding:"required"`
-	OTP   string `json:"otp" form:"otp" binding:"required"`
+var otpInput struct {
+	Email string `json:"email" form:"email" binding:"required,email"`
+	OTP   string `json:"otp" form:"otp" binding:"required,len=6"`
 }
 
+// VerifyOTP - updated with stricter validation
 func VerifyOTP(c *gin.Context) {
-
-	if err := c.ShouldBind(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
+	if err := c.ShouldBind(&otpInput); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input", "field": "otp"})
 		return
 	}
 
-	userKey := fmt.Sprintf("user:%s", input.Email)
-
-	exist, err := database.RedisClient.Exists(database.Ctx, userKey).Result()
+	userKey := fmt.Sprintf("user:%s", otpInput.Email)
+	exists, err := database.RedisClient.Exists(database.Ctx, userKey).Result()
 	if err != nil {
 		log.Println("Redis Exists Error:", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check Redis key"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check OTP existence"})
 		return
 	}
-	if exist == 0 {
+	if exists == 0 {
 		c.JSON(http.StatusNotFound, gin.H{"error": "OTP expired or not found"})
 		return
 	}
@@ -165,39 +165,15 @@ func VerifyOTP(c *gin.Context) {
 	}
 
 	storedOTP, ok := storedData["otp"].(string)
-	if !ok {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid OTP format"})
-		return
-	}
-
-	if storedOTP != input.OTP {
+	if !ok || storedOTP != otpInput.OTP {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid OTP"})
 		return
 	}
 
-	name, ok := storedData["name"].(string)
-	if !ok {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid data format for name"})
-		return
-	}
-
-	email, ok := storedData["email"].(string)
-	if !ok {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid data format for email"})
-		return
-	}
-
-	password, ok := storedData["password"].(string)
-	if !ok {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid data format for password"})
-		return
-	}
-
-	phone, ok := storedData["phone"].(string)
-	if !ok {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid data format for phone"})
-		return
-	}
+	name, _ := storedData["name"].(string)
+	email, _ := storedData["email"].(string)
+	password, _ := storedData["password"].(string)
+	phone, _ := storedData["phone"].(string)
 
 	newUser := userModels.User{
 		UserName: name,
@@ -213,7 +189,6 @@ func VerifyOTP(c *gin.Context) {
 	}
 
 	database.RedisClient.Del(database.Ctx, userKey)
-
 	c.JSON(http.StatusOK, gin.H{
 		"status":   "ok",
 		"message":  "OTP verified successfully",
@@ -221,42 +196,108 @@ func VerifyOTP(c *gin.Context) {
 	})
 }
 
+// ResendOTP - new function
+func ResendOTP(c *gin.Context) {
+	var resendRequest struct {
+		Email string `json:"email" binding:"required,email"`
+	}
+	if err := c.ShouldBindJSON(&resendRequest); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid email"})
+		return
+	}
+
+	userKey := fmt.Sprintf("user:%s", resendRequest.Email)
+	exists, err := database.RedisClient.Exists(database.Ctx, userKey).Result()
+	if err != nil {
+		log.Println("Redis Exists Error:", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check user data"})
+		return
+	}
+	if exists == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "No signup session found for this email"})
+		return
+	}
+
+	// Generate and store new OTP
+	otp, err := helper.GenerateAndStoreOTP(resendRequest.Email)
+	if err != nil {
+		log.Println("OTP generation/storage failed:", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate new OTP"})
+		return
+	}
+	fmt.Println(otp)
+
+	// Update existing Redis data with new OTP
+	data, err := database.RedisClient.Get(database.Ctx, userKey).Result()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve user data"})
+		return
+	}
+
+	var userData map[string]interface{}
+	if err := json.Unmarshal([]byte(data), &userData); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse user data"})
+		return
+	}
+
+	userData["otp"] = otp
+	updatedData, err := json.Marshal(userData)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to serialize updated data"})
+		return
+	}
+
+	if err := database.RedisClient.Set(database.Ctx, userKey, updatedData, 15*time.Minute).Err(); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update OTP in Redis"})
+		return
+	}
+
+	// Send new OTP
+	if err := helper.SendOTP(resendRequest.Email, otp); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to resend OTP"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"status":  "ok",
+		"message": "OTP resent successfully",
+	})
+}
+
+// ShowLogin - unchanged
 func ShowLogin(c *gin.Context) {
-	// Check for existing JWT token in cookie
-	tokenString, err := c.Cookie("jwt_token") // Note: Cookie name is "jwt_token" from LoginPostUser
+	tokenString, err := c.Cookie("jwt_token")
 	if err == nil && tokenString != "" {
 		claims := &middleware.Claims{}
 		token, err := jwt.ParseWithClaims(tokenString, claims, func(t *jwt.Token) (interface{}, error) {
 			return middleware.SecretKey, nil
 		})
 		if err == nil && token.Valid {
-			// User is already authenticated, redirect to home
 			c.Redirect(http.StatusSeeOther, "/home")
 			c.Abort()
 			return
 		}
 	}
-
-	// If no valid token, show the login page
 	c.HTML(http.StatusOK, "userlogin.html", gin.H{
 		"title": "Login",
 	})
 }
-func LoginPostUser(c *gin.Context) {
-	fmt.Println("----------------user login------------------")
-	var request struct {
-		Email    string `json:"email" form:"email" binding:"required"`
-		Password string `json:"password" form:"password" binding:"required"`
-	}
 
-	if err := c.ShouldBind(&request); err != nil {
-		helper.ResponseWithErr(c, http.StatusBadRequest, "Error in binding data", "Error in binding data", "")
+var loginRequest struct {
+	Email    string `json:"email" form:"email" binding:"required,email"`
+	Password string `json:"password" form:"password" binding:"required,min=8"`
+}
+
+// LoginPostUser - updated with better validation
+func LoginPostUser(c *gin.Context) {
+	if err := c.ShouldBind(&loginRequest); err != nil {
+		helper.ResponseWithErr(c, http.StatusBadRequest, "Invalid input", "Please provide a valid email and password", "")
 		return
 	}
 
 	var user userModels.User
-	if err := database.DB.Where("email=?", request.Email).First(&user).Error; err != nil {
-		helper.ResponseWithErr(c, http.StatusUnauthorized, "User not found", "User not found", "")
+	if err := database.DB.Where("email = ?", loginRequest.Email).First(&user).Error; err != nil {
+		helper.ResponseWithErr(c, http.StatusUnauthorized, "User not found", "Email does not exist", "")
 		return
 	}
 
@@ -265,29 +306,23 @@ func LoginPostUser(c *gin.Context) {
 		return
 	}
 
-	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(request.Password)); err != nil {
+	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(loginRequest.Password)); err != nil {
 		helper.ResponseWithErr(c, http.StatusUnauthorized, "Invalid credentials", "Incorrect password", "")
 		return
 	}
 
-	token, err := middleware.GenerateToken(c, int(user.ID), user.Email, roleUser) // Use Email instead of UserName
+	token, err := middleware.GenerateToken(c, int(user.ID), user.Email, roleUser)
 	if err != nil {
-		helper.ResponseWithErr(c, http.StatusInternalServerError, "Token generation failed", "Error in JWT creation", "")
+		helper.ResponseWithErr(c, http.StatusInternalServerError, "Token generation failed", "Error creating JWT", "")
 		return
 	}
-	// fmt.Println("The token----------",token)
-	// Set the cookie (secure and HTTP-only)
-	c.SetCookie("jwt_token", token, 24*60*60, "/", "", false, true)
 
-	// c.HTML(http.StatusOK, "home.html", gin.H{
-	// 	"status":  "OK",
-	// 	"message": "Login successful",
-	// 	"token":   token,
-	// })
+	c.SetCookie("jwt_token", token, 24*60*60, "/", "", false, true)
 	c.Redirect(http.StatusSeeOther, "/home")
 }
 
+// LogoutUser - unchanged
 func LogoutUser(c *gin.Context) {
-	c.SetCookie("jwt_token", "", -1, "/", "", false, true) // Expire the cookie
+	c.SetCookie("jwt_token", "", -1, "/", "", false, true)
 	c.Redirect(http.StatusSeeOther, "/login")
 }
