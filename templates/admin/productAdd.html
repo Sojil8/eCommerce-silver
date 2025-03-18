@@ -20,6 +20,7 @@
     </style>
 </head>
 <body class="bg-gray-100 font-sans">
+    <!-- Navbar and Sidebar remain unchanged -->
     <nav class="navbar navbar-expand-lg bg-gray-800 text-white shadow-md">
         <div class="container-fluid px-4">
             <a class="navbar-brand text-xl font-bold text-white hover:text-blue-300" href="/admin/dashboard">Admin Dashboard</a>
@@ -68,7 +69,7 @@
                         <div class="row">
                             <div class="col-md-6 mb-4">
                                 <label for="price" class="form-label font-medium text-gray-700">Base Price (₹)</label>
-                                <input type="number" step="0.01" class="form-control" id="price" name="price" value="{{if .Product}}{{.Product.Price}}{{end}}" required>
+                                <input type="number" step="0.01" min="0" class="form-control" id="price" name="price" value="{{if .Product}}{{.Product.Price}}{{end}}" required>
                             </div>
                         </div>
 
@@ -84,7 +85,7 @@
                                 {{range .Product.Variants}}
                                 <div class="variant-row flex space-x-4">
                                     <input type="text" name="color[]" class="form-control flex-1" value="{{.Color}}" placeholder="Color (e.g., Black)" required>
-                                    <input type="number" step="0.01" name="variantPrice[]" class="form-control w-24" value="{{.ExtraPrice}}" placeholder="Extra Price" required>
+                                    <input type="number" step="0.01" min="0" name="variantPrice[]" class="form-control w-24" value="{{.ExtraPrice}}" placeholder="Extra Price" required>
                                     <input type="number" min="0" name="variantStock[]" class="form-control w-24" value="{{.Stock}}" placeholder="Stock" required>
                                     <button type="button" class="btn bg-red-500 text-white px-2 py-1 rounded" onclick="removeVariant(this)">Remove</button>
                                 </div>
@@ -92,7 +93,7 @@
                                 {{else}}
                                 <div class="variant-row flex space-x-4">
                                     <input type="text" name="color[]" class="form-control flex-1" placeholder="Color (e.g., Black)" required>
-                                    <input type="number" step="0.01" name="variantPrice[]" class="form-control w-24" placeholder="Extra Price" required>
+                                    <input type="number" step="0.01" min="0" name="variantPrice[]" class="form-control w-24" placeholder="Extra Price" required>
                                     <input type="number" min="0" name="variantStock[]" class="form-control w-24" placeholder="Stock" required>
                                     <button type="button" class="btn bg-red-500 text-white px-2 py-1 rounded" onclick="removeVariant(this)">Remove</button>
                                 </div>
@@ -118,7 +119,7 @@
         </div>
     </div>
 
-    <!-- Cropper Modal -->
+    <!-- Cropper Modal (unchanged) -->
     <div class="modal fade" id="cropper-modal" tabindex="-1" aria-labelledby="cropperModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-xl">
             <div class="modal-content">
@@ -161,43 +162,29 @@
         
         document.addEventListener('DOMContentLoaded', () => {
             imageInput.addEventListener('change', handleImageUpload);
-            
-            // If there's no category data yet, fetch it
             const categorySelect = document.getElementById('categoryName');
             if (categorySelect && categorySelect.options.length <= 1) {
                 fetchCategories();
             }
-            
-            // Load existing images for product edit
             loadExistingImages();
         });
         
         async function fetchCategories() {
+            // Unchanged fetchCategories function
             try {
                 const response = await fetch('/admin/api/categories');
-                if (!response.ok) {
-                    throw new Error('Failed to fetch categories');
-                }
-                
+                if (!response.ok) throw new Error('Failed to fetch categories');
                 const categories = await response.json();
                 const categorySelect = document.getElementById('categoryName');
-                
-                // Clear existing options except the first one
-                while (categorySelect.options.length > 1) {
-                    categorySelect.remove(1);
-                }
-                
-                // Add the fetched categories
+                while (categorySelect.options.length > 1) categorySelect.remove(1);
                 categories.forEach(category => {
-                    if (category.status) { // Only add active categories
+                    if (category.status) {
                         const option = document.createElement('option');
                         option.value = category.category_name;
                         option.textContent = category.category_name;
                         categorySelect.appendChild(option);
                     }
                 });
-                
-                // If editing a product, select the current category
                 const currentCategory = '{{if .Product}}{{.Product.CategoryName}}{{end}}';
                 if (currentCategory) {
                     for (let i = 0; i < categorySelect.options.length; i++) {
@@ -207,7 +194,6 @@
                         }
                     }
                 }
-                
             } catch (error) {
                 console.error('Error fetching categories:', error);
                 Swal.fire('Error', 'Failed to load categories. Please refresh the page.', 'error');
@@ -215,22 +201,18 @@
         }
         
         function loadExistingImages() {
-            // For product edit mode, load existing images
+            // Unchanged loadExistingImages function
             const productImages = {{if .Product}}{{.Product.Images}}{{else}}[]{{end}};
-            
             if (Array.isArray(productImages) && productImages.length > 0) {
                 productImages.forEach(imageUrl => {
                     const container = document.createElement('div');
                     container.className = 'relative';
-                    
                     const img = document.createElement('img');
                     img.src = imageUrl;
-                    
                     const removeBtn = document.createElement('button');
                     removeBtn.className = 'remove-btn';
                     removeBtn.innerHTML = '×';
                     removeBtn.onclick = () => container.remove();
-                    
                     container.appendChild(img);
                     container.appendChild(removeBtn);
                     imagePreview.appendChild(container);
@@ -239,16 +221,12 @@
         }
 
         function handleImageUpload() {
+            // Unchanged handleImageUpload function
             const files = imageInput.files;
             if (files.length === 0) {
-                Swal.fire({
-                    icon: 'warning',
-                    title: 'No Images',
-                    text: 'Please select an image to upload.',
-                });
+                Swal.fire({ icon: 'warning', title: 'No Images', text: 'Please select an image to upload.' });
                 return;
             }
-            // Process only the first selected file (one-by-one)
             const file = files[0];
             const reader = new FileReader();
             reader.onload = (e) => {
@@ -256,36 +234,28 @@
                 cropperModal.show();
                 if (cropper) cropper.destroy();
                 cropper = new Cropper(cropperImage, {
-                    viewMode: 1, // Restrict crop box to image bounds
+                    viewMode: 1,
                     autoCropArea: 0.8,
                     movable: true,
                     zoomable: true,
                     scalable: true,
                     rotatable: true,
                     responsive: true,
-                    // No aspectRatio for free cropping
                 });
             };
             reader.readAsDataURL(file);
-            // Clear the input to allow selecting another image
             imageInput.value = '';
         }
 
         cropButton.addEventListener('click', () => {
-            const canvas = cropper.getCroppedCanvas({
-                maxWidth: 800, // Cap size, but allow free aspect ratio
-                maxHeight: 800,
-            });
+            // Unchanged cropButton event listener
+            const canvas = cropper.getCroppedCanvas({ maxWidth: 800, maxHeight: 800 });
             if (!canvas) {
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Crop Error',
-                    text: 'Please adjust the crop area before saving.',
-                });
+                Swal.fire({ icon: 'error', title: 'Crop Error', text: 'Please adjust the crop area before saving.' });
                 return;
             }
             canvas.toBlob((blob) => {
-                const fileName = 'image_' + Date.now() + '_cropped.png'; // Unique name for each cropped image
+                const fileName = 'image_' + Date.now() + '_cropped.png';
                 const croppedFile = new File([blob], fileName, { type: 'image/png' });
                 croppedImages.push(croppedFile);
                 displayCroppedImage(croppedFile);
@@ -294,6 +264,7 @@
         });
 
         function displayCroppedImage(file) {
+            // Unchanged displayCroppedImage function
             const reader = new FileReader();
             reader.onload = (e) => {
                 const container = document.createElement('div');
@@ -312,6 +283,7 @@
         }
 
         function removeImage(file, container) {
+            // Unchanged removeImage function
             croppedImages = croppedImages.filter(f => f !== file);
             container.remove();
         }
@@ -322,7 +294,7 @@
             variantRow.className = 'variant-row flex space-x-4';
             variantRow.innerHTML = `
                 <input type="text" name="color[]" class="form-control flex-1" placeholder="Color (e.g., Black)" required>
-                <input type="number" step="0.01" name="variantPrice[]" class="form-control w-24" placeholder="Extra Price" required>
+                <input type="number" step="0.01" min="0" name="variantPrice[]" class="form-control w-24" placeholder="Extra Price" required>
                 <input type="number" min="0" name="variantStock[]" class="form-control w-24" placeholder="Stock" required>
                 <button type="button" class="btn bg-red-500 text-white px-2 py-1 rounded" onclick="removeVariant(this)">Remove</button>
             `;
@@ -330,112 +302,118 @@
         }
 
         function removeVariant(button) {
+            // Unchanged removeVariant function
             button.parentElement.remove();
         }
 
         async function saveProduct() {
-    const formData = new FormData();
-    const productName = document.getElementById('productName').value.trim();
-    const categoryName = document.getElementById('categoryName').value.trim();
-    const price = document.getElementById('price').value;
-    const description = document.getElementById('description').value.trim();
+            const formData = new FormData();
+            const productName = document.getElementById('productName').value.trim();
+            const categoryName = document.getElementById('categoryName').value.trim();
+            const price = document.getElementById('price').value;
+            const description = document.getElementById('description').value.trim();
 
-    // Validation
-    if (!productName) {
-        Swal.fire({ icon: 'error', title: 'Error', text: 'Product name is required.' });
-        return;
-    }
-    if (!categoryName) {
-        Swal.fire({ icon: 'error', title: 'Error', text: 'Please select a category.' });
-        return;
-    }
-    if (!price || parseFloat(price) <= 0) {
-        Swal.fire({ icon: 'error', title: 'Error', text: 'Please enter a valid price.' });
-        return;
-    }
-    if (!description) {
-        Swal.fire({ icon: 'error', title: 'Error', text: 'Description is required.' });
-        return;
-    }
-    
-    // Check if we're in edit mode
-    const isEditMode = {{if .Product}}true{{else}}false{{end}};
-    
-    // For new products, require at least 3 images
-    if (!isEditMode && croppedImages.length < 3) {
-        Swal.fire({
-            icon: 'error',
-            title: 'Error',
-            text: `Please upload and crop at least 3 images. Currently, you have ${croppedImages.length}.`,
-        });
-        return;
-    }
-    
-    // For edit mode, check if we have existing images or new ones
-    if (isEditMode) {
-        const existingImageCount = document.querySelectorAll('.image-preview img').length - croppedImages.length;
-        if (existingImageCount === 0 && croppedImages.length < 3) {
-            Swal.fire({
-                icon: 'error',
-                title: 'Error',
-                text: `Please upload and crop at least 3 images. Currently, you have ${croppedImages.length}.`,
+            // Validation
+            if (!productName) {
+                Swal.fire({ icon: 'error', title: 'Error', text: 'Product name is required.' });
+                return;
+            }
+            if (!categoryName) {
+                Swal.fire({ icon: 'error', title: 'Error', text: 'Please select a category.' });
+                return;
+            }
+            if (!price || parseFloat(price) < 0) {
+                Swal.fire({ icon: 'error', title: 'Error', text: 'Please enter a valid non-negative price.' });
+                return;
+            }
+            if (!description) {
+                Swal.fire({ icon: 'error', title: 'Error', text: 'Description is required.' });
+                return;
+            }
+
+            const isEditMode = {{if .Product}}true{{else}}false{{end}};
+            if (!isEditMode && croppedImages.length < 3) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: `Please upload and crop at least 3 images. Currently, you have ${croppedImages.length}.`,
+                });
+                return;
+            }
+            if (isEditMode) {
+                const existingImageCount = document.querySelectorAll('.image-preview img').length - croppedImages.length;
+                if (existingImageCount === 0 && croppedImages.length < 3) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: `Please upload and crop at least 3 images. Currently, you have ${croppedImages.length}.`,
+                    });
+                    return;
+                }
+            }
+
+            // Append form fields
+            formData.append('productName', productName);
+            formData.append('categoryName', categoryName);
+            formData.append('price', price);
+            formData.append('description', description);
+
+            // Validate and append variants
+            const colors = document.getElementsByName('color[]');
+            const variantPrices = document.getElementsByName('variantPrice[]');
+            const variantStocks = document.getElementsByName('variantStock[]');
+            for (let i = 0; i < colors.length; i++) {
+                const priceVal = parseFloat(variantPrices[i].value);
+                const stockVal = parseInt(variantStocks[i].value, 10);
+                if (!colors[i].value || !variantPrices[i].value || !variantStocks[i].value) {
+                    Swal.fire({ icon: 'error', title: 'Error', text: 'All variant fields must be filled.' });
+                    return;
+                }
+                if (priceVal < 0) {
+                    Swal.fire({ icon: 'error', title: 'Error', text: `Variant extra price for ${colors[i].value} cannot be negative.` });
+                    return;
+                }
+                if (stockVal < 0) {
+                    Swal.fire({ icon: 'error', title: 'Error', text: `Variant stock for ${colors[i].value} cannot be negative.` });
+                    return;
+                }
+                formData.append('color[]', colors[i].value);
+                formData.append('variantPrice[]', variantPrices[i].value);
+                formData.append('variantStock[]', variantStocks[i].value);
+            }
+
+            // Append cropped images
+            croppedImages.forEach((file) => {
+                formData.append('images', file);
             });
-            return;
+
+            try {
+                const url = isEditMode ? `/admin/products/edit/{{if .Product}}{{.Product.ID}}{{end}}` : '/admin/products/add';
+                const method = isEditMode ? 'PATCH' : 'POST';
+                const response = await fetch(url, {
+                    method: method,
+                    body: formData,
+                });
+                const data = await response.json();
+
+                if (response.ok) {
+                    Swal.fire({
+                        title: 'Success',
+                        text: data.message,
+                        icon: 'success',
+                    }).then(() => {
+                        window.location.href = '/admin/products';
+                    });
+                } else {
+                    Swal.fire('Error', data.error || 'Failed to save product', 'error');
+                }
+            } catch (error) {
+                Swal.fire('Error', 'Something went wrong. Please try again.', 'error');
+            }
         }
-    }
-
-    // Append form fields
-    formData.append('productName', productName);
-    formData.append('categoryName', categoryName);
-    formData.append('price', price);
-    formData.append('description', description);
-
-    // Append variants
-    const colors = document.getElementsByName('color[]');
-    const variantPrices = document.getElementsByName('variantPrice[]');
-    const variantStocks = document.getElementsByName('variantStock[]');
-    for (let i = 0; i < colors.length; i++) {
-        if (!colors[i].value || !variantPrices[i].value || !variantStocks[i].value) {
-            Swal.fire({ icon: 'error', title: 'Error', text: 'All variant fields must be filled.' });
-            return;
-        }
-        formData.append('color[]', colors[i].value);
-        formData.append('variantPrice[]', variantPrices[i].value);
-        formData.append('variantStock[]', variantStocks[i].value);
-    }
-
-    // Append cropped images
-    croppedImages.forEach((file) => {
-        formData.append('images', file);
-    });
-
-    try {
-        const url = isEditMode ? `/admin/products/edit/{{if .Product}}{{.Product.ID}}{{end}}` : '/admin/products/add';
-        const method = isEditMode ? 'PATCH' : 'POST';
-        
-        const response = await fetch(url, {
-            method: method,
-            body: formData,
-        });
-        const data = await response.json();
-
-        if (response.ok) {
-            Swal.fire({
-                title: 'Success',
-                text: data.message,
-                icon: 'success',
-            }).then(() => {
-                window.location.href = '/admin/products';
-            });
-        } else {
-            Swal.fire('Error', data.error || 'Failed to save product', 'error');
-        }
-    } catch (error) {
-        Swal.fire('Error', 'Something went wrong. Please try again.', 'error');
-    }
-}
 
         async function logout(event) {
+            // Unchanged logout function
             event.preventDefault();
             try {
                 const response = await fetch('/admin/logout', { method: 'POST', credentials: 'include' });

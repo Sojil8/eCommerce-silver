@@ -22,18 +22,15 @@ func GetUserProducts(c *gin.Context) {
 		return
 	}
 
-	// Start query with products table and join with categories
 	db := database.DB.Model(&adminModels.Product{}).
 		Joins("JOIN categories ON categories.category_name = products.category_name").
 		Where("products.is_listed = ? AND categories.status = ?", true, true)
 
-	// Apply search filter
 	if query.Search != "" {
 		searchTerm := "%" + strings.ToLower(query.Search) + "%"
 		db = db.Where("LOWER(products.product_name) LIKE ?", searchTerm)
 	}
 
-	// Fetch products with preloaded variants
 	var products []adminModels.Product
 	if err := db.Preload("Variants").Find(&products).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -54,7 +51,6 @@ func GetUserProducts(c *gin.Context) {
 	})
 }
 
-// Home page controller
 func Home(c *gin.Context) {
 	var featuredProducts []adminModels.Product
 	if err := database.DB.Joins("JOIN categories ON categories.category_name = products.category_name").

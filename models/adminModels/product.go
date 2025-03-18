@@ -14,7 +14,6 @@ type Product struct {
 	Description   string    `gorm:"not null" json:"description"`
 	Price         float64   `gorm:"not null" json:"price"`
 	OriginalPrice float64   `json:"originalPrice"`
-	// Quantity      uint      `gorm:"not null" json:"quantity"`
 	CategoryName  string    `gorm:"not null" json:"categoryName"`
 	Images        ImageURLs `gorm:"type:text" json:"images"`
 	Specs         string    `gorm:"type:text" json:"specs"`

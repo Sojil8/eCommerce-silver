@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/Sojil8/eCommerce-silver/database"
 	"github.com/Sojil8/eCommerce-silver/helper"
@@ -15,30 +16,57 @@ func GetUsers(c *gin.Context) {
 	middleware.ClearCache()
 	var users []userModels.User
 	searchQuery := c.Query("search")
+	pageStr := c.DefaultQuery("page", "1")
+	limitStr := c.DefaultQuery("limit", "10")
 
-	dbQuery := database.DB.Unscoped().Order("id") 
-
-	if searchQuery != "" {
-		searchPattern := "%" + searchQuery + "%"
-		dbQuery = dbQuery.Where("user_name ILIKE ? OR email ILIKE ? OR phone::text ILIKE ?",
-			searchPattern, searchPattern, searchPattern)
+	page, err := strconv.Atoi(pageStr)
+	if err != nil || page < 1 {
+		page = 1
+	}
+	limit, err := strconv.Atoi(limitStr)
+	if err != nil || limit < 1 {
+		limit = 10
 	}
 
-	// Enable GORM debug logging
-	result := dbQuery.Debug().Find(&users)
-	if result.Error != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": result.Error.Error(),
-		})
+	offset := (page - 1) * limit
+	dbQuery := database.DB.Unscoped().Order("id")
+
+	// Search only by user_name
+	if searchQuery != "" {
+		searchPattern := "%" + searchQuery + "%"
+		dbQuery = dbQuery.Where("user_name ILIKE ?", searchPattern) // Only search user_name
+	}
+
+	var totalUsers int64
+	if err := dbQuery.Model(&userModels.User{}).Count(&totalUsers).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
+	result := dbQuery.Limit(limit).Offset(offset).Find(&users)
+	if result.Error != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": result.Error.Error()})
+		return
+	}
+
+	totalPages := int((totalUsers + int64(limit) - 1) / int64(limit))
+
+	// Pass all necessary pagination data to the template
 	c.HTML(http.StatusOK, "customer.html", gin.H{
 		"users":       users,
 		"searchQuery": searchQuery,
+		"page":        page,
+		"limit":       limit,
+		"totalUsers":  totalUsers,
+		"totalPages":  totalPages,
+		"prevPage":    page - 1,
+		"nextPage":    page + 1,
+		"hasPrev":     page > 1,
+		"hasNext":     page < totalPages,
 	})
 }
 
+// BlockUser and UnBlockUser remain unchanged
 func BlockUser(c *gin.Context) {
 	middleware.ClearCache()
 	userID := c.Param("id")

@@ -22,7 +22,7 @@ func GenerateOTP() string {
 	for i := 0; i < otpLength; i++ {
 		num, err := rand.Int(rand.Reader, big.NewInt(10))
 		if err != nil {
-			return fmt.Sprintf("%06d", i+1) // Fallback to sequential digits if rand fails
+			return fmt.Sprintf("%06d", i+1) 
 		}
 		otp[i] = digits[num.Int64()]
 	}

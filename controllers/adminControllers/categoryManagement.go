@@ -11,7 +11,6 @@ import (
 )
 
 func GetCategories(c *gin.Context) {
-	middleware.ClearCache()
 	pageStr := c.Query("page")
 	page, err := strconv.Atoi(pageStr)
 	if err != nil || page < 1 {
@@ -24,7 +23,6 @@ func GetCategories(c *gin.Context) {
 	var categories []adminModels.Category
 	var total int64
 
-	// Use regular DB (not Unscoped) to respect soft deletes if applicable
 	database.DB.Model(&adminModels.Category{}).Count(&total)
 	if err := database.DB.Order("category_name").Offset(offset).Limit(itemsPerPage).Find(&categories).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -46,7 +44,7 @@ func GetCategories(c *gin.Context) {
 			"name":          cat.CategoryName,
 			"description":   cat.Description,
 			"categoryOffer": 0,
-			"isListed":      cat.Status, // Use Status instead of DeletedAt
+			"isListed":      cat.Status,
 		}
 	}
 	
@@ -149,7 +147,7 @@ func ListCategory(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Category listed successfully",
-		"category": category, // Return updated category
+		"category": category,
 	})
 }
 

@@ -67,16 +67,14 @@ func GoogleCallback(c *gin.Context) {
         return
     }
 
-    // Check if user already exists
     var user userModels.User
     err = database.DB.Where("email = ?", googleUser.Email).First(&user).Error
     if err != nil {
-        // If user doesn't exist (err will be gorm.ErrRecordNotFound), create a new one
         if err.Error() == "record not found" {
             user = userModels.User{
                 UserName:   googleUser.Name,
                 Email:      googleUser.Email,
-                Password:   "", // No password for Google OAuth users
+                Password:   "", 
                 Phone:      "",
                 Is_blocked: false,
             }
@@ -85,26 +83,22 @@ func GoogleCallback(c *gin.Context) {
                 return
             }
         } else {
-            // Some other database error occurred
             helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to query user", err.Error(), "")
             return
         }
     }
 
-    // If user exists or was just created, check if they're blocked
     if user.Is_blocked {
         helper.ResponseWithErr(c, http.StatusForbidden, "Account blocked", "Your account has been blocked", "")
         return
     }
 
-    // Generate JWT token
     jwtToken, err := middleware.GenerateToken(c, int(user.ID), user.Email, "User")
     if err != nil {
         helper.ResponseWithErr(c, http.StatusInternalServerError, "Token generation failed", err.Error(), "")
         return
     }
 
-    // Set JWT token in cookie and redirect
     c.SetCookie("jwt_token", jwtToken, 24*60*60, "/", "", false, true)
     c.Redirect(http.StatusSeeOther, "/home")
 }

@@ -15,7 +15,7 @@ func AdminRoutes(c *gin.Engine) {
 		adminGroup.POST("/login", controllers.AdminLogin)
 
 		protected := adminGroup.Group("")
-		protected.Use(middleware.AuthenticateAdmin())
+		protected.Use(middleware.Authenticate("jwtTokensAdmin","Admin","/admin/login"),middleware.ClearCache())
 		{
 			//user-management route
 			protected.GET("/user-management", controllers.GetUsers)

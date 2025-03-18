@@ -22,7 +22,7 @@ func GetProducts(c *gin.Context) {
         page = 1
     }
 
-    const itemsPerPage = 10
+    const itemsPerPage = 5
     offset := (page - 1) * itemsPerPage
 
     var products []adminModels.Product
@@ -39,13 +39,12 @@ func GetProducts(c *gin.Context) {
         return
     }
 
-    // Preload Variants
     if err := dbQuery.Preload("Variants").Order("product_name").Offset(offset).Limit(itemsPerPage).Find(&products).Error; err != nil {
         c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch products"})
         return
     }
 
-    // Calculate total stock for each product
+
     type ProductWithStock struct {
         adminModels.Product
         TotalStock uint

@@ -48,7 +48,6 @@ func InitCloudinary() error {
 func ProcessImage(c *gin.Context, file multipart.File, header *multipart.FileHeader) (string, error) {
 	log.Printf("[INFO] Processing image: %s", header.Filename)
 
-	// Ensure the file pointer is at the start
 	if seeker, ok := file.(interface {
 		Seek(int64, int) (int64, error)
 	}); ok {
@@ -63,7 +62,6 @@ func ProcessImage(c *gin.Context, file multipart.File, header *multipart.FileHea
 		return "", fmt.Errorf("file does not support seeking")
 	}
 
-	// Decode the image
 	img, format, err := image.Decode(file)
 	if err != nil {
 		log.Printf("[ERROR] Failed to decode image %s (format: %s): %v", header.Filename, format, err)
@@ -71,14 +69,11 @@ func ProcessImage(c *gin.Context, file multipart.File, header *multipart.FileHea
 	}
 	log.Printf("[INFO] Image decoded successfully, format: %s", format)
 
-	// Skip cropping (handled by frontend)
-	// Resize to target dimensions if necessary
 	bounds := img.Bounds()
 	if bounds.Dx() != targetWidth || bounds.Dy() != targetHeight {
 		resized := imaging.Resize(img, targetWidth, targetHeight, imaging.Lanczos)
 		log.Printf("[INFO] Image resized to %d x %d", targetWidth, targetHeight)
 
-		// Save to temporary file
 		tempFile := fmt.Sprintf("temp_%d_%s.png", time.Now().UnixNano(), header.Filename)
 		err = imaging.Save(resized, tempFile)
 		if err != nil {
@@ -88,7 +83,6 @@ func ProcessImage(c *gin.Context, file multipart.File, header *multipart.FileHea
 		log.Printf("[INFO] Temporary file saved: %s", tempFile)
 		defer os.Remove(tempFile)
 
-		// Upload to Cloudinary
 		if cld == nil {
 			log.Printf("[ERROR] Cloudinary client not initialized")
 			return "", fmt.Errorf("Cloudinary client not initialized")
@@ -106,7 +100,6 @@ func ProcessImage(c *gin.Context, file multipart.File, header *multipart.FileHea
 		return uploadResult.SecureURL, nil
 	}
 
-	// If already correct size, upload directly
 	tempFile := fmt.Sprintf("temp_%d_%s", time.Now().UnixNano(), header.Filename)
 	err = imaging.Save(img, tempFile)
 	if err != nil {

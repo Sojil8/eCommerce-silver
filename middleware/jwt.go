@@ -27,24 +27,10 @@ type Claims struct {
 func SecretKeyCheck() {
 	secret := os.Getenv("SECRET_KEY")
 	if len(secret) == 0 {
-		log.Fatal("--Faild to get secret key--")
+		log.Fatal("--Failed to get secret key--")
 	}
 	SecretKey = []byte(secret)
 	fmt.Println("--------------------SecretKey ok-------------------")
-
-}
-
-func CheckTokenCreation(c *gin.Context, userId uint, email, role string) {
-	token, err := GenerateToken(c, int(userId), email, role)
-	if err != nil {
-		helper.ResponseWithErr(c, http.StatusBadRequest, "error in jwt claims", "Error creating jwt", "")
-		return
-	}
-	c.JSON(http.StatusOK, gin.H{
-		"status": "OK",
-		"token":  token,
-		"code":   200,
-	})
 }
 
 func GenerateToken(c *gin.Context, id int, email string, role string) (string, error) {
@@ -64,66 +50,18 @@ func GenerateToken(c *gin.Context, id int, email string, role string) (string, e
 	return tokenString, nil
 }
 
-func AuthenticateAdmin() gin.HandlerFunc {
+
+func Authenticate(cookieName, expectedRole, loginRedirect string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ClearCache()
-
-		cookie, err := c.Cookie("jwtTokensAdmin")
+		cookie, err := c.Cookie(cookieName)
 		if err != nil {
-			fmt.Println("No cookie found:", err)
-			c.Redirect(http.StatusSeeOther, "/admin/login")
+			fmt.Printf("No %s cookie found: %v\n", cookieName, err)
+			c.Redirect(http.StatusSeeOther, loginRedirect)
 			c.Abort()
 			return
 		}
 
-		token, err := jwt.ParseWithClaims(cookie, &Claims{}, func(token *jwt.Token) (interface{}, error) {
-			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-				return nil, jwt.ErrSignatureInvalid
-			}
-			return []byte(os.Getenv("SECRET_KEY")), nil
-		})
-		if err != nil || !token.Valid {
-			fmt.Println("Token invalid or parsing error:", err)
-			c.Redirect(http.StatusSeeOther, "/admin/login")
-			c.Abort()
-			return
-		}
-
-		claims, ok := token.Claims.(*Claims)
-		if !ok || claims.Role != "Admin" {
-			fmt.Println("Claims issue - Role:", claims.Role, "OK:", ok)
-			c.Redirect(http.StatusSeeOther, "/admin/login")
-			c.Abort()
-			return
-		}
-
-		var admin adminModels.Admin
-		if err := database.DB.First(&admin, claims.ID).Error; err != nil {
-			fmt.Println("Admin not found in DB:", err)
-			c.Redirect(http.StatusSeeOther, "/admin/login")
-			c.Abort()
-			return
-		}
-
-		c.Set("admin_id", claims.ID)
-		c.Set("email", claims.Email)
-		// fmt.Println("Admin authenticated:", claims.Email)
-		c.Next()
-	}
-}
-
-// AuthenticateUser is a middleware to protect user routes
-func AuthenticateUser() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		ClearCache()
-
-		cookie, err := c.Cookie("jwt_token")
-		if err != nil {
-			fmt.Println("No user cookie found:", err)
-			c.Redirect(http.StatusSeeOther, "/login")
-			c.Abort()
-			return
-		}
 
 		token, err := jwt.ParseWithClaims(cookie, &Claims{}, func(token *jwt.Token) (interface{}, error) {
 			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
@@ -133,38 +71,52 @@ func AuthenticateUser() gin.HandlerFunc {
 		})
 		if err != nil || !token.Valid {
 			fmt.Println("Token invalid or parsing error:", err)
-			c.Redirect(http.StatusSeeOther, "/login")
+			c.Redirect(http.StatusSeeOther, loginRedirect)
 			c.Abort()
 			return
 		}
+
 
 		claims, ok := token.Claims.(*Claims)
-		if !ok || claims.Role != "User" {
-			fmt.Println("Claims issue - Role:", claims.Role, "OK:", ok)
-			c.Redirect(http.StatusSeeOther, "/login")
+		if !ok || claims.Role != expectedRole {
+			fmt.Printf("Claims issue - Role: %s, Expected: %s, OK: %v\n", claims.Role, expectedRole, ok)
+			c.Redirect(http.StatusSeeOther, loginRedirect)
 			c.Abort()
 			return
 		}
 
-		var user userModels.User
-		if err := database.DB.First(&user, claims.ID).Error; err != nil {
-			fmt.Println("User not found in DB - ID:", claims.ID, "Error:", err)
-			c.Redirect(http.StatusSeeOther, "/login")
+		if expectedRole == "Admin" {
+			var admin adminModels.Admin
+			if err := database.DB.First(&admin, claims.ID).Error; err != nil {
+				fmt.Println("Admin not found in DB:", err)
+				c.Redirect(http.StatusSeeOther, loginRedirect)
+				c.Abort()
+				return
+			}
+			c.Set("admin_id", claims.ID)
+		} else if expectedRole == "User" {
+			var user userModels.User
+			if err := database.DB.First(&user, claims.ID).Error; err != nil {
+				fmt.Println("User not found in DB - ID:", claims.ID, "Error:", err)
+				c.Redirect(http.StatusSeeOther, loginRedirect)
+				c.Abort()
+				return
+			}
+			if user.Is_blocked {
+				helper.ResponseWithErr(c, http.StatusForbidden, "Account blocked", "Your account has been blocked", "")
+				c.Abort()
+				return
+			}
+			c.Set("user_name", user.UserName)
+		} else {
+			c.Redirect(http.StatusSeeOther, loginRedirect)
 			c.Abort()
 			return
 		}
 
-		if user.Is_blocked {
-			helper.ResponseWithErr(c, http.StatusForbidden, "Account blocked", "Your account has been blocked", "")
-			c.Abort()
-			return
-		}
-
-		c.Set("user_id", claims.ID)
+		c.Set("id", claims.ID)
 		c.Set("email", claims.Email)
 		c.Set("role", claims.Role)
-		c.Set("user_name", user.UserName) // Ensure UserName is set
-		// fmt.Println("User authenticated - ID:", claims.ID, "Email:", claims.Email, "UserName:", user.UserName)
 		c.Next()
 	}
 }

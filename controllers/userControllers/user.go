@@ -18,7 +18,7 @@ import (
 
 var roleUser string = "User"
 
-// ShowSignUp - unchanged
+
 func ShowSignUp(c *gin.Context) {
 	tokenString, err := c.Cookie("jwt_token")
 	if err == nil && tokenString != "" {
@@ -43,7 +43,6 @@ var signupRequest struct {
 	ConfirmPassword string `json:"confirmpassword" form:"confirmpassword" binding:"required"`
 }
 
-// UserSignUp - updated with better validation
 func UserSignUp(c *gin.Context) {
 	if err := c.ShouldBind(&signupRequest); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input", "field": "all"})
@@ -113,7 +112,6 @@ func UserSignUp(c *gin.Context) {
 	})
 }
 
-// ShowOTPPage - unchanged
 func ShowOTPPage(c *gin.Context) {
 	email := c.Query("email")
 	if email == "" {
@@ -131,7 +129,6 @@ var otpInput struct {
 	OTP   string `json:"otp" form:"otp" binding:"required,len=6"`
 }
 
-// VerifyOTP - updated with stricter validation
 func VerifyOTP(c *gin.Context) {
 	if err := c.ShouldBind(&otpInput); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input", "field": "otp"})
@@ -196,7 +193,6 @@ func VerifyOTP(c *gin.Context) {
 	})
 }
 
-// ResendOTP - new function
 func ResendOTP(c *gin.Context) {
 	var resendRequest struct {
 		Email string `json:"email" binding:"required,email"`
@@ -218,7 +214,6 @@ func ResendOTP(c *gin.Context) {
 		return
 	}
 
-	// Generate and store new OTP
 	otp, err := helper.GenerateAndStoreOTP(resendRequest.Email)
 	if err != nil {
 		log.Println("OTP generation/storage failed:", err)
@@ -226,8 +221,6 @@ func ResendOTP(c *gin.Context) {
 		return
 	}
 	fmt.Println(otp)
-
-	// Update existing Redis data with new OTP
 	data, err := database.RedisClient.Get(database.Ctx, userKey).Result()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve user data"})
@@ -252,7 +245,6 @@ func ResendOTP(c *gin.Context) {
 		return
 	}
 
-	// Send new OTP
 	if err := helper.SendOTP(resendRequest.Email, otp); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to resend OTP"})
 		return
@@ -264,7 +256,6 @@ func ResendOTP(c *gin.Context) {
 	})
 }
 
-// ShowLogin - unchanged
 func ShowLogin(c *gin.Context) {
 	tokenString, err := c.Cookie("jwt_token")
 	if err == nil && tokenString != "" {
@@ -288,7 +279,7 @@ var loginRequest struct {
 	Password string `json:"password" form:"password" binding:"required,min=8"`
 }
 
-// LoginPostUser - updated with better validation
+
 func LoginPostUser(c *gin.Context) {
 	if err := c.ShouldBind(&loginRequest); err != nil {
 		helper.ResponseWithErr(c, http.StatusBadRequest, "Invalid input", "Please provide a valid email and password", "")
@@ -321,7 +312,7 @@ func LoginPostUser(c *gin.Context) {
 	c.Redirect(http.StatusSeeOther, "/home")
 }
 
-// LogoutUser - unchanged
+
 func LogoutUser(c *gin.Context) {
 	c.SetCookie("jwt_token", "", -1, "/", "", false, true)
 	c.Redirect(http.StatusSeeOther, "/login")

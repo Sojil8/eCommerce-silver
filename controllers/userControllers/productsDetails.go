@@ -3,6 +3,7 @@ package controllers
 import (
 	"net/http"
 
+	"github.com/Sojil8/eCommerce-silver/config"
 	"github.com/Sojil8/eCommerce-silver/database"
 	"github.com/Sojil8/eCommerce-silver/helper"
 	"github.com/Sojil8/eCommerce-silver/models/adminModels"
@@ -36,12 +37,10 @@ func GetProductDetails(c *gin.Context) {
         return
     }
 
-    // Ensure OriginalPrice is set; if not, default to Price (no discount)
     if product.OriginalPrice <= product.Price {
-        product.OriginalPrice = product.Price // No offer case
+        product.OriginalPrice = product.Price 
     }
 
-    // Calculate discount percentage
     discountPercentage := 0
     if product.OriginalPrice > product.Price {
         discountPercentage = int(((product.OriginalPrice - product.Price) / product.OriginalPrice) * 100)
@@ -52,7 +51,6 @@ func GetProductDetails(c *gin.Context) {
         Where("products.category_name = ? AND products.id != ? AND products.is_listed = ? AND categories.status = ?",
             product.CategoryName, product.ID, true, true).
         Preload("Variants").Limit(4).Find(&relatedProducts).Error; err != nil {
-        // Log error silently
     }
 
     availableRelatedProducts := []adminModels.Product{}
@@ -65,11 +63,17 @@ func GetProductDetails(c *gin.Context) {
         }
     }
 
+    breadcrumbs := config.GenerateBreadcrumbs(
+        config.Breadcrumb{Name: "Shop", URL: "/shope"}, 
+        config.Breadcrumb{Name: product.ProductName, URL: ""}, 
+    )
+
     c.HTML(http.StatusOK, "productDetails.html", gin.H{
         "Product":            product,
         "OriginalPrice":      product.OriginalPrice,
         "DiscountPercentage": discountPercentage,
         "RelatedProducts":    availableRelatedProducts,
         "Category":           product.CategoryName,
+        "Breadcrumbs":        breadcrumbs,
     })
 }

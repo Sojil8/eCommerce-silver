@@ -8,6 +8,7 @@
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
         .notification {
@@ -31,8 +32,12 @@
             padding: 0 1.5rem;
         }
         .main-content {
-            max-width: 80rem; /* Increased from 64rem to 80rem (1280px) */
+            max-width: 80rem;
             width: 100%;
+        }
+        .pagination .disabled {
+            pointer-events: none;
+            opacity: 0.5;
         }
     </style>
 </head>
@@ -57,7 +62,7 @@
                 <h3 class="text-2xl font-semibold text-gray-800 mb-6">Customers</h3>
 
                 <form class="search-form flex mb-6" method="GET" action="/admin/user-management" id="searchForm">
-                    <input type="text" name="search" id="searchInput" placeholder="Search for customers..." class="flex-1 p-2 border border-gray-300 rounded-l-lg focus:ring-blue-500 focus:border-blue-500" value="{{ .searchQuery }}">
+                    <input type="text" name="search" id="searchInput" placeholder="Search by name..." class="flex-1 p-2 border border-gray-300 rounded-l-lg focus:ring-blue-500 focus:border-blue-500" value="{{ .searchQuery }}">
                     <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-r-lg hover:bg-blue-700 hover-scale transition-all">Search</button>
                     <button type="button" id="clearSearch" class="ml-2 bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600 hover-scale transition-all">Clear</button>
                 </form>
@@ -105,11 +110,30 @@
                     </table>
                 </div>
 
-                <div class="pagination flex justify-center mt-6 space-x-2">
-                    <a href="#" class="px-3 py-1 rounded bg-blue-600 text-white hover:bg-blue-700 transition-colors">1</a>
-                    <a href="#" class="px-3 py-1 rounded bg-gray-200 text-gray-700 hover:bg-gray-300 transition-colors">2</a>
-                    <a href="#" class="px-3 py-1 rounded bg-gray-200 text-gray-700 hover:bg-gray-300 transition-colors">3</a>
-                    <a href="#" class="px-3 py-1 rounded bg-gray-200 text-gray-700 hover:bg-gray-300 transition-colors">Next</a>
+                <!-- Pagination -->
+                <div class="pagination flex justify-center items-center mt-6 space-x-2">
+                    <!-- Previous Button with Icon -->
+                    <a href="/admin/user-management?page={{ .prevPage }}&limit={{ .limit }}{{ if .searchQuery }}&search={{ .searchQuery }}{{ end }}"
+                       class="px-3 py-1 rounded bg-gray-200 text-gray-700 hover:bg-gray-300 transition-colors {{ if not .hasPrev }}disabled{{ end }}">
+                        <i class="fas fa-chevron-left"></i>
+                    </a>
+
+                    <!-- Page Numbers -->
+                    {{ $currentPage := .page }}
+                    {{ $totalPages := .totalPages }}
+                    {{ range until $totalPages }}
+                        {{ $pageNum := add . 1 }}
+                        <a href="/admin/user-management?page={{ $pageNum }}&limit={{ $.limit }}{{ if $.searchQuery }}&search={{ $.searchQuery }}{{ end }}"
+                           class="px-3 py-1 rounded {{ if eq $pageNum $currentPage }}bg-blue-600 text-white{{ else }}bg-gray-200 text-gray-700 hover:bg-gray-300{{ end }} transition-colors">
+                            {{ $pageNum }}
+                        </a>
+                    {{ end }}
+
+                    <!-- Next Button with Icon -->
+                    <a href="/admin/user-management?page={{ .nextPage }}&limit={{ .limit }}{{ if .searchQuery }}&search={{ .searchQuery }}{{ end }}"
+                       class="px-3 py-1 rounded bg-gray-200 text-gray-700 hover:bg-gray-300 transition-colors {{ if not .hasNext }}disabled{{ end }}">
+                         <i class="fas fa-chevron-right"></i>
+                    </a>
                 </div>
             </div>
         </div>
@@ -117,13 +141,11 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            // Form elements
             const searchForm = document.getElementById('searchForm');
             const searchInput = document.getElementById('searchInput');
             const clearButton = document.getElementById('clearSearch');
             const actionButtons = document.querySelectorAll('.block-unblock-btn');
 
-            // Handle search form submission
             searchForm.addEventListener('submit', (e) => {
                 e.preventDefault();
                 if (searchInput.value.trim()) {
@@ -131,13 +153,11 @@
                 }
             });
 
-            // Handle clear button click
             clearButton.addEventListener('click', () => {
                 searchInput.value = '';
                 window.location.href = '/admin/user-management';
             });
 
-            // Handle block/unblock buttons
             actionButtons.forEach(button => {
                 button.addEventListener('click', async (e) => {
                     e.preventDefault();
@@ -146,7 +166,6 @@
             });
         });
 
-        // Handle user block/unblock action
         async function handleUserAction(button) {
             const userId = button.dataset.id;
             const action = button.dataset.action;
@@ -173,7 +192,6 @@
             }
         }
 
-        // Show confirmation dialog
         function showConfirmation(action, actionText) {
             return Swal.fire({
                 title: `Are you sure?`,
@@ -187,7 +205,6 @@
             }).then(result => result.isConfirmed);
         }
 
-        // Perform the block/unblock request
         async function performActionRequest(userId, action) {
             const url = `/admin/${action}-user/${userId}`;
             return await fetch(url, {
@@ -197,16 +214,19 @@
             });
         }
 
-        // Update button state after successful action
         function updateButtonState(button, action) {
             const isBlocking = action === 'block';
             button.className = `block-unblock-btn ${isBlocking ? 'bg-green-500' : 'bg-red-500'} text-white px-3 py-1 rounded hover:${isBlocking ? 'bg-green-600' : 'bg-red-600'} hover-scale transition-all`;
             button.textContent = isBlocking ? 'Unblock' : 'Block';
             button.dataset.action = isBlocking ? 'unblock' : 'block';
             button.disabled = false;
+
+            const statusCell = button.closest('tr').querySelector('td:nth-child(5)');
+            statusCell.innerHTML = isBlocking 
+                ? '<span class="text-red-500 font-medium">Blocked</span>' 
+                : '<span class="text-green-500 font-medium">Active</span>';
         }
 
-        // Show success alert
         function showSuccessAlert(action) {
             Swal.fire({
                 icon: 'success',
@@ -217,7 +237,6 @@
             });
         }
 
-        // Handle errors during action
         function handleActionError(button, actionText, error) {
             button.disabled = false;
             button.textContent = actionText;
@@ -235,7 +254,6 @@
             }
         }
 
-        // Logout function
         async function logout(event) {
             event.preventDefault();
             

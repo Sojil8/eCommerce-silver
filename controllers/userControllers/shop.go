@@ -23,7 +23,6 @@ func GetUserShop(c *gin.Context) {
 	var query ShopQuery
 	if c.Request.Method == "POST" {
 		if err := c.ShouldBindJSON(&query); err != nil {
-			// If JSON binding fails, try to get from query parameters
 			query.Search = c.Query("search")
 			query.Sort = c.Query("sort")
 			query.Category = c.Query("category")
@@ -35,7 +34,6 @@ func GetUserShop(c *gin.Context) {
 			}
 		}
 	} else {
-		// For GET requests, get from query parameters
 		query.Search = c.Query("search")
 		query.Sort = c.Query("sort")
 		query.Category = c.Query("category")
@@ -66,7 +64,6 @@ func GetUserShop(c *gin.Context) {
 	}
 
 	if query.PriceMax > 0 {
-		// Fixed: Use <= for maximum price
 		db = db.Where("products.price <= ?", query.PriceMax)
 	}
 
@@ -84,7 +81,6 @@ func GetUserShop(c *gin.Context) {
 	}
 
 	var products []adminModels.Product
-	// Fixed: Use the prepared query with all filters
 	if err := db.Find(&products).Error; err != nil {
 		helper.ResponseWithErr(c, http.StatusInternalServerError, "error:failed to fetch products", "error:failed to fetch products", "")
 		return
