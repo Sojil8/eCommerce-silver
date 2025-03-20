@@ -67,11 +67,11 @@ func GoogleCallback(c *gin.Context) {
         return
     }
 
-    var user userModels.User
+    var user userModels.Users
     err = database.DB.Where("email = ?", googleUser.Email).First(&user).Error
     if err != nil {
         if err.Error() == "record not found" {
-            user = userModels.User{
+            user = userModels.Users{
                 UserName:   googleUser.Name,
                 Email:      googleUser.Email,
                 Password:   "", 

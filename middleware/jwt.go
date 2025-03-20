@@ -95,7 +95,7 @@ func Authenticate(cookieName, expectedRole, loginRedirect string) gin.HandlerFun
 			}
 			c.Set("admin_id", claims.ID)
 		} else if expectedRole == "User" {
-			var user userModels.User
+			var user userModels.Users
 			if err := database.DB.First(&user, claims.ID).Error; err != nil {
 				fmt.Println("User not found in DB - ID:", claims.ID, "Error:", err)
 				c.Redirect(http.StatusSeeOther, loginRedirect)

@@ -14,7 +14,7 @@ import (
 
 func GetUsers(c *gin.Context) {
 	middleware.ClearCache()
-	var users []userModels.User
+	var users []userModels.Users
 	searchQuery := c.Query("search")
 	pageStr := c.DefaultQuery("page", "1")
 	limitStr := c.DefaultQuery("limit", "10")
@@ -38,7 +38,7 @@ func GetUsers(c *gin.Context) {
 	}
 
 	var totalUsers int64
-	if err := dbQuery.Model(&userModels.User{}).Count(&totalUsers).Error; err != nil {
+	if err := dbQuery.Model(&userModels.Users{}).Count(&totalUsers).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -70,7 +70,7 @@ func GetUsers(c *gin.Context) {
 func BlockUser(c *gin.Context) {
 	middleware.ClearCache()
 	userID := c.Param("id")
-	var user userModels.User
+	var user userModels.Users
 
 	if err := database.DB.First(&user, userID).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -100,7 +100,7 @@ func BlockUser(c *gin.Context) {
 func UnBlockUser(c *gin.Context) {
 	middleware.ClearCache()
 	userID := c.Param("id")
-	var user userModels.User
+	var user userModels.Users
 
 	if err := database.DB.First(&user, userID).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {

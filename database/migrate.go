@@ -7,9 +7,13 @@ import (
 
 func MigrageHandler() {
 	DB.AutoMigrate(
-		&userModels.User{}, 
+		&userModels.Users{}, 
 		adminModels.Admin{}, 
 		adminModels.Category{}, 
 		&adminModels.Product{}, 
-		&adminModels.Variants{})
+		&adminModels.Variants{},
+		&userModels.Orders{},
+
+	)
+		
 }

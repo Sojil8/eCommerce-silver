@@ -120,25 +120,3 @@ func ProcessImage(c *gin.Context, file multipart.File, header *multipart.FileHea
 	return uploadResult.SecureURL, nil
 }
 
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
-
-func TestWebPDecoder() {
-	log.Printf("[INFO] Verifying WebP decoder registration")
-	f, err := os.Open("test.webp")
-	if err != nil {
-		log.Printf("[ERROR] Failed to open test WebP file: %v", err)
-		return
-	}
-	defer f.Close()
-	_, format, err := image.Decode(f)
-	if err != nil {
-		log.Printf("[ERROR] WebP decoder test failed: %v", err)
-	} else {
-		log.Printf("[INFO] WebP decoder test succeeded, format: %s", format)
-	}
-}

@@ -35,6 +35,15 @@ func UserRoutes(c *gin.Engine) {
 			protected.GET("/shop", controllers.GetUserShop)
 			protected.POST("/shop", controllers.GetUserShop)
 			protected.POST("/logout", controllers.LogoutUser)
+
+			//profile routes
+			protected.GET("/profile",controllers.ShowProfile)
+			protected.GET("/profile/edit",controllers.ShowEditProfile)
+			protected.POST("/profile/edit",controllers.EditProfile)
+			protected.GET("/profile/verify-email",controllers.ShowVerifyEditEmail)
+			protected.POST("/profile/verify-email",controllers.VerifyEditEmail)
+			protected.POST("/profile/change-password",controllers.ChangePassword)
+
 		}
 		authGroup := c.Group("/auth")
 		authGroup.GET("/google", config.GoogleLogin)

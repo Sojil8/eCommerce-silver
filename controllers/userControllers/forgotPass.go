@@ -29,7 +29,7 @@ func ForgotPasswordRequest(c *gin.Context) {
 		return
 	}
 
-	var user userModels.User
+	var user userModels.Users
 	if err := database.DB.Where("email = ?", forgotPassRequest.Email).First(&user).Error; err != nil {
 		helper.ResponseWithErr(c, http.StatusNotFound, "User not found", "Email does not exist", "")
 		return
@@ -41,7 +41,7 @@ func ForgotPasswordRequest(c *gin.Context) {
 	}
 
 	otp, err := helper.GenerateAndStoreOTP(forgotPassRequest.Email)
-	fmt.Println("Generated OTP:", otp) // Debug log
+	fmt.Println("Generated OTP:", otp)
 	if err != nil {
 		log.Println("OTP generation/storage failed:", err)
 		helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to generate OTP", "Internal error", "")
@@ -92,7 +92,7 @@ func ShowResetOTPPage(c *gin.Context) {
 
 var resetOTPInput struct {
 	Email string `json:"email" form:"email" binding:"required,email"`
-	OTP   string `json:"otp" form:"otp" binding:"required"` // Fixed typo
+	OTP   string `json:"otp" form:"otp" binding:"required"`
 }
 
 func VerifyResetOTP(c *gin.Context) {
@@ -104,7 +104,7 @@ func VerifyResetOTP(c *gin.Context) {
 	resetKey := fmt.Sprintf("reset:%s", resetOTPInput.Email)
 	data, err := database.RedisClient.Get(database.Ctx, resetKey).Result()
 	if err != nil {
-		log.Println("Redis Get Error:", err) // Debug log
+		log.Println("Redis Get Error:", err)
 		helper.ResponseWithErr(c, http.StatusNotFound, "OTP expired or not found", "Session expired", "")
 		return
 	}
@@ -163,7 +163,7 @@ func ResetPassword(c *gin.Context) {
 		return
 	}
 
-	var user userModels.User
+	var user userModels.Users
 	if err := database.DB.Where("email = ?", resetPasswordRequest.Email).First(&user).Error; err != nil {
 		helper.ResponseWithErr(c, http.StatusNotFound, "User not found", "Email does not exist", "")
 		return
@@ -183,8 +183,8 @@ func ResetPassword(c *gin.Context) {
 
 	database.RedisClient.Del(database.Ctx, resetKey)
 	c.JSON(http.StatusOK, gin.H{
-		"status":  "ok",
-		"message": "Password reset successfully",
+		"status":   "ok",
+		"message":  "Password reset successfully",
 		"redirect": "/login",
 	})
 }

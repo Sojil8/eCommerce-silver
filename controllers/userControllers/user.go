@@ -49,12 +49,12 @@ func UserSignUp(c *gin.Context) {
 		return
 	}
 
-	if database.DB.Where("email = ?", signupRequest.Email).First(&userModels.User{}).Error == nil {
+	if database.DB.Where("email = ?", signupRequest.Email).First(&userModels.Users{}).Error == nil {
 		c.JSON(http.StatusConflict, gin.H{"error": "Email already exists", "field": "email"})
 		return
 	}
 
-	if database.DB.Where("phone = ?", signupRequest.Phone).First(&userModels.User{}).Error == nil {
+	if database.DB.Where("phone = ?", signupRequest.Phone).First(&userModels.Users{}).Error == nil {
 		c.JSON(http.StatusConflict, gin.H{"error": "Phone number already exists", "field": "phone"})
 		return
 	}
@@ -172,7 +172,7 @@ func VerifyOTP(c *gin.Context) {
 	password, _ := storedData["password"].(string)
 	phone, _ := storedData["phone"].(string)
 
-	newUser := userModels.User{
+	newUser := userModels.Users{
 		UserName: name,
 		Email:    email,
 		Password: password,
@@ -286,7 +286,7 @@ func LoginPostUser(c *gin.Context) {
 		return
 	}
 
-	var user userModels.User
+	var user userModels.Users
 	if err := database.DB.Where("email = ?", loginRequest.Email).First(&user).Error; err != nil {
 		helper.ResponseWithErr(c, http.StatusUnauthorized, "User not found", "Email does not exist", "")
 		return
