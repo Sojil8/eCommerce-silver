@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,31 +9,106 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
-        .img-zoom-container { position: relative; width: 100%; overflow: hidden; }
-        .main-img { width: 100%; display: block; transition: transform 0.3s ease; }
-        .img-zoom-box { position: absolute; width: 200px; height: 200px; border: 2px solid #ddd; background-color: white; display: none; overflow: hidden; pointer-events: none; z-index: 10; }
-        .zoomed-img { position: absolute; max-width: none; transform-origin: 0 0; }
-        .img-zoom-container:hover .img-zoom-box { display: block; }
-        .quantity-control { display: flex; align-items: center; border-radius: 0.375rem; border: 1px solid #e5e7eb; overflow: hidden; }
-        .quantity-btn { display: flex; align-items: center; justify-content: center; width: 2.5rem; height: 2.5rem; background-color: #f3f4f6; cursor: pointer; transition: background-color 0.2s; }
-        .quantity-btn:hover { background-color: #e5e7eb; }
-        .quantity-btn:disabled { background-color: #d1d5db; cursor: not-allowed; }
-        .quantity-input { width: 3rem; height: 2.5rem; border: none; text-align: center; -moz-appearance: textfield; }
-        .quantity-input:disabled { background-color: #d1d5db; cursor: not-allowed; }
-        .quantity-input::-webkit-outer-spin-button, .quantity-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-        .variant-btn.active { background-color: #4f46e5; color: white; border-color: #4f46e5; }
+        .img-zoom-container {
+            position: relative;
+            width: 100%;
+            overflow: hidden;
+        }
+
+        .main-img {
+            width: 100%;
+            display: block;
+            transition: transform 0.3s ease;
+        }
+
+        .img-zoom-box {
+            position: absolute;
+            width: 200px;
+            height: 200px;
+            border: 2px solid #ddd;
+            background-color: white;
+            display: none;
+            overflow: hidden;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .zoomed-img {
+            position: absolute;
+            max-width: none;
+            transform-origin: 0 0;
+        }
+
+        .img-zoom-container:hover .img-zoom-box {
+            display: block;
+        }
+
+        .quantity-control {
+            display: flex;
+            align-items: center;
+            border-radius: 0.375rem;
+            border: 1px solid #e5e7eb;
+            overflow: hidden;
+        }
+
+        .quantity-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 2.5rem;
+            height: 2.5rem;
+            background-color: #f3f4f6;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .quantity-btn:hover {
+            background-color: #e5e7eb;
+        }
+
+        .quantity-btn:disabled {
+            background-color: #d1d5db;
+            cursor: not-allowed;
+        }
+
+        .quantity-input {
+            width: 3rem;
+            height: 2.5rem;
+            border: none;
+            text-align: center;
+            -moz-appearance: textfield;
+        }
+
+        .quantity-input:disabled {
+            background-color: #d1d5db;
+            cursor: not-allowed;
+        }
+
+        .quantity-input::-webkit-outer-spin-button,
+        .quantity-input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        .variant-btn.active {
+            background-color: #4f46e5;
+            color: white;
+            border-color: #4f46e5;
+        }
     </style>
 </head>
+
 <body class="bg-gray-100 font-sans antialiased">
     <!-- Navigation Bar -->
     <nav class="bg-white shadow-md py-4">
         <div class="container mx-auto px-4 flex items-center justify-between">
             <!-- Logo -->
-            <a href="/home" class="text-2xl font-bold text-indigo-600 hover:text-indigo-800 transition-colors">Silver</a>
+            <a href="/home"
+                class="text-2xl font-bold text-indigo-600 hover:text-indigo-800 transition-colors">Silver</a>
             <!-- Menu Links -->
             <div class="hidden md:flex space-x-6">
                 <a href="/home" class="text-gray-700 hover:text-indigo-600 transition-colors">Home</a>
-                <a href="/shope" class="text-gray-700 hover:text-indigo-600 transition-colors">shope</a>
+                <a href="/shop" class="text-gray-700 hover:text-indigo-600 transition-colors">shop</a>
             </div>
             <!-- Icons -->
             <div class="flex items-center space-x-4">
@@ -50,11 +126,11 @@
         </div>
     </nav>
 
-  
-<!-- Breadcrumb -->
-<div class="container mx-auto px-4 py-6">
-    {{ template "breadcrumbs.html" . }}
-</div>
+
+    <!-- Breadcrumb -->
+    <div class="container mx-auto px-4 py-6">
+        {{ template "breadcrumbs.html" . }}
+    </div>
 
     <!-- Product Detail Section -->
     <section class="py-12 bg-white">
@@ -64,20 +140,26 @@
                 <div class="relative">
                     <div class="img-zoom-container rounded-xl overflow-hidden shadow-lg">
                         {{ if gt (len .Product.Images) 0 }}
-                            <img src="{{ index .Product.Images 0 }}" alt="{{ .Product.ProductName }}" class="main-img hover:scale-105" id="main-image">
-                            <div class="img-zoom-box">
-                                <img src="{{ index .Product.Images 0 }}" alt="{{ .Product.ProductName }}" class="zoomed-img" id="zoomed-image">
-                            </div>
+                        <img src="{{ index .Product.Images 0 }}" alt="{{ .Product.ProductName }}"
+                            class="main-img hover:scale-105" id="main-image">
+                        <div class="img-zoom-box">
+                            <img src="{{ index .Product.Images 0 }}" alt="{{ .Product.ProductName }}" class="zoomed-img"
+                                id="zoomed-image">
+                        </div>
                         {{ else }}
-                            <img src="/static/default-product.jpg" alt="Default Image" class="main-img hover:scale-105" id="main-image">
-                            <div class="img-zoom-box">
-                                <img src="/static/default-product.jpg" alt="Default Image" class="zoomed-img" id="zoomed-image">
-                            </div>
+                        <img src="/static/default-product.jpg" alt="Default Image" class="main-img hover:scale-105"
+                            id="main-image">
+                        <div class="img-zoom-box">
+                            <img src="/static/default-product.jpg" alt="Default Image" class="zoomed-img"
+                                id="zoomed-image">
+                        </div>
                         {{ end }}
                     </div>
                     <div class="mt-4 flex space-x-2 overflow-x-auto" id="thumbnail-container">
                         {{ range .Product.Images }}
-                            <img src="{{ . }}" alt="Thumbnail" class="w-20 h-20 object-cover rounded-lg cursor-pointer hover:ring-2 hover:ring-indigo-500 transition-all thumbnail" data-src="{{ . }}">
+                        <img src="{{ . }}" alt="Thumbnail"
+                            class="w-20 h-20 object-cover rounded-lg cursor-pointer hover:ring-2 hover:ring-indigo-500 transition-all thumbnail"
+                            data-src="{{ . }}">
                         {{ end }}
                     </div>
                 </div>
@@ -85,21 +167,25 @@
                 <!-- Product Info -->
                 <div class="space-y-6">
                     <h1 class="text-3xl font-bold text-gray-900">{{ .Product.ProductName }}</h1>
-                    
+
                     <!-- Ratings -->
                     <div class="flex items-center">
                         <div class="flex text-yellow-400">
-                            <i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="far fa-star"></i>
+                            <i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i
+                                class="fas fa-star"></i><i class="far fa-star"></i>
                         </div>
                         <span class="ml-2 text-gray-600 text-sm">(4.0 - 120 reviews)</span>
                     </div>
 
                     <!-- Price and Discount -->
                     <div class="flex items-center space-x-4">
-                        <span class="text-3xl font-bold text-indigo-600" id="current-price">₹{{ printf "%.2f" .Product.Price }}</span>
+                        <span class="text-3xl font-bold text-indigo-600" id="current-price">₹{{ printf "%.2f"
+                            .Product.Price }}</span>
                         {{ if gt .OriginalPrice .Product.Price }}
-                            <span class="text-lg text-gray-500 line-through" id="original-price">₹{{ printf "%.2f" .OriginalPrice }}</span>
-                            <span class="bg-green-100 text-green-800 text-sm font-medium px-3 py-1 rounded-full" id="discount">{{ .DiscountPercentage }}% Off</span>
+                        <span class="text-lg text-gray-500 line-through" id="original-price">₹{{ printf "%.2f"
+                            .OriginalPrice }}</span>
+                        <span class="bg-green-100 text-green-800 text-sm font-medium px-3 py-1 rounded-full"
+                            id="discount">{{ .DiscountPercentage }}% Off</span>
                         {{ end }}
                     </div>
 
@@ -112,11 +198,10 @@
                         <label class="block text-sm font-medium text-gray-700 mb-2">Select Variant</label>
                         <div class="flex flex-wrap gap-2" id="variant-container">
                             {{ range .Product.Variants }}
-                            <button class="variant-btn px-4 py-2 bg-gray-100 rounded-lg hover:bg-indigo-100 focus:ring-2 focus:ring-indigo-500 transition-colors"
-                                    data-variant-id="{{ .ID }}"
-                                    data-color="{{ .Color }}"
-                                    data-extra-price="{{ .ExtraPrice }}"
-                                    data-stock="{{ .Stock }}">
+                            <button
+                                class="variant-btn px-4 py-2 bg-gray-100 rounded-lg hover:bg-indigo-100 focus:ring-2 focus:ring-indigo-500 transition-colors"
+                                data-variant-id="{{ .ID }}" data-color="{{ .Color }}"
+                                data-extra-price="{{ .ExtraPrice }}" data-stock="{{ .Stock }}">
                                 {{ .Color }}
                             </button>
                             {{ end }}
@@ -128,19 +213,24 @@
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">Quantity</label>
                         <div class="quantity-control w-32">
-                            <div class="quantity-btn" id="quantity-down" disabled><i class="fas fa-minus text-gray-600"></i></div>
-                            <input type="number" id="product-quantity" class="quantity-input" value="1" min="1" 
-                                   {{ if .Product.Variants }}{{ with index .Product.Variants 0 }}max="{{ .Stock }}"{{ end }}{{ else }}max="0"{{ end }} disabled>
-                            <div class="quantity-btn" id="quantity-up" disabled><i class="fas fa-plus text-gray-600"></i></div>
+                            <div class="quantity-btn" id="quantity-down" disabled><i
+                                    class="fas fa-minus text-gray-600"></i></div>
+                            <input type="number" id="product-quantity" class="quantity-input" value="1" min="1" {{ if
+                                .Product.Variants }}{{ with index .Product.Variants 0 }}max="{{ .Stock }}" {{ end }}{{
+                                else }}max="0" {{ end }} disabled>
+                            <div class="quantity-btn" id="quantity-up" disabled><i
+                                    class="fas fa-plus text-gray-600"></i></div>
                         </div>
                     </div>
 
                     <!-- Action Buttons -->
                     <div class="flex space-x-4">
-                        <button id="add-to-cart" data-product-id="{{ .Product.ID }}" class="flex-1 bg-indigo-600 text-white py-3 px-6 rounded-lg hover:bg-indigo-700 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        <button id="add-to-cart" data-product-id="{{ .Product.ID }}"
+                            class="flex-1 bg-indigo-600 text-white py-3 px-6 rounded-lg hover:bg-indigo-700 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500">
                             Add to Cart
                         </button>
-                        <button id="add-to-wishlist" class="bg-gray-200 text-gray-700 p-3 rounded-lg hover:bg-gray-300 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-400">
+                        <button id="add-to-wishlist" data-product-id="{{ .Product.ID }}"
+                            class="bg-gray-200 text-gray-700 p-3 rounded-lg hover:bg-gray-300 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-400">
                             <i class="far fa-heart"></i>
                         </button>
                     </div>
@@ -149,8 +239,9 @@
                     <div class="text-gray-700">
                         <span class="font-medium">Availability:</span>
                         <span id="availability" class="text-green-600">In Stock (<span id="stock-quantity">
-                            {{ if .Product.Variants }}{{ with index .Product.Variants 0 }}{{ .Stock }}{{ end }}{{ else }}0{{ end }}
-                        </span>)</span>
+                                {{ if .Product.Variants }}{{ with index .Product.Variants 0 }}{{ .Stock }}{{ end }}{{
+                                else }}0{{ end }}
+                            </span>)</span>
                     </div>
                 </div>
             </div>
@@ -163,20 +254,29 @@
             <h2 class="text-2xl font-bold text-gray-900 text-center mb-10">Related Products</h2>
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                 {{ range .RelatedProducts }}
-                <div class="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-all group relative">
+                <div
+                    class="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-all group relative">
                     {{ if gt (len .Images) 0 }}
-                        <img src="{{ index .Images 0 }}" alt="{{ .ProductName }}" class="w-full h-64 object-cover group-hover:scale-105 transition-transform">
+                    <img src="{{ index .Images 0 }}" alt="{{ .ProductName }}"
+                        class="w-full h-64 object-cover group-hover:scale-105 transition-transform">
                     {{ else }}
-                        <img src="/static/default-product.jpg" alt="{{ .ProductName }}" class="w-full h-64 object-cover group-hover:scale-105 transition-transform">
+                    <img src="/static/default-product.jpg" alt="{{ .ProductName }}"
+                        class="w-full h-64 object-cover group-hover:scale-105 transition-transform">
                     {{ end }}
-                    <div class="absolute inset-0 bg-black bg-opacity-30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                        <a href="/product/details/{{ .ID }}" class="bg-white text-gray-800 py-2 px-6 rounded-full font-medium hover:bg-indigo-100 transition-colors">View Product</a>
+                    <div
+                        class="absolute inset-0 bg-black bg-opacity-30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <a href="/product/details/{{ .ID }}"
+                            class="bg-white text-gray-800 py-2 px-6 rounded-full font-medium hover:bg-indigo-100 transition-colors">View
+                            Product</a>
                     </div>
                     <div class="p-4">
-                        <a href="/product/details/{{ .ID }}" class="block text-gray-900 font-semibold hover:text-indigo-600 transition-colors">{{ .ProductName }}</a>
+                        <a href="/product/details/{{ .ID }}"
+                            class="block text-gray-900 font-semibold hover:text-indigo-600 transition-colors">{{
+                            .ProductName }}</a>
                         <div class="flex justify-between items-center mt-2">
                             <span class="text-indigo-600 font-bold">₹{{ printf "%.2f" .Price }}</span>
-                            <button class="text-gray-500 hover:text-red-500 transition-colors">
+                            <button class="text-gray-500 hover:text-red-500 transition-colors wishlist-btn"
+                                data-product-id="{{ .ID }}">
                                 <i class="far fa-heart"></i>
                             </button>
                         </div>
@@ -190,7 +290,7 @@
     </section>
 
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             // Elements
             const mainImage = document.getElementById('main-image');
             const zoomedImage = document.getElementById('zoomed-image');
@@ -207,289 +307,285 @@
             const stockQuantityEl = document.getElementById('stock-quantity');
             const availabilityEl = document.getElementById('availability');
             const imgZoomContainer = document.querySelector('.img-zoom-container');
-
+        
             // Base product info
-            let basePrice = parseFloat(currentPriceEl.textContent.replace('₹', ''));
+            let basePrice = parseFloat(currentPriceEl ? currentPriceEl.textContent.replace('₹', '') : 0);
             let baseOriginalPrice = originalPriceEl ? parseFloat(originalPriceEl.textContent.replace('₹', '')) : basePrice;
             let selectedVariant = null;
-
+        
+            // Debugging: Confirm elements are found
+            console.log("addToCartBtn:", addToCartBtn);
+            console.log("variantButtons:", variantButtons.length);
+        
+            // Add to wishlist function
+            function addToWishlist(productId) {
+                let variantId = null;
+                const activeVariant = document.querySelector('.variant-btn.active');
+                if (activeVariant) {
+                    variantId = activeVariant.getAttribute('data-variant-id');
+                }
+                fetch(`/wishlist/add/${productId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ variant_id: variantId }),
+                    credentials: 'include'
+                })
+                    .then(response => {
+                        if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+                        return response.json();
+                    })
+                    .then(data => {
+                        console.log("Wishlist response:", data);
+                        if (data.status === 'OK' || data.status === 'success') {
+                            const wishlistBtns = document.querySelectorAll(`button[data-product-id="${productId}"]`);
+                            wishlistBtns.forEach(btn => btn.innerHTML = '<i class="fas fa-heart text-red-500"></i>');
+                            Swal.fire({ title: "Added to Wishlist!", text: data.message || "Product added", icon: "success", timer: 1500, showConfirmButton: false });
+                        } else if (data.status === 'REMOVED') {
+                            const wishlistBtns = document.querySelectorAll(`button[data-product-id="${productId}"]`);
+                            wishlistBtns.forEach(btn => btn.innerHTML = '<i class="far fa-heart"></i>');
+                            Swal.fire({ title: "Removed from Wishlist", text: data.message || "Product removed", icon: "info", timer: 1500, showConfirmButton: false });
+                        } else {
+                            Swal.fire({ title: data.title || "Note", text: data.message || data.error, icon: data.icon || "info", timer: 2000, showConfirmButton: false });
+                            if (data.redirect) setTimeout(() => window.location.href = data.redirect, 2000);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Wishlist error:', error);
+                        Swal.fire({ title: "Error", text: "Failed to update wishlist", icon: "error", timer: 2000, showConfirmButton: false });
+                    });
+            }
+        
+            // Initialize wishlist buttons
+            function initWishlistButtons() {
+                const mainWishlistBtn = document.getElementById('add-to-wishlist');
+                if (mainWishlistBtn) {
+                    mainWishlistBtn.addEventListener('click', function () {
+                        const productId = this.getAttribute('data-product-id');
+                        addToWishlist(productId);
+                    });
+                }
+                const relatedWishlistBtns = document.querySelectorAll('.wishlist-btn');
+                relatedWishlistBtns.forEach(btn => {
+                    btn.addEventListener('click', function () {
+                        const productId = this.getAttribute('data-product-id');
+                        addToWishlist(productId);
+                    });
+                });
+            }
+        
             // Image zoom functionality
             function initZoom() {
-                if (!mainImage || !zoomedImage || !zoomBox) return;
-
-                const zoomRatio = 2.5; // Zoom magnification level
-
-                imgZoomContainer.addEventListener('mousemove', function(e) {
-                    // Get relative cursor position
+                if (!mainImage || !zoomedImage || !zoomBox || !imgZoomContainer) return;
+                const zoomRatio = 2.5;
+                imgZoomContainer.addEventListener('mousemove', function (e) {
                     const rect = mainImage.getBoundingClientRect();
                     const cursorX = e.clientX - rect.left;
                     const cursorY = e.clientY - rect.top;
-
-                    // Calculate zoom box position
                     const boxHalfWidth = zoomBox.offsetWidth / 2;
                     const boxHalfHeight = zoomBox.offsetHeight / 2;
-                    
-                    // Keep zoom box within image boundaries
                     let boxX = cursorX - boxHalfWidth;
                     let boxY = cursorY - boxHalfHeight;
-                    
                     boxX = Math.max(0, Math.min(boxX, rect.width - zoomBox.offsetWidth));
                     boxY = Math.max(0, Math.min(boxY, rect.height - zoomBox.offsetHeight));
-                    
-                    // Position zoom box
                     zoomBox.style.left = `${boxX}px`;
                     zoomBox.style.top = `${boxY}px`;
-
-                    // Calculate zoomed image position
                     const zoomPosX = (cursorX / rect.width) * 100;
                     const zoomPosY = (cursorY / rect.height) * 100;
-                    
-                    // Position zoomed image
                     zoomedImage.style.width = `${rect.width * zoomRatio}px`;
                     zoomedImage.style.height = `${rect.height * zoomRatio}px`;
                     zoomedImage.style.transform = `translate(-${zoomPosX}%, -${zoomPosY}%)`;
                 });
-
-                // Handle mouse enter/leave
-                imgZoomContainer.addEventListener('mouseenter', function() {
-                    zoomBox.style.display = 'block';
-                });
-
-                imgZoomContainer.addEventListener('mouseleave', function() {
-                    zoomBox.style.display = 'none';
-                });
+                imgZoomContainer.addEventListener('mouseenter', () => zoomBox.style.display = 'block');
+                imgZoomContainer.addEventListener('mouseleave', () => zoomBox.style.display = 'none');
             }
-
-            // Thumbnail click handler
-            thumbnails.forEach(thumb => {
-                thumb.addEventListener('click', function() {
-                    const newSrc = this.getAttribute('data-src');
-                    // Update active thumbnail
-                    thumbnails.forEach(t => t.classList.remove('ring-2', 'ring-indigo-500'));
-                    this.classList.add('ring-2', 'ring-indigo-500');
-                    
-                    // Update main image and zoomed image
-                    mainImage.src = newSrc;
-                    zoomedImage.src = newSrc;
+        
+            // Initialize thumbnails
+            function initThumbnails() {
+                if (!thumbnails.length) return;
+                thumbnails.forEach(thumb => {
+                    thumb.addEventListener('click', function () {
+                        const newSrc = this.getAttribute('data-src');
+                        thumbnails.forEach(t => t.classList.remove('ring-2', 'ring-indigo-500'));
+                        this.classList.add('ring-2', 'ring-indigo-500');
+                        if (mainImage) mainImage.src = newSrc;
+                        if (zoomedImage) zoomedImage.src = newSrc;
+                    });
                 });
-            });
-
-            // Select first thumbnail as active
-            if (thumbnails.length > 0) {
                 thumbnails[0].classList.add('ring-2', 'ring-indigo-500');
             }
-
+        
             // Function to update stock display
             function updateStockDisplay(stock) {
-                if (stockQuantityEl) {
-                    stockQuantityEl.textContent = stock;
-                }
-                
-                if (availabilityEl) {
-                    if (stock > 0) {
-                        availabilityEl.innerHTML = `In Stock (<span id="stock-quantity">${stock}</span>)`;
-                        availabilityEl.classList.remove('text-red-600');
-                        availabilityEl.classList.add('text-green-600');
-                        
-                        // Enable add to cart and quantity controls
+                if (!stockQuantityEl || !availabilityEl) return;
+                stockQuantityEl.textContent = stock;
+                if (stock > 0) {
+                    availabilityEl.innerHTML = `In Stock (<span id="stock-quantity">${stock}</span>)`;
+                    availabilityEl.classList.remove('text-red-600');
+                    availabilityEl.classList.add('text-green-600');
+                    if (addToCartBtn) {
                         addToCartBtn.disabled = false;
                         addToCartBtn.classList.remove('bg-gray-400', 'cursor-not-allowed');
                         addToCartBtn.classList.add('bg-indigo-600', 'hover:bg-indigo-700');
-                        
+                    }
+                    if (btnQuantityUp && btnQuantityDown && quantityInput) {
                         btnQuantityUp.disabled = false;
                         btnQuantityDown.disabled = false;
                         quantityInput.disabled = false;
-                        
-                        // Update max quantity
                         quantityInput.max = stock;
-                        
-                        // Ensure quantity is not more than stock
-                        if (parseInt(quantityInput.value) > stock) {
-                            quantityInput.value = stock;
-                        }
-                    } else {
-                        availabilityEl.innerHTML = 'Out of Stock';
-                        availabilityEl.classList.remove('text-green-600');
-                        availabilityEl.classList.add('text-red-600');
-                        
-                        // Disable add to cart and quantity controls
+                        if (parseInt(quantityInput.value) > stock) quantityInput.value = stock;
+                    }
+                } else {
+                    availabilityEl.innerHTML = 'Out of Stock';
+                    availabilityEl.classList.remove('text-green-600');
+                    availabilityEl.classList.add('text-red-600');
+                    if (addToCartBtn) {
                         addToCartBtn.disabled = true;
                         addToCartBtn.classList.add('bg-gray-400', 'cursor-not-allowed');
                         addToCartBtn.classList.remove('bg-indigo-600', 'hover:bg-indigo-700');
-                        
+                    }
+                    if (btnQuantityUp && btnQuantityDown && quantityInput) {
                         btnQuantityUp.disabled = true;
                         btnQuantityDown.disabled = true;
                         quantityInput.disabled = true;
                     }
                 }
             }
-
-            // Variant selection
-            variantButtons.forEach(btn => {
-                btn.addEventListener('click', function() {
-                    // Update active variant button
-                    variantButtons.forEach(b => b.classList.remove('active'));
-                    this.classList.add('active');
-                    
-                    // Get variant data
-                    selectedVariant = {
-                        id: this.getAttribute('data-variant-id'),
-                        color: this.getAttribute('data-color'),
-                        extraPrice: parseFloat(this.getAttribute('data-extra-price')),
-                        stock: parseInt(this.getAttribute('data-stock'))
-                    };
-                    
-                    // Update price display
-                    const newPrice = basePrice + selectedVariant.extraPrice;
-                    const newOriginalPrice = baseOriginalPrice + selectedVariant.extraPrice;
-                    const discountPercentage = newOriginalPrice > newPrice ? 
-                        Math.round(((newOriginalPrice - newPrice) / newOriginalPrice) * 100) : 0;
-                    
-                    currentPriceEl.textContent = `₹${newPrice.toFixed(2)}`;
-                    
-                    if (originalPriceEl && discountEl) {
-                        if (discountPercentage > 0) {
-                            originalPriceEl.textContent = `₹${newOriginalPrice.toFixed(2)}`;
-                            discountEl.textContent = `${discountPercentage}% Off`;
-                            originalPriceEl.style.display = 'inline';
-                            discountEl.style.display = 'inline';
-                        } else {
-                            originalPriceEl.style.display = 'none';
-                            discountEl.style.display = 'none';
-                        }
+        
+            // Initialize variants
+            function initVariants() {
+                if (!variantButtons.length) {
+                    if (addToCartBtn) {
+                        addToCartBtn.disabled = true;
+                        addToCartBtn.classList.add('bg-gray-400', 'cursor-not-allowed');
+                        addToCartBtn.classList.remove('bg-indigo-600', 'hover:bg-indigo-700');
                     }
-                    
-                    // Update stock display
-                    updateStockDisplay(selectedVariant.stock);
-                });
-            });
-
-            // Select the first variant by default
-            if (variantButtons.length > 0) {
-                variantButtons[0].click();
-            } else {
-                // No variants available
-                addToCartBtn.disabled = true;
-                addToCartBtn.classList.add('bg-gray-400', 'cursor-not-allowed');
-                addToCartBtn.classList.remove('bg-indigo-600', 'hover:bg-indigo-700');
-                updateStockDisplay(0);
-            }
-
-            // Quantity control buttons
-            btnQuantityUp.addEventListener('click', function() {
-                if (!selectedVariant) return;
-                
-                let currentValue = parseInt(quantityInput.value, 10);
-                const max = selectedVariant.stock;
-                
-                if (currentValue < max) {
-                    quantityInput.value = currentValue + 1;
-                } else {
-                    Swal.fire({
-                        title: "Max Quantity Reached",
-                        text: "You cannot add more than available stock.",
-                        icon: "info",
-                        timer: 2000,
-                        showConfirmButton: false
-                    });
-                }
-            });
-
-            btnQuantityDown.addEventListener('click', function() {
-                if (!selectedVariant) return;
-                
-                let currentValue = parseInt(quantityInput.value, 10);
-                if (currentValue > 1) {
-                    quantityInput.value = currentValue - 1;
-                }
-            });
-
-            // Quantity input validation
-            quantityInput.addEventListener('input', function() {
-                if (!selectedVariant) return;
-                
-                let currentValue = parseInt(this.value, 10);
-                const max = selectedVariant.stock;
-                
-                if (isNaN(currentValue) || currentValue < 1) {
-                    this.value = 1;
-                } else if (currentValue > max) {
-                    this.value = max;
-                    Swal.fire({
-                        title: "Max Quantity Reached",
-                        text: "You cannot add more than available stock.",
-                        icon: "info",
-                        timer: 2000,
-                        showConfirmButton: false
-                    });
-                }
-            });
-
-            // Add to cart functionality
-            addToCartBtn.addEventListener('click', async function() {
-                if (!selectedVariant) {
-                    Swal.fire({
-                        title: "Select a Variant",
-                        text: "Please select a variant before adding to cart.",
-                        icon: "warning",
-                        timer: 2000,
-                        showConfirmButton: false
-                    });
+                    updateStockDisplay(0);
                     return;
                 }
-
-                const productId = this.getAttribute('data-product-id');
-                const quantity = parseInt(quantityInput.value, 10);
-                const variantId = selectedVariant.id;
-
-                try {
-                    const response = await fetch('/cart/add', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ 
-                            product_id: productId, 
-                            quantity: quantity, 
-                            variant_id: variantId 
-                        }),
-                        credentials: 'include'
-                    });
-
-                    const data = await response.json();
-                    if (data.status === 'OK') {
-                        Swal.fire({
-                            title: "Added to Cart",
-                            text: data.message,
-                            icon: "success",
-                            timer: 1500,
-                            showConfirmButton: false
-                        });
-                    } else {
-                        Swal.fire({
-                            title: "Error",
-                            text: data.error || "Product is unavailable",
-                            icon: "error",
-                            timer: 2000,
-                            showConfirmButton: false
-                        });
-                        if (data.redirect) {
-                            setTimeout(() => window.location.href = data.redirect, 2000);
+                variantButtons.forEach(btn => {
+                    btn.addEventListener('click', function () {
+                        variantButtons.forEach(b => b.classList.remove('active'));
+                        this.classList.add('active');
+                        selectedVariant = {
+                            id: parseInt(this.getAttribute('data-variant-id'), 10),
+                            color: this.getAttribute('data-color'),
+                            extraPrice: parseFloat(this.getAttribute('data-extra-price')),
+                            stock: parseInt(this.getAttribute('data-stock'))
+                        };
+                        if (currentPriceEl) {
+                            const newPrice = basePrice + selectedVariant.extraPrice;
+                            const newOriginalPrice = baseOriginalPrice + selectedVariant.extraPrice;
+                            const discountPercentage = newOriginalPrice > newPrice ?
+                                Math.round(((newOriginalPrice - newPrice) / newOriginalPrice) * 100) : 0;
+                            currentPriceEl.textContent = `₹${newPrice.toFixed(2)}`;
+                            if (originalPriceEl && discountEl) {
+                                if (discountPercentage > 0) {
+                                    originalPriceEl.textContent = `₹${newOriginalPrice.toFixed(2)}`;
+                                    discountEl.textContent = `${discountPercentage}% Off`;
+                                    originalPriceEl.style.display = 'inline';
+                                    discountEl.style.display = 'inline';
+                                } else {
+                                    originalPriceEl.style.display = 'none';
+                                    discountEl.style.display = 'none';
+                                }
+                            }
                         }
-                    }
-                } catch (error) {
-                    Swal.fire({
-                        title: "Error",
-                        text: "Failed to add to cart. Please try again.",
-                        icon: "error",
-                        timer: 2000,
-                        showConfirmButton: false
+                        updateStockDisplay(selectedVariant.stock);
                     });
-                    console.error('Error:', error);
+                });
+                variantButtons[0].click();
+            }
+        
+            // Initialize quantity controls
+            function initQuantityControls() {
+                if (!btnQuantityUp || !btnQuantityDown || !quantityInput) return;
+                btnQuantityUp.addEventListener('click', function () {
+                    if (!selectedVariant) return;
+                    let currentValue = parseInt(quantityInput.value, 10);
+                    const max = selectedVariant.stock;
+                    if (currentValue < max) quantityInput.value = currentValue + 1;
+                    else Swal.fire({ title: "Max Quantity Reached", text: "Cannot add more than stock.", icon: "info", timer: 2000, showConfirmButton: false });
+                });
+                btnQuantityDown.addEventListener('click', function () {
+                    if (!selectedVariant) return;
+                    let currentValue = parseInt(quantityInput.value, 10);
+                    if (currentValue > 1) quantityInput.value = currentValue - 1;
+                });
+                quantityInput.addEventListener('input', function () {
+                    if (!selectedVariant) return;
+                    let currentValue = parseInt(this.value, 10);
+                    const max = selectedVariant.stock;
+                    if (isNaN(currentValue) || currentValue < 1) this.value = 1;
+                    else if (currentValue > max) {
+                        this.value = max;
+                        Swal.fire({ title: "Max Quantity Reached", text: "Cannot add more than stock.", icon: "info", timer: 2000, showConfirmButton: false });
+                    }
+                });
+            }
+        
+            // Initialize add to cart functionality
+            function initAddToCart() {
+                if (!addToCartBtn) {
+                    console.error("Add to Cart button not found!");
+                    return;
                 }
-            });
-
-            // Initialize zoom functionality
-            initZoom();
+                addToCartBtn.addEventListener('click', async function () {
+                    console.log("Add to Cart clicked"); // Confirm click is detected
+                    if (!selectedVariant) {
+                        Swal.fire({ title: "Select a Variant", text: "Please select a variant.", icon: "warning", timer: 2000, showConfirmButton: false });
+                        return;
+                    }
+        
+                    const productId = parseInt(this.getAttribute('data-product-id'), 10);
+                    const quantity = parseInt(quantityInput.value, 10);
+                    const variantId = selectedVariant.id;
+        
+                    if (isNaN(productId) || isNaN(quantity) || isNaN(variantId)) {
+                        console.error("Invalid data:", { productId, quantity, variantId });
+                        Swal.fire({ title: "Error", text: "Invalid product or variant data.", icon: "error", timer: 2000, showConfirmButton: false });
+                        return;
+                    }
+        
+                    const payload = { product_id: productId, quantity: quantity, variant_id: variantId };
+                    console.log("Payload:", payload);
+        
+                    try {
+                        const response = await fetch('/cart/add', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload),
+                            credentials: 'include'
+                        });
+                        const data = await response.json();
+                        console.log("Server response:", data);
+                        if (response.ok) {
+                            Swal.fire({ title: "Added to Cart", text: data.message || "Item added successfully", icon: "success", timer: 1500, showConfirmButton: false });
+                        } else {
+                            Swal.fire({ title: "Error", text: data.error || "Failed to add to cart", icon: "error", timer: 2000, showConfirmButton: false });
+                            if (data.redirect) setTimeout(() => window.location.href = data.redirect, 2000);
+                        }
+                    } catch (error) {
+                        console.error('Fetch error:', error);
+                        Swal.fire({ title: "Error", text: "Failed to add to cart. Please try again.", icon: "error", timer: 2000, showConfirmButton: false });
+                    }
+                });
+            }
+        
+            // Initialize all components
+            function init() {
+                console.log("Initializing components...");
+                initWishlistButtons();
+                initZoom();
+                initThumbnails();
+                initVariants();
+                initQuantityControls();
+                initAddToCart();
+            }
+        
+            // Start initialization
+            init();
         });
-    </script>
+        </script>
 </body>
+
 </html>

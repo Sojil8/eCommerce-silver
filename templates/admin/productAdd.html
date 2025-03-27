@@ -20,7 +20,6 @@
     </style>
 </head>
 <body class="bg-gray-100 font-sans">
-    <!-- Navbar and Sidebar remain unchanged -->
     <nav class="navbar navbar-expand-lg bg-gray-800 text-white shadow-md">
         <div class="container-fluid px-4">
             <a class="navbar-brand text-xl font-bold text-white hover:text-blue-300" href="/admin/dashboard">Admin Dashboard</a>
@@ -119,7 +118,6 @@
         </div>
     </div>
 
-    <!-- Cropper Modal (unchanged) -->
     <div class="modal fade" id="cropper-modal" tabindex="-1" aria-labelledby="cropperModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-xl">
             <div class="modal-content">
@@ -170,7 +168,6 @@
         });
         
         async function fetchCategories() {
-            // Unchanged fetchCategories function
             try {
                 const response = await fetch('/admin/api/categories');
                 if (!response.ok) throw new Error('Failed to fetch categories');
@@ -201,7 +198,6 @@
         }
         
         function loadExistingImages() {
-            // Unchanged loadExistingImages function
             const productImages = {{if .Product}}{{.Product.Images}}{{else}}[]{{end}};
             if (Array.isArray(productImages) && productImages.length > 0) {
                 productImages.forEach(imageUrl => {
@@ -221,7 +217,6 @@
         }
 
         function handleImageUpload() {
-            // Unchanged handleImageUpload function
             const files = imageInput.files;
             if (files.length === 0) {
                 Swal.fire({ icon: 'warning', title: 'No Images', text: 'Please select an image to upload.' });
@@ -248,7 +243,6 @@
         }
 
         cropButton.addEventListener('click', () => {
-            // Unchanged cropButton event listener
             const canvas = cropper.getCroppedCanvas({ maxWidth: 800, maxHeight: 800 });
             if (!canvas) {
                 Swal.fire({ icon: 'error', title: 'Crop Error', text: 'Please adjust the crop area before saving.' });
@@ -264,7 +258,6 @@
         });
 
         function displayCroppedImage(file) {
-            // Unchanged displayCroppedImage function
             const reader = new FileReader();
             reader.onload = (e) => {
                 const container = document.createElement('div');
@@ -283,7 +276,6 @@
         }
 
         function removeImage(file, container) {
-            // Unchanged removeImage function
             croppedImages = croppedImages.filter(f => f !== file);
             container.remove();
         }
@@ -302,7 +294,6 @@
         }
 
         function removeVariant(button) {
-            // Unchanged removeVariant function
             button.parentElement.remove();
         }
 
@@ -387,6 +378,16 @@
                 formData.append('images', file);
             });
 
+            // Show loading alert
+            Swal.fire({
+                title: 'Saving Product',
+                text: 'Please wait while the product is being saved...',
+                allowOutsideClick: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+
             try {
                 const url = isEditMode ? `/admin/products/edit/{{if .Product}}{{.Product.ID}}{{end}}` : '/admin/products/add';
                 const method = isEditMode ? 'PATCH' : 'POST';
@@ -395,6 +396,9 @@
                     body: formData,
                 });
                 const data = await response.json();
+
+                // Close loading alert
+                Swal.close();
 
                 if (response.ok) {
                     Swal.fire({
@@ -408,12 +412,13 @@
                     Swal.fire('Error', data.error || 'Failed to save product', 'error');
                 }
             } catch (error) {
+                // Close loading alert on error
+                Swal.close();
                 Swal.fire('Error', 'Something went wrong. Please try again.', 'error');
             }
         }
 
         async function logout(event) {
-            // Unchanged logout function
             event.preventDefault();
             try {
                 const response = await fetch('/admin/logout', { method: 'POST', credentials: 'include' });

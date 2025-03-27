@@ -22,31 +22,25 @@ type AdminDetails struct {
 	Password string `json:"password"`
 }
 
-func ShowLoginPage(c *gin.Context){
-	c.HTML(http.StatusOK,"adminLogin.html",gin.H{
-		"status":"ok",
-	})
+func ShowLoginPage(c *gin.Context) {
+    tokenString, err := c.Cookie("jwtTokensAdmin")
+    if err == nil && tokenString != "" {
+        claims := &middleware.Claims{}
+        token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
+            return middleware.SecretKey, nil
+        })
+        if err == nil && token.Valid {
+            c.Redirect(http.StatusSeeOther, "/admin/user-management")
+            return
+        }
+    }
+    c.HTML(http.StatusOK, "adminLogin.html", gin.H{
+        "status": "ok",
+    })
 }
 
 
 func AdminLogin(c *gin.Context) {
-
-	if c.Request.Method == "GET" {
-		tokenString, err := c.Cookie("jwtTokensAdmin")
-		if err == nil && tokenString != "" {
-			claims := &middleware.Claims{}
-			token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
-				return middleware.SecretKey, nil
-			})
-			if err == nil && token.Valid {
-				c.Redirect(http.StatusSeeOther, "/admin/user-management")
-				return
-			}
-		}
-		c.HTML(http.StatusOK, "adminLogin.html", nil)
-		return
-	}
-
 	var adminReq AdminDetails
 	var adminCheck adminModels.Admin
 

@@ -19,5 +19,8 @@ func SetupTemplateFunctions() template.FuncMap {
 			}
 			return result
 		},
+		"mul": func(a float64, b uint) float64 {
+			return a * float64(b)
+		},
 	}
 }

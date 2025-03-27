@@ -8,5 +8,4 @@ type Variants struct {
 	Color      string  `gorm:"not null" json:"color"`      
 	ExtraPrice float64 `json:"extra_price"`                 
 	Stock      uint    `gorm:"not null" json:"stock"`     
-
 }

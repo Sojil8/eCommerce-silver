@@ -18,7 +18,7 @@ import (
 var SecretKey []byte
 
 type Claims struct {
-	ID    int    `json:"id"`
+	ID    uint   `json:"id"`
 	Email string `json:"email"`
 	Role  string `json:"role"`
 	jwt.StandardClaims
@@ -35,7 +35,7 @@ func SecretKeyCheck() {
 
 func GenerateToken(c *gin.Context, id int, email string, role string) (string, error) {
 	claims := Claims{
-		ID:    id,
+		ID:    uint(id),
 		Email: email,
 		Role:  role,
 		StandardClaims: jwt.StandardClaims{
@@ -50,7 +50,6 @@ func GenerateToken(c *gin.Context, id int, email string, role string) (string, e
 	return tokenString, nil
 }
 
-
 func Authenticate(cookieName, expectedRole, loginRedirect string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ClearCache()
@@ -61,7 +60,6 @@ func Authenticate(cookieName, expectedRole, loginRedirect string) gin.HandlerFun
 			c.Abort()
 			return
 		}
-
 
 		token, err := jwt.ParseWithClaims(cookie, &Claims{}, func(token *jwt.Token) (interface{}, error) {
 			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
@@ -75,7 +73,6 @@ func Authenticate(cookieName, expectedRole, loginRedirect string) gin.HandlerFun
 			c.Abort()
 			return
 		}
-
 
 		claims, ok := token.Claims.(*Claims)
 		if !ok || claims.Role != expectedRole {

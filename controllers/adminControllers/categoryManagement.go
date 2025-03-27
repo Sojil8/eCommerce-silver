@@ -47,7 +47,7 @@ func GetCategories(c *gin.Context) {
 			"isListed":      cat.Status,
 		}
 	}
-	
+
 	c.HTML(http.StatusOK, "categoryManagement.html", gin.H{
 		"cat":        categoryData,
 		"totalPages": totalPages,
@@ -64,10 +64,7 @@ func AddCategory(c *gin.Context) {
 		return
 	}
 
-	if !category.Status {
-		category.Status = true
-	}
-
+	category.Status = true
 	if err := database.DB.Create(&category).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": err.Error(),
@@ -146,7 +143,7 @@ func ListCategory(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
-		"message": "Category listed successfully",
+		"message":  "Category listed successfully",
 		"category": category,
 	})
 }

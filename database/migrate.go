@@ -13,7 +13,12 @@ func MigrageHandler() {
 		&adminModels.Product{}, 
 		&adminModels.Variants{},
 		&userModels.Orders{},
-
+		&userModels.Wishlist{},
+		&userModels.Cart{},
+		&userModels.CartItem{},
+		&userModels.Address{},
+		&userModels.Orders{},
+		&userModels.OrderItem{},
 	)
 		
 }

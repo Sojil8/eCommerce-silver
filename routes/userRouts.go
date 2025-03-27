@@ -37,13 +37,34 @@ func UserRoutes(c *gin.Engine) {
 			protected.POST("/logout", controllers.LogoutUser)
 
 			//profile routes
-			protected.GET("/profile",controllers.ShowProfile)
-			protected.GET("/profile/edit",controllers.ShowEditProfile)
-			protected.POST("/profile/edit",controllers.EditProfile)
-			protected.GET("/profile/verify-email",controllers.ShowVerifyEditEmail)
-			protected.POST("/profile/verify-email",controllers.VerifyEditEmail)
-			protected.POST("/profile/change-password",controllers.ChangePassword)
+			protected.GET("/profile", controllers.ShowProfile)
+			protected.GET("/profile/edit", controllers.ShowEditProfile)
+			protected.POST("/profile/edit", controllers.EditProfile)
+			protected.GET("/profile/verify-email", controllers.ShowVerifyEditEmail)
+			protected.POST("/profile/verify-email", controllers.VerifyEditEmail)
+			protected.POST("/profile/change-password", controllers.ChangePassword)
 
+			// //wishlist routes
+			// protected.GET("/wishlist",controllers.ShowWishlist)
+			// protected.POST("/wishlist/add/:id",controllers.AddToWishlist)
+			// protected.DELETE("/wishlist/remove/:id",controllers.RemoveWishList)
+
+			//cart comming soon
+			protected.GET("/cart", controllers.GetCart)	
+			protected.POST("/cart/add", controllers.AddToCart)
+			protected.PUT("/cart/update", controllers.UpdateQuantity)
+			protected.DELETE("/cart/remove", controllers.RemoveFromCart)
+
+			//address 
+            protected.POST("/profile/add-address", controllers.AddAddress)
+            protected.POST("/profile/edit-address/:address_id", controllers.EditAddress) 
+            protected.POST("/profile/delete-address/:address_id", controllers.DeleteAddress)
+
+			//checkout
+			protected.GET("/checkout",controllers.ShowCheckout)
+			protected.POST("/profile/set-default-address/:address_id",controllers.SetDefaultAddress)
+			protected.POST("/checkout/place-order",controllers.PlaceOrder)
+			protected.GET("/order/success",controllers.ShowOrderSuccess)
 		}
 		authGroup := c.Group("/auth")
 		authGroup.GET("/google", config.GoogleLogin)

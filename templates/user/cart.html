@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Silver Shop - Shopping Cart</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- SweetAlert2 for popups -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
+
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-50 flex flex-col min-h-screen">
+    <!-- Navbar (Matched with Homepage) -->
+    <header class="bg-white shadow-lg py-4 px-6 sticky top-0 z-10">
+        <div class="container mx-auto flex justify-between items-center">
+            <!-- Logo -->
+            <h1 class="text-3xl font-extrabold text-gray-900 tracking-tight">
+                <a href="/home" class="flex items-center hover:text-indigo-600 transition-colors">
+                    <span class="text-indigo-600">Silver</span>
+                    <span class="ml-1 text-sm font-normal text-gray-500">Shop</span>
+                </a>
+            </h1>
+
+            <!-- Navigation -->
+            <nav class="hidden md:flex space-x-8">
+                <a href="/home"
+                    class="text-gray-700 font-medium hover:text-indigo-600 transition-colors duration-200 px-3 py-2 rounded-md hover:bg-indigo-50">Home</a>
+                <a href="/shop"
+                    class="text-indigo-600 font-semibold border-b-2 border-indigo-600 px-3 py-2 rounded-md bg-indigo-50">Shop</a>
+            </nav>
+
+            <!-- User Actions -->
+            <div class="flex items-center space-x-6 text-gray-700">
+                <!-- Wishlist Icon -->
+                <a href="/wishlist" class="hover:text-indigo-600 transition-colors relative group" title="Wishlist">
+                    <i class="fas fa-heart text-xl"></i>
+                    <span
+                        class="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">0</span>
+                    <span
+                        class="hidden group-hover:block absolute -bottom-8 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-xs py-1 px-2 rounded whitespace-nowrap">Wishlist</span>
+                </a>
+
+                <!-- Cart Icon -->
+                <a href="/cart" class="hover:text-indigo-600 transition-colors relative group" title="Cart">
+                    <i class="fas fa-shopping-cart text-xl"></i>
+                    <span
+                        class="absolute -top-2 -right-2 bg-indigo-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">{{.CartItemCount}}</span>
+                    <span
+                        class="hidden group-hover:block absolute -bottom-8 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-xs py-1 px-2 rounded whitespace-nowrap">Cart</span>
+                </a>
+
+                <!-- Profile Section -->
+                <div class="relative group">
+                    <a href="/profile" class="flex items-center space-x-2 hover:text-indigo-600 transition-colors"
+                        title="Profile">
+                        <div
+                            class="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center border border-indigo-200">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="w-5 h-5 text-indigo-600">
+                                <circle cx="12" cy="8" r="4.5" fill="none" stroke="currentColor" stroke-width="1.5" />
+                                <path d="M20,21c0-4.4-3.6-8-8-8s-8,3.6-8,8" fill="none" stroke="currentColor"
+                                    stroke-width="1.5" stroke-linecap="round" />
+                            </svg>
+                        </div>
+                        <span class="text-gray-800 font-medium hidden sm:inline">{{.UserName}}</span>
+                        <i class="fas fa-chevron-down text-xs"></i>
+                    </a>
+
+                    <!-- Dropdown Menu -->
+                    <div
+                        class="hidden group-hover:block absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-20">
+                        <a href="/profile" class="block px-4 py-2 text-sm text-gray-700 hover:bg-indigo-50">My
+                            Profile</a>
+                        <a href="/orders" class="block px-4 py-2 text-sm text-gray-700 hover:bg-indigo-50">My Orders</a>
+                        <a href="/settings"
+                            class="block px-4 py-2 text-sm text-gray-700 hover:bg-indigo-50">Settings</a>
+                        <div class="border-t border-gray-100 my-1"></div>
+                        <form action="/logout" method="POST" class="block px-4 py-2">
+                            <button type="submit"
+                                class="w-full text-left text-sm text-red-600 hover:text-red-700">Logout</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <div class="container mx-auto p-6 flex-grow">
+        <h2 class="text-3xl font-bold text-gray-900 mb-8 tracking-tight">Your Shopping Cart</h2>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <!-- Cart Items Section -->
+            <div class="md:col-span-2">
+                {{if .CartItems}}
+                {{range .CartItems}}
+                <div
+                    class="bg-white rounded-xl shadow-md p-4 mb-4 transform transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
+                    <div class="flex items-center space-x-4">
+                        <!-- Product Image -->
+                        <img src="{{(index .Product.Images 0)}}" alt="{{.Product.ProductName}}"
+                            class="w-20 h-20 object-cover rounded-md">
+
+                        <!-- Product Details -->
+                        <div class="flex-grow">
+                            <h3 class="text-lg font-semibold text-gray-900">{{.Product.ProductName}}</h3>
+                            <p class="text-sm text-gray-500">{{.Product.CategoryName}} - <span
+                                    class="text-indigo-500">{{.Variants.Color}}</span></p>
+                            <p class="text-indigo-600 font-bold">${{printf "%.2f" .Price}}</p>
+                        </div>
+
+                        <!-- Quantity Control -->
+                        <div class="flex items-center space-x-2">
+                            <button onclick="updateQuantity('{{.ProductID}}', '{{.VariantsID}}', {{.Quantity}} - 1)"
+                                class="text-gray-600 hover:text-indigo-600 p-2 rounded-full hover:bg-indigo-50 transition-colors {{if eq .Quantity 1}}opacity-50 cursor-not-allowed{{end}}"
+                                {{if eq .Quantity 1}}disabled{{end}}>
+                                <i class="fas fa-minus"></i>
+                            </button>
+                            <input type="number" value="{{.Quantity}}" min="1" max="{{.Variants.Stock}}"
+                                class="w-12 text-center border border-gray-300 rounded py-1 bg-gray-50" readonly>
+                            <button onclick="updateQuantity('{{.ProductID}}', '{{.VariantsID}}', {{.Quantity}} + 1)"
+                                class="text-gray-600 hover:text-indigo-600 p-2 rounded-full hover:bg-indigo-50 transition-colors {{if eq .Quantity .Variants.Stock}}opacity-50 cursor-not-allowed{{end}}"
+                                {{if eq .Quantity .Variants.Stock}}disabled{{end}}>
+                                <i class="fas fa-plus"></i>
+                            </button>
+                        </div>
+
+                        <!-- Total and Remove -->
+                        <div class="flex items-center space-x-4">
+                            <p class="font-bold text-indigo-600">${{printf "%.2f" (mul .Price .Quantity)}}</p>
+                            <button onclick="removeItem('{{.ProductID}}', '{{.VariantsID}}')"
+                                class="text-red-500 hover:text-red-600 p-2 rounded-full hover:bg-red-50 transition-colors">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                {{end}}
+                {{else}}
+                <!-- Empty Cart Message -->
+                <div class="text-center py-12 bg-white rounded-xl shadow-md">
+                    <i class="fas fa-shopping-cart text-6xl text-indigo-200 mb-4"></i>
+                    <h3 class="text-2xl font-semibold text-gray-900 mb-2">Your cart is empty</h3>
+                    <p class="text-gray-500 mb-6">Explore our collection and add some items!</p>
+                    <a href="/shop"
+                        class="bg-indigo-600 text-white px-6 py-2 rounded-full font-medium hover:bg-indigo-700 transition-colors duration-200">
+                        Continue Shopping
+                    </a>
+                </div>
+                {{end}}
+            </div>
+
+            <!-- Order Summary -->
+            {{if .CartItems}}
+            <div class="bg-white rounded-xl shadow-md p-6 sticky top-24">
+                <h3 class="text-2xl font-semibold text-gray-900 mb-4">Cart Totals</h3>
+                <div class="space-y-3 mb-6">
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">Subtotal</span>
+                        <span class="font-semibold text-gray-900">${{printf "%.2f" .TotalPrice}}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">Shipping</span>
+                        <span class="text-green-600 font-semibold">Free</span>
+                    </div>
+                    <div class="border-t border-gray-200 pt-3 flex justify-between">
+                        <span class="font-bold text-lg text-gray-900">Total</span>
+                        <span class="font-bold text-lg text-indigo-600">${{printf "%.2f" .TotalPrice}}</span>
+                    </div>
+                </div>
+                <button onclick="proceedToCheckout()"
+                    class="w-full bg-indigo-600 text-white py-3 rounded-full font-medium hover:bg-indigo-700 transition-colors duration-200 {{if eq .CartItemCount 0}}opacity-50 cursor-not-allowed{{end}}"
+                    {{if eq .CartItemCount 0}}disabled{{end}}>
+                    Proceed to Checkout
+                </button>
+            </div>
+            {{end}}
+        </div>
+    </div>
+
+    <!-- Footer (Matched with Homepage) -->
+    <footer class="bg-gray-900 text-white p-6 mt-auto">
+        <div class="container mx-auto flex flex-col md:flex-row justify-between items-center">
+            <p class="text-sm">© 2025 Silver Shop. All rights reserved.</p>
+            <div class="mt-4 md:mt-0 space-x-6">
+                <a href="#" class="text-gray-300 hover:text-white transition-colors duration-200">Privacy Policy</a>
+                <a href="#" class="text-gray-300 hover:text-white transition-colors duration-200">Terms of Service</a>
+            </div>
+        </div>
+    </footer>
+
+    <!-- JavaScript (Original Functionality Preserved) -->
+    <script>
+        async function updateQuantity(productId, variantId, newQuantity) {
+            if (newQuantity < 1) return;
+
+            // Parse productId and variantId to integers
+            const parsedProductId = parseInt(productId, 10);
+            const parsedVariantId = parseInt(variantId, 10);
+
+            try {
+                const response = await fetch('/cart/update', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        product_id: parsedProductId,
+                        variant_id: parsedVariantId,
+                        quantity: newQuantity
+                    }),
+                    credentials: 'include'
+                });
+
+                if (response.ok) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Quantity Updated',
+                        showConfirmButton: false,
+                        timer: 1000
+                    }).then(() => window.location.reload());
+                } else {
+                    const data = await response.json();
+                    Swal.fire('Error', data.error || 'Failed to update quantity', 'error');
+                }
+            } catch (error) {
+                Swal.fire('Error', 'Something went wrong', 'error');
+                console.error('Update quantity error:', error);
+            }
+        }
+        async function removeItem(productId, variantId) {
+            // Parse productId and variantId to integers
+            const parsedProductId = parseInt(productId, 10);
+            const parsedVariantId = parseInt(variantId, 10);
+
+            try {
+                const result = await Swal.fire({
+                    title: 'Remove Item?',
+                    text: 'Are you sure you want to remove this item from your cart?',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#4f46e5',
+                    cancelButtonColor: '#d1d5db',
+                    confirmButtonText: 'Yes, remove it!'
+                });
+
+                if (result.isConfirmed) {
+                    const response = await fetch('/cart/remove', {
+                        method: 'DELETE',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            product_id: parsedProductId,
+                            variant_id: parsedVariantId
+                        }),
+                        credentials: 'include'
+                    });
+
+                    if (response.ok) {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Item Removed',
+                            showConfirmButton: false,
+                            timer: 1000
+                        }).then(() => window.location.reload());
+                    } else {
+                        const data = await response.json();
+                        Swal.fire('Error', data.error || 'Failed to remove item', 'error');
+                    }
+                }
+            } catch (error) {
+                Swal.fire('Error', 'Something went wrong', 'error');
+                console.error('Remove item error:', error);
+            }
+        }
+
+        function proceedToCheckout() {
+            window.location.href = '/checkout';
+        }
+    </script>
+</body>
+
+</html>

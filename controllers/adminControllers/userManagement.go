@@ -31,10 +31,10 @@ func GetUsers(c *gin.Context) {
 	offset := (page - 1) * limit
 	dbQuery := database.DB.Unscoped().Order("id")
 
-	// Search only by user_name
+
 	if searchQuery != "" {
 		searchPattern := "%" + searchQuery + "%"
-		dbQuery = dbQuery.Where("user_name ILIKE ?", searchPattern) // Only search user_name
+		dbQuery = dbQuery.Where("user_name ILIKE ?", searchPattern) 
 	}
 
 	var totalUsers int64
@@ -51,7 +51,6 @@ func GetUsers(c *gin.Context) {
 
 	totalPages := int((totalUsers + int64(limit) - 1) / int64(limit))
 
-	// Pass all necessary pagination data to the template
 	c.HTML(http.StatusOK, "customer.html", gin.H{
 		"users":       users,
 		"searchQuery": searchQuery,
@@ -66,7 +65,6 @@ func GetUsers(c *gin.Context) {
 	})
 }
 
-// BlockUser and UnBlockUser remain unchanged
 func BlockUser(c *gin.Context) {
 	middleware.ClearCache()
 	userID := c.Param("id")
