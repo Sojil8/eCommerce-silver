@@ -59,6 +59,7 @@ func UserRoutes(c *gin.Engine) {
             protected.POST("/profile/add-address", controllers.AddAddress)
             protected.POST("/profile/edit-address/:address_id", controllers.EditAddress) 
             protected.POST("/profile/delete-address/:address_id", controllers.DeleteAddress)
+			protected.GET("/profile/get-address/:address_id", controllers.GetAddress)
 
 			//checkout
 			protected.GET("/checkout",controllers.ShowCheckout)

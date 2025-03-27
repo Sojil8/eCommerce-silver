@@ -333,3 +333,20 @@ func DeleteAddress(c *gin.Context){
         "message": "Address deleted successfully",
     })
 }
+
+func GetAddress(c *gin.Context) {
+    userID, _ := c.Get("id")
+    addressID := c.Param("address_id")
+
+    var address userModels.Address
+    if err := database.DB.Where("id = ? AND user_id = ?", addressID, userID).First(&address).Error; err != nil {
+        helper.ResponseWithErr(c, http.StatusNotFound, "Address not found", "Invalid address ID", "")
+        return
+    }
+
+    c.JSON(http.StatusOK, gin.H{
+        "status":  "ok",
+        "message": "Address fetched successfully",
+        "address": address,
+    })
+}

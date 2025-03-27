@@ -46,95 +46,101 @@ type RequestCartItem struct {
 }
 
 func AddToCart(c *gin.Context) {
-	userID, _ := c.Get("id")
-	var req RequestCartItem
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error":   "Invalid request",
-			"details": err.Error(),
-		})
-		return
-	}
+    userID, _ := c.Get("id")
+    var req RequestCartItem
+    if err := c.ShouldBindJSON(&req); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{
+            "error":   "Invalid request",
+            "details": err.Error(),
+        })
+        return
+    }
 
-	err := database.DB.Transaction(func(tx *gorm.DB) error {
-		var product adminModels.Product
-		if err := tx.Preload("Variants").First(&product, req.ProductID).Error; err != nil {
-			return err
-		}
+    err := database.DB.Transaction(func(tx *gorm.DB) error {
+        var product adminModels.Product
+        if err := tx.Preload("Variants").First(&product, req.ProductID).Error; err != nil {
+            return err
+        }
 
-		var category adminModels.Category
-		if err := tx.Where("category_name = ?", product.CategoryName).First(&category).Error; err != nil || !category.Status {
-			return gin.Error{Err: err, Meta: gin.H{"error": "Product category is not available"}}
-		}
+        var category adminModels.Category
+        if err := tx.Where("category_name = ?", product.CategoryName).First(&category).Error; err != nil || !category.Status {
+            return gin.Error{Err: err, Meta: gin.H{"error": "Product category is not available"}}
+        }
 
-		if !product.IsListed {
-			return gin.Error{Meta: gin.H{"error": "Product is not available"}}
-		}
+        if !product.IsListed {
+            return gin.Error{Meta: gin.H{"error": "Product is not available"}}
+        }
 
-		var variant adminModels.Variants
-		if err := tx.First(&variant, req.VariantID).Error; err != nil || req.ProductID != variant.ProductID {
-			return gin.Error{Err: err, Meta: gin.H{"error": "Invalid variant"}}
-		}
+        var variant adminModels.Variants
+        if err := tx.First(&variant, req.VariantID).Error; err != nil || req.ProductID != variant.ProductID {
+            return gin.Error{Err: err, Meta: gin.H{"error": "Invalid variant"}}
+        }
 
-		if variant.Stock < req.Quantity {
-			return gin.Error{Meta: gin.H{"error": "Maximum quantity exceeded"}}
-		}
+        if variant.Stock < req.Quantity {
+            return gin.Error{Meta: gin.H{"error": "Maximum quantity exceeded"}}
+        }
 
-		if req.Quantity > MAX_QUANTITY_PER_PRODUCT {
-			return gin.Error{Meta: gin.H{"error": "Quantity exceeds maximum limit"}}
-		}
+        if req.Quantity > MAX_QUANTITY_PER_PRODUCT {
+            return gin.Error{Meta: gin.H{"error": "Quantity exceeds maximum limit"}}
+        }
 
-		var cart userModels.Cart
-		if err := tx.Where("user_id = ?", userID).Preload("CartItems").
-			FirstOrCreate(&cart, userModels.Cart{UserID: userID.(uint)}).Error; err != nil {
-			return err
-		}
+        var cart userModels.Cart
+        if err := tx.Where("user_id = ?", userID).Preload("CartItems").
+            FirstOrCreate(&cart, userModels.Cart{UserID: userID.(uint)}).Error; err != nil {
+            return err
+        }
 
-		for i, item := range cart.CartItems {
-			if item.ProductID == req.ProductID && item.VariantsID == req.VariantID {
-				newQnty := item.Quantity + req.Quantity
-				if newQnty > MAX_QUANTITY_PER_PRODUCT || newQnty > variant.Stock {
-					return gin.Error{Meta: gin.H{"error": "Quantity limit exceeded"}}
-				}
-				cart.CartItems[i].Quantity = newQnty
-				if err := tx.Save(&cart.CartItems[i]).Error; err != nil {
-					return err
-				}
-				updateCartTotal(&cart, tx)
-				return nil
-			}
-		}
+        for i, item := range cart.CartItems {
+            if item.ProductID == req.ProductID && item.VariantsID == req.VariantID {
+                newQnty := item.Quantity + req.Quantity
+                if newQnty > MAX_QUANTITY_PER_PRODUCT || newQnty > variant.Stock {
+                    return gin.Error{Meta: gin.H{"error": "Quantity limit exceeded"}}
+                }
+                cart.CartItems[i].Quantity = newQnty
+                if err := tx.Save(&cart.CartItems[i]).Error; err != nil {
+                    return err
+                }
+                return updateCartTotal(&cart, tx) 
+            }
+        }
 
-		item := userModels.CartItem{
-			CartID:     cart.ID,
-			ProductID:  req.ProductID,
-			VariantsID: req.VariantID,
-			Quantity:   req.Quantity,
-			Price:      product.Price + variant.ExtraPrice,
-		}
-		if err := tx.Create(&item).Error; err != nil {
-			return err
-		}
+        item := userModels.CartItem{
+            CartID:     cart.ID,
+            ProductID:  req.ProductID,
+            VariantsID: req.VariantID,
+            Quantity:   req.Quantity,
+            Price:      product.Price + variant.ExtraPrice,
+        }
+        if err := tx.Create(&item).Error; err != nil {
+            return err
+        }
 
-		if err := tx.Where("user_id = ? AND product_id = ?", userID, req.ProductID).
-			Delete(&userModels.Wishlist{}).Error; err != nil {
-			return err
-		}
-		updateCartTotal(&cart, tx)
-		return nil
-	})
-	if err != nil {
-		if ginErr, ok := err.(gin.Error); ok && ginErr.Meta != nil {
-			c.JSON(http.StatusBadRequest, ginErr.Meta)
-		} else {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add to cart", "details": err.Error()})
-		}
-		return
-	}
+        if err := tx.Where("user_id = ? AND product_id = ?", userID, req.ProductID).
+            Delete(&userModels.Wishlist{}).Error; err != nil {
+            return err
+        }
+      
+        if err := tx.Preload("CartItems").First(&cart, cart.ID).Error; err != nil {
+            return err
+        }
 
-	var cart userModels.Cart
-	database.DB.Where("user_id = ?", userID).Preload("CartItems").First(&cart)
-	c.JSON(http.StatusOK, cart)
+        return updateCartTotal(&cart, tx) 
+    })
+    if err != nil {
+        if ginErr, ok := err.(gin.Error); ok && ginErr.Meta != nil {
+            c.JSON(http.StatusBadRequest, ginErr.Meta)
+        } else {
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add to cart", "details": err.Error()})
+        }
+        return
+    }
+
+    var cart userModels.Cart
+    if err := database.DB.Where("user_id = ?", userID).Preload("CartItems").First(&cart).Error; err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch updated cart"})
+        return
+    }
+    c.JSON(http.StatusOK, cart)
 }
 
 func UpdateQuantity(c *gin.Context) {

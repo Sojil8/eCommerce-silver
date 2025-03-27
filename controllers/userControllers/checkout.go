@@ -177,8 +177,7 @@ func PlaceOrder(c *gin.Context) {
 
 func ShowOrderSuccess(c *gin.Context) {
 	userID, _ := c.Get("id")
-	orderID := c.Query("order_id") // Get order_id from query parameter
-
+	orderID := c.Query("order_id") 
 	var order userModels.Orders
 	if err := database.DB.Where("id = ? AND user_id = ?", orderID, userID).First(&order).Error; err != nil {
 		helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to load order", "Database error", "")

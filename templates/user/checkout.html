@@ -8,9 +8,6 @@
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/js/all.min.js" crossorigin="anonymous"></script>
   <style>
-    .address-card { transition: all 0.3s ease; cursor: pointer; }
-    .address-card:hover { border-color: #4f46e5; }
-    .address-card.selected { border-color: #4f46e5; box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.2); }
     .swal2-container { z-index: 9999; }
     .key-value-pair { display: flex; justify-content: space-between; padding: 0.5rem 0; }
     .key-value-pair span:first-child { font-weight: 500; color: #4B5563; }
@@ -67,26 +64,18 @@
         </h3>
         {{if .Addresses}}
           <div class="space-y-4">
-            {{range .Addresses}}
-              <div class="address-card border p-4 rounded-lg {{if .IsDefault}}selected{{end}}" data-id="{{.ID}}" onclick="selectAddress({{.ID}})">
-                <div class="key-value-pair">
-                  <span>Name</span>
-                  <span>{{.Name}} ({{.AddressType}})</span>
-                </div>
-                <div class="key-value-pair">
-                  <span>Address</span>
-                  <span>{{.City}}, {{.State}} - {{.Pincode}}</span>
-                </div>
-                <div class="key-value-pair">
-                  <span>Phone</span>
-                  <span>{{.Phone}}</span>
-                </div>
-                <div class="mt-2 text-right">
-                  <button onclick="event.stopPropagation(); showEditAddressModal({{.ID}})" class="text-indigo-600 hover:text-indigo-800 text-sm font-medium">Edit</button>
-                </div>
-              </div>
-            {{end}}
-            <button onclick="showAddAddressModal()" class="w-full bg-indigo-600 text-white px-4 py-2 rounded-full hover:bg-indigo-700 transition-colors">Add New Address</button>
+            <select id="addressSelect" onchange="selectAddress(this.value)" class="w-full p-2 border rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+              <option value="">Select an address</option>
+              {{range .Addresses}}
+                <option value="{{.ID}}" {{if .IsDefault}}selected{{end}}>
+                  {{.Name}} ({{.AddressType}}) - {{.City}}, {{.State}} - {{.Pincode}}
+                </option>
+              {{end}}
+            </select>
+            <div class="flex space-x-4">
+              <button onclick="showAddAddressModal()" class="flex-1 bg-indigo-600 text-white px-4 py-2 rounded-full hover:bg-indigo-700 transition-colors">Add New Address</button>
+              <button onclick="showEditAddressModal(document.getElementById('addressSelect').value)" class="flex-1 bg-gray-200 text-gray-700 px-4 py-2 rounded-full hover:bg-gray-300 transition-colors">Edit Selected</button>
+            </div>
           </div>
         {{else}}
           <p class="text-gray-500">No addresses found.</p>
@@ -152,13 +141,8 @@
       {{end}}
     {{end}}
 
-    document.addEventListener('DOMContentLoaded', () => {
-      if (selectedAddressId !== null) {
-        document.querySelector(`.address-card[data-id="${selectedAddressId}"]`)?.classList.add('selected');
-      }
-    });
-
     function selectAddress(id) {
+      if (!id) return;
       fetch(`/profile/set-default-address/${id}`, {
         method: 'POST',
         credentials: 'include'
@@ -166,8 +150,6 @@
       .then(response => response.json())
       .then(data => {
         if (data.status === 'ok') {
-          document.querySelectorAll('.address-card').forEach(card => card.classList.remove('selected'));
-          document.querySelector(`.address-card[data-id="${id}"]`).classList.add('selected');
           selectedAddressId = id;
           Swal.fire({ icon: 'success', title: 'Address Selected', text: 'This address is set for delivery.', confirmButtonColor: '#4f46e5', timer: 1500 });
         } else {
@@ -266,87 +248,107 @@
     }
 
     function showEditAddressModal(addressId) {
-      Swal.fire({
-        title: '<span class="text-indigo-600">Edit Address</span>',
-        html: `
-          <form id="editAddressForm" class="space-y-4">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label for="address_type" class="block text-sm font-medium text-gray-700 mb-1">Address Type</label>
-                <select id="address_type" name="address_type" class="w-full p-2 border rounded-lg focus:ring-indigo-500 focus:border-indigo-500" required>
-                  <option value="Home">Home</option>
-                  <option value="Work">Work</option>
-                  <option value="Other">Other</option>
-                </select>
-              </div>
-              <div>
-                <label for="name" class="block text-sm font-medium text-gray-700 mb-1">Name</label>
-                <input type="text" id="name" name="name" class="w-full p-2 border rounded-lg focus:ring-indigo-500 focus:border-indigo-500" required>
-              </div>
-              <div>
-                <label for="city" class="block text-sm font-medium text-gray-700 mb-1">City</label>
-                <input type="text" id="city" name="city" class="w-full p-2 border rounded-lg focus:ring-indigo-500 focus:border-indigo-500" required>
-              </div>
-              <div>
-                <label for="state" class="block text-sm font-medium text-gray-700 mb-1">State</label>
-                <input type="text" id="state" name="state" class="w-full p-2 border rounded-lg focus:ring-indigo-500 focus:border-indigo-500" required>
-              </div>
-              <div>
-                <label for="pincode" class="block text-sm font-medium text-gray-700 mb-1">Pincode</label>
-                <input type="text" id="pincode" name="pincode" class="w-full p-2 border rounded-lg focus:ring-indigo-500 focus:border-indigo-500" required>
-              </div>
-              <div>
-                <label for="phone" class="block text-sm font-medium text-gray-700 mb-1">Phone</label>
-                <input type="tel" id="phone" name="phone" maxlength="10" pattern="[0-9]{10}" class="w-full p-2 border rounded-lg focus:ring-indigo-500 focus:border-indigo-500" required>
-              </div>
-              <div>
-                <label for="alternate_phone" class="block text-sm font-medium text-gray-700 mb-1">Alternate Phone (Optional)</label>
-                <input type="tel" id="alternate_phone" name="alternate_phone" maxlength="10" class="w-full p-2 border rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
-              </div>
-              <div class="col-span-2">
-                <label for="landmark" class="block text-sm font-medium text-gray-700 mb-1">Landmark (Optional)</label>
-                <input type="text" id="landmark" name="landmark" class="w-full p-2 border rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
-              </div>
-            </div>
-          </form>
-        `,
-        showCancelButton: true,
-        confirmButtonText: 'Update Address',
-        confirmButtonColor: '#4f46e5',
-        cancelButtonText: 'Cancel',
-        width: '50rem',
-        preConfirm: () => {
-          const form = document.getElementById('editAddressForm');
-          const formData = new FormData(form);
-          const phone = formData.get('phone');
-          if (!/^\d{10}$/.test(phone)) {
-            Swal.showValidationMessage('Phone number must be exactly 10 digits');
-            return false;
-          }
-          return Object.fromEntries(formData);
-        }
-      }).then(async (result) => {
-        if (result.isConfirmed) {
-          Swal.fire({ title: 'Updating Address', text: 'Please wait...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
-          try {
-            const response = await fetch(`/profile/edit-address/${addressId}`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(result.value),
-              credentials: 'include'
-            });
-            const data = await response.json();
-            if (response.ok) {
-              Swal.fire({ icon: 'success', title: 'Address Updated!', text: 'Your address has been updated successfully.', confirmButtonColor: '#4f46e5' })
-                .then(() => window.location.reload());
-            } else {
-              Swal.fire({ icon: 'error', title: 'Failed to Update', text: data.message || 'Something went wrong', confirmButtonColor: '#4f46e5' });
+      if (!addressId) {
+        Swal.fire({ icon: 'warning', title: 'No Address Selected', text: 'Please select an address to edit.', confirmButtonColor: '#4f46e5' });
+        return;
+      }
+      // Fetch existing address data
+      fetch(`/profile/get-address/${addressId}`, {
+        method: 'GET',
+        credentials: 'include'
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.status === 'ok') {
+          Swal.fire({
+            title: '<span class="text-indigo-600">Edit Address</span>',
+            html: `
+              <form id="editAddressForm" class="space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label for="address_type" class="block text-sm font-medium text-gray-700 mb-1">Address Type</label>
+                    <select id="address_type" name="address_type" class="w-full p-2 border rounded-lg focus:ring-indigo-500 focus:border-indigo-500" required>
+                      <option value="Home" ${data.address.address_type === 'Home' ? 'selected' : ''}>Home</option>
+                      <option value="Work" ${data.address.address_type === 'Work' ? 'selected' : ''}>Work</option>
+                      <option value="Other" ${data.address.address_type === 'Other' ? 'selected' : ''}>Other</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label for="name" class="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                    <input type="text" id="name" name="name" value="${data.address.name}" class="w-full p-2 border rounded-lg focus:ring-indigo-500 focus:border-indigo-500" required>
+                  </div>
+                  <div>
+                    <label for="city" class="block text-sm font-medium text-gray-700 mb-1">City</label>
+                    <input type="text" id="city" name="city" value="${data.address.city}" class="w-full p-2 border rounded-lg focus:ring-indigo-500 focus:border-indigo-500" required>
+                  </div>
+                  <div>
+                    <label for="state" class="block text-sm font-medium text-gray-700 mb-1">State</label>
+                    <input type="text" id="state" name="state" value="${data.address.state}" class="w-full p-2 border rounded-lg focus:ring-indigo-500 focus:border-indigo-500" required>
+                  </div>
+                  <div>
+                    <label for="pincode" class="block text-sm font-medium text-gray-700 mb-1">Pincode</label>
+                    <input type="text" id="pincode" name="pincode" value="${data.address.pincode}" class="w-full p-2 border rounded-lg focus:ring-indigo-500 focus:border-indigo-500" required>
+                  </div>
+                  <div>
+                    <label for="phone" class="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+                    <input type="tel" id="phone" name="phone" value="${data.address.phone}" maxlength="10" pattern="[0-9]{10}" class="w-full p-2 border rounded-lg focus:ring-indigo-500 focus:border-indigo-500" required>
+                  </div>
+                  <div>
+                    <label for="alternate_phone" class="block text-sm font-medium text-gray-700 mb-1">Alternate Phone (Optional)</label>
+                    <input type="tel" id="alternate_phone" name="alternate_phone" value="${data.address.alternate_phone || ''}" maxlength="10" class="w-full p-2 border rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+                  </div>
+                  <div class="col-span-2">
+                    <label for="landmark" class="block text-sm font-medium text-gray-700 mb-1">Landmark (Optional)</label>
+                    <input type="text" id="landmark" name="landmark" value="${data.address.landmark || ''}" class="w-full p-2 border rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+                  </div>
+                </div>
+              </form>
+            `,
+            showCancelButton: true,
+            confirmButtonText: 'Update Address',
+            confirmButtonColor: '#4f46e5',
+            cancelButtonText: 'Cancel',
+            width: '50rem',
+            preConfirm: () => {
+              const form = document.getElementById('editAddressForm');
+              const formData = new FormData(form);
+              const phone = formData.get('phone');
+              if (!/^\d{10}$/.test(phone)) {
+                Swal.showValidationMessage('Phone number must be exactly 10 digits');
+                return false;
+              }
+              return Object.fromEntries(formData);
             }
-          } catch (error) {
-            console.error('Error:', error);
-            Swal.fire({ icon: 'error', title: 'Error', text: 'Could not connect to the server.', confirmButtonColor: '#4f46e5' });
-          }
+          }).then(async (result) => {
+            if (result.isConfirmed) {
+              Swal.fire({ title: 'Updating Address', text: 'Please wait...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+              try {
+                const response = await fetch(`/profile/edit-address/${addressId}`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify(result.value),
+                  credentials: 'include'
+                });
+                const data = await response.json();
+                if (response.ok) {
+                  Swal.fire({ icon: 'success', title: 'Address Updated!', text: 'Your address has been updated successfully.', confirmButtonColor: '#4f46e5' })
+                    .then(() => window.location.reload());
+                } else {
+                  Swal.fire({ icon: 'error', title: 'Failed to Update', text: data.message || 'Something went wrong', confirmButtonColor: '#4f46e5' });
+                }
+              } catch (error) {
+                console.error('Error:', error);
+                Swal.fire({ icon: 'error', title: 'Error', text: 'Could not connect to the server.', confirmButtonColor: '#4f46e5' });
+              }
+            }
+          });
+        } else {
+          Swal.fire({ icon: 'error', title: 'Error', text: data.message || 'Failed to fetch address', confirmButtonColor: '#4f46e5' });
         }
+      })
+      .catch(error => {
+        console.error('Error:', error);
+        Swal.fire({ icon: 'error', title: 'Error', text: 'Could not connect to the server.', confirmButtonColor: '#4f46e5' });
       });
     }
 

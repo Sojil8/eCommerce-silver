@@ -28,6 +28,5 @@ func main() {
 	routes.AdminRoutes(router)
 	routes.UserRoutes(router)
 	
-
 	router.Run()
 }
