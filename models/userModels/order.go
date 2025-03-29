@@ -1,23 +1,45 @@
 package userModels
 
-import "gorm.io/gorm"
+import (
+	"time"
+
+	"github.com/Sojil8/eCommerce-silver/models/adminModels" 
+	"gorm.io/gorm"
+)
 
 type Orders struct {
 	*gorm.Model
-	UserID      uint    `json:"user_id"`
-	AddressID   uint    `json:"address_id"`
-	TotalPrice  float64 `json:"total_price"`
-	Status      string  `json:"status"`
-	PaymentMethod string  `json:"payment_method"`
-	OrderItems []OrderItem 	`gorm:"foreignKey:OrderID" json:"order_items"`
-
+	UserID        uint        `json:"user_id"`
+	OrderID       string      `gorm:"uniqueIndex" json:"order_id"`
+	AddressID     uint        `json:"address_id"`
+	TotalPrice    float64     `json:"total_price"`
+	PaymentMethod string      `json:"payment_method"`
+	OrderItems    []OrderItem `gorm:"foreignKey:OrderID" json:"order_items"`
+	Status        string      `json:"status"`
+	OrderDate     time.Time   `json:"order_date"`
 }
 
 type OrderItem struct {
 	*gorm.Model
-	OrderID uint `json:"order_id"`
-	ProductID uint `json:"product_id"`
-	VariantsID uint `json:"variants_id"`
-	Quantity uint 	`json:"quantity"`
-	Price float64 	`json:"price"`
+	OrderID    uint                 `json:"order_id"`
+	ProductID  uint                 `json:"product_id" gorm:"index"` 
+	VariantsID uint                 `json:"variants_id" gorm:"index"`
+	Quantity   uint                 `json:"quantity"`
+	Price      float64              `json:"price"`
+	Status     string               `json:"status"`
+	Product    adminModels.Product  `gorm:"foreignKey:ProductID" json:"product"`  
+	Variants   adminModels.Variants `gorm:"foreignKey:VariantsID" json:"variants"` 
+}
+
+type Cancellation struct {
+	gorm.Model
+	OrderID uint   `json:"order_id"`
+	ItemID  *uint  `json:"item_id,omitempty"`
+	Reason  string `json:"reason"`
+}
+
+type Return struct {
+	gorm.Model
+	OrderID uint   `json:"order_id"`
+	Reason  string `json:"reason"`
 }

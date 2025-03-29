@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Order Details - Silver</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+</head>
+<body class="bg-gray-100 flex flex-col min-h-screen">
+    <header class="bg-white shadow-lg py-4 px-6 sticky top-0 z-10">
+        <div class="container mx-auto flex justify-between items-center">
+            <h1 class="text-3xl font-extrabold text-gray-900 tracking-tight">
+                <a href="/home" class="hover:text-indigo-600 transition-colors">Silver</a>
+            </h1>
+            <div class="flex items-center space-x-6 text-gray-700">
+                <span class="text-gray-800 font-medium">{{.UserName}}</span>
+                <form action="/logout" method="POST" class="inline">
+                    <button type="submit" class="bg-red-600 text-white px-4 py-1 rounded-full hover:bg-red-700">Logout</button>
+                </form>
+            </div>
+        </div>
+    </header>
+
+    <div class="container mx-auto p-6 flex-grow">
+        <h2 class="text-4xl font-bold text-gray-900 mb-8 tracking-tight">Order #{{.Order.OrderID}}</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="bg-white rounded-xl shadow-md p-6">
+                <h3 class="text-xl font-semibold text-gray-900 mb-4">Order Details</h3>
+                <p class="text-gray-600">Date: {{.Order.OrderDate.Format "2006-01-02"}}</p>
+                <p class="text-gray-600">Status: <span class="font-medium {{if eq .Order.Status "Cancelled"}}text-red-600{{else if eq .Order.Status "Delivered"}}text-green-600{{else}}text-indigo-600{{end}}">{{.Order.Status}}</span></p>
+                <p class="text-gray-600">Total: ${{printf "%.2f" .Order.TotalPrice}}</p>
+                <div class="mt-4">
+                    <a href="/orders/invoice/{{.Order.OrderID}}" class="text-green-600 hover:text-green-800">Download Invoice</a>
+                    {{if eq .Order.Status "Pending"}}
+                        <button onclick="cancelOrder('{{.Order.OrderID}}')" class="ml-4 text-red-600 hover:text-red-800">Cancel Order</button>
+                    {{end}}
+                    {{if eq .Order.Status "Delivered"}}
+                        <button onclick="returnOrder('{{.Order.OrderID}}')" class="ml-4 text-orange-600 hover:text-orange-800">Return Order</button>
+                    {{end}}
+                </div>
+            </div>
+            <div class="bg-white rounded-xl shadow-md p-6">
+                <h3 class="text-xl font-semibold text-gray-900 mb-4">Shipping Address</h3>
+                <p class="text-gray-600">{{.Address.Name}} ({{.Address.AddressType}})</p>
+                <p class="text-gray-600">{{.Address.City}}, {{.Address.State}} - {{.Address.Pincode}}</p>
+                <p class="text-gray-600">Phone: {{.Address.Phone}}</p>
+            </div>
+        </div>
+        <div class="bg-white rounded-xl shadow-md p-6 mt-6">
+            <h3 class="text-xl font-semibold text-gray-900 mb-4">Items</h3>
+            {{range .Order.OrderItems}}
+                <div class="flex items-center border-b py-4">
+                    <img src="{{index .Product.Images 0}}" alt="{{.Product.ProductName}}" class="w-24 h-24 object-cover rounded-lg mr-4 border">
+                    <div class="flex-1">
+                        <p class="text-gray-800 font-medium text-lg">{{.Product.ProductName}} <span class="text-gray-500">({{.Variants.Color}})</span></p>
+                        <p class="text-gray-600">Quantity: {{.Quantity}}</p>
+                        <p class="text-gray-600">Status: <span class="font-medium {{if eq .Status "Cancelled"}}text-red-600{{else}}text-green-600{{end}}">{{.Status}}</span></p>
+                        <p class="text-indigo-600 font-bold">${{printf "%.2f" (mul .Price .Quantity)}}</p>
+                    </div>
+                    {{if eq $.Order.Status "Pending" "Active"}} <!-- Use $.Order.Status to access the parent order -->
+                    <button onclick="cancelItem('{{$.Order.OrderID}}', '{{.ID}}')" class="text-red-600 hover:text-red-800">Cancel Item</button>
+                {{end}}
+                </div>
+            {{end}}
+        </div>
+    </div>
+
+    <footer class="bg-gray-900 text-white p-6 mt-auto">
+        <div class="container mx-auto flex justify-between items-center">
+            <p class="text-sm">© 2025 Silver. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script>
+        function cancelOrder(orderId) {
+            Swal.fire({
+                title: 'Cancel Order?',
+                text: 'Are you sure you want to cancel this order?',
+                input: 'text',
+                inputPlaceholder: 'Reason (optional)',
+                showCancelButton: true,
+                confirmButtonText: 'Yes, cancel it!',
+                confirmButtonColor: '#ef4444',
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    fetch(`/orders/cancel/${orderId}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ reason: result.value }),
+                        credentials: 'include'
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.status === 'ok') {
+                            Swal.fire('Cancelled!', 'Your order has been cancelled.', 'success').then(() => location.reload());
+                        } else {
+                            Swal.fire('Error', data.error || 'Failed to cancel order', 'error');
+                        }
+                    });
+                }
+            });
+        }
+
+        function cancelItem(orderId, itemId) {
+            Swal.fire({
+                title: 'Cancel Item?',
+                text: 'Are you sure you want to cancel this item?',
+                input: 'text',
+                inputPlaceholder: 'Reason (optional)',
+                showCancelButton: true,
+                confirmButtonText: 'Yes, cancel it!',
+                confirmButtonColor: '#ef4444',
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    fetch(`/orders/cancel-item/${orderId}/${itemId}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ reason: result.value }),
+                        credentials: 'include'
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.status === 'ok') {
+                            Swal.fire('Cancelled!', 'Item has been cancelled.', 'success').then(() => location.reload());
+                        } else {
+                            Swal.fire('Error', data.error || 'Failed to cancel item', 'error');
+                        }
+                    });
+                }
+            });
+        }
+
+        function returnOrder(orderId) {
+            Swal.fire({
+                title: 'Return Order?',
+                text: 'Please provide a reason for returning this order.',
+                input: 'text',
+                inputPlaceholder: 'Reason (required)',
+                showCancelButton: true,
+                confirmButtonText: 'Yes, return it!',
+                confirmButtonColor: '#f97316',
+                preConfirm: (reason) => {
+                    if (!reason) {
+                        Swal.showValidationMessage('Reason is required');
+                    }
+                    return reason;
+                }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    fetch(`/orders/return/${orderId}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ reason: result.value }),
+                        credentials: 'include'
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.status === 'ok') {
+                            Swal.fire('Returned!', 'Your order has been returned.', 'success').then(() => location.reload());
+                        } else {
+                            Swal.fire('Error', data.error || 'Failed to return order', 'error');
+                        }
+                    });
+                }
+            });
+        }
+    </script>
+</body>
+</html>

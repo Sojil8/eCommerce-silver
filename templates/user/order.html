@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Orders - Silver</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+</head>
+<body class="bg-gray-100 flex flex-col min-h-screen">
+    <header class="bg-white shadow-lg py-4 px-6 sticky top-0 z-10">
+        <div class="container mx-auto flex justify-between items-center">
+            <h1 class="text-3xl font-extrabold text-gray-900 tracking-tight">
+                <a href="/home" class="hover:text-indigo-600 transition-colors">Silver</a>
+            </h1>
+            <div class="flex items-center space-x-6 text-gray-700">
+                <span class="text-gray-800 font-medium">{{.UserName}}</span>
+                <form action="/logout" method="POST" class="inline">
+                    <button type="submit" class="bg-red-600 text-white px-4 py-1 rounded-full hover:bg-red-700">Logout</button>
+                </form>
+            </div>
+        </div>
+    </header>
+
+    <div class="container mx-auto p-6 flex-grow">
+        <h2 class="text-4xl font-bold text-gray-900 mb-8 tracking-tight text-center">Your Orders</h2>
+        <div class="mb-6">
+            <input type="text" id="searchInput" placeholder="Search by Order ID or Status" class="w-full p-2 border rounded-lg focus:ring-indigo-500 focus:border-indigo-500" onkeyup="searchOrders()">
+        </div>
+        <div id="orderList">
+            {{if .Orders}}
+                {{range .Orders}}
+                    <div class="bg-white rounded-xl shadow-md p-6 mb-4">
+                        <div class="flex justify-between items-center">
+                            <div>
+                                <h3 class="text-xl font-semibold text-gray-900">Order #{{.OrderID}}</h3>
+                                <p class="text-gray-600">Date: {{.OrderDate.Format "2006-01-02"}}</p>
+                                <p class="text-gray-600">Status: <span class="font-medium {{if eq .Status "Cancelled"}}text-red-600{{else if eq .Status "Delivered"}}text-green-600{{else}}text-indigo-600{{end}}">{{.Status}}</span></p>
+                                <p class="text-gray-600">Total: ${{printf "%.2f" .TotalPrice}}</p>
+                            </div>
+                            <div class="space-x-2">
+                                <a href="/orders/details/{{.OrderID}}" class="text-indigo-600 hover:text-indigo-800">View Details</a>
+                                {{if eq .Status "Pending"}}
+                                    <button onclick="cancelOrder('{{.OrderID}}')" class="text-red-600 hover:text-red-800">Cancel Order</button>
+                                {{end}}
+                                {{if eq .Status "Delivered"}}
+                                    <button onclick="returnOrder('{{.OrderID}}')" class="text-orange-600 hover:text-orange-800">Return Order</button>
+                                {{end}}
+                                <a href="/orders/invoice/{{.OrderID}}" class="text-green-600 hover:text-green-800">Download Invoice</a>
+                            </div>
+                        </div>
+                    </div>
+                {{end}}
+            {{else}}
+                <p class="text-center text-gray-500 py-4">No orders found.</p>
+            {{end}}
+        </div>
+    </div>
+
+    <footer class="bg-gray-900 text-white p-6 mt-auto">
+        <div class="container mx-auto flex justify-between items-center">
+            <p class="text-sm">© 2025 Silver. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script>
+        function cancelOrder(orderId) {
+            Swal.fire({
+                title: 'Cancel Order?',
+                text: 'Are you sure you want to cancel this order?',
+                input: 'text',
+                inputPlaceholder: 'Reason (optional)',
+                showCancelButton: true,
+                confirmButtonText: 'Yes, cancel it!',
+                confirmButtonColor: '#ef4444',
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    fetch(`/orders/cancel/${orderId}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ reason: result.value }),
+                        credentials: 'include'
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.status === 'ok') {
+                            Swal.fire('Cancelled!', 'Your order has been cancelled.', 'success').then(() => location.reload());
+                        } else {
+                            Swal.fire('Error', data.error || 'Failed to cancel order', 'error');
+                        }
+                    });
+                }
+            });
+        }
+
+        function returnOrder(orderId) {
+            Swal.fire({
+                title: 'Return Order?',
+                text: 'Please provide a reason for returning this order.',
+                input: 'text',
+                inputPlaceholder: 'Reason (required)',
+                showCancelButton: true,
+                confirmButtonText: 'Yes, return it!',
+                confirmButtonColor: '#f97316',
+                preConfirm: (reason) => {
+                    if (!reason) {
+                        Swal.showValidationMessage('Reason is required');
+                    }
+                    return reason;
+                }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    fetch(`/orders/return/${orderId}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ reason: result.value }),
+                        credentials: 'include'
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.status === 'ok') {
+                            Swal.fire('Returned!', 'Your order has been returned.', 'success').then(() => location.reload());
+                        } else {
+                            Swal.fire('Error', data.error || 'Failed to return order', 'error');
+                        }
+                    });
+                }
+            });
+        }
+
+        function searchOrders() {
+            const query = document.getElementById('searchInput').value;
+            fetch(`/orders/search?q=${encodeURIComponent(query)}`, { credentials: 'include' })
+            .then(response => response.json())
+            .then(orders => {
+                const orderList = document.getElementById('orderList');
+                orderList.innerHTML = orders.length ? orders.map(order => `
+                    <div class="bg-white rounded-xl shadow-md p-6 mb-4">
+                        <div class="flex justify-between items-center">
+                            <div>
+                                <h3 class="text-xl font-semibold text-gray-900">Order #${order.order_id}</h3>
+                                <p class="text-gray-600">Date: ${new Date(order.order_date).toLocaleDateString()}</p>
+                                <p class="text-gray-600">Status: <span class="${order.status === 'Cancelled' ? 'text-red-600' : order.status === 'Delivered' ? 'text-green-600' : 'text-indigo-600'} font-medium">${order.status}</span></p>
+                                <p class="text-gray-600">Total: $${order.total_price.toFixed(2)}</p>
+                            </div>
+                            <div class="space-x-2">
+                                <a href="/orders/${order.order_id}" class="text-indigo-600 hover:text-indigo-800">View Details</a>
+                                ${order.status === 'Pending' ? `<button onclick="cancelOrder('${order.order_id}')" class="text-red-600 hover:text-red-800">Cancel Order</button>` : ''}
+                                ${order.status === 'Delivered' ? `<button onclick="returnOrder('${order.order_id}')" class="text-orange-600 hover:text-orange-800">Return Order</button>` : ''}
+                                <a href="/orders/invoice/${order.order_id}" class="text-green-600 hover:text-green-800">Download Invoice</a>
+                            </div>
+                        </div>
+                    </div>
+                `).join('') : '<p class="text-center text-gray-500 py-4">No orders found.</p>';
+            });
+        }
+    </script>
+</body>
+</html>

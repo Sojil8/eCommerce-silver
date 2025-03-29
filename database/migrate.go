@@ -19,6 +19,8 @@ func MigrageHandler() {
 		&userModels.Address{},
 		&userModels.Orders{},
 		&userModels.OrderItem{},
+		&userModels.Return{},
+		&userModels.Cancellation{},
 	)
 		
 }

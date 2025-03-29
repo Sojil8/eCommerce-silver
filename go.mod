@@ -8,6 +8,7 @@ require (
 	github.com/gin-gonic/gin v1.10.0
 	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/joho/godotenv v1.5.1
+	github.com/jung-kurt/gofpdf v1.16.2
 	github.com/redis/go-redis/v9 v9.7.1
 	golang.org/x/crypto v0.33.0
 	golang.org/x/image v0.25.0
