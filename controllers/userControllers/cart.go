@@ -10,17 +10,15 @@ import (
 	"gorm.io/gorm"
 )
 
-const MAX_QUANTITY_PER_PRODUCT = 10
+const MAX_QUANTITY_PER_PRODUCT = 5
 
 func GetCart(c *gin.Context) {
 	userID, _ := c.Get("id")
 	var cart userModels.Cart
 
-	// Fetch the cart with preloaded items
 	err := database.DB.Where("user_id = ?", userID).Preload("CartItems.Product").Preload("CartItems.Variants").First(&cart).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
-			// Create a new cart if it doesn't exist
 			cart = userModels.Cart{UserID: userID.(uint)}
 			if err := database.DB.Create(&cart).Error; err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create cart"})
@@ -32,18 +30,15 @@ func GetCart(c *gin.Context) {
 		}
 	}
 
-	// Filter cart items to include only products from listed categories
 	var filteredCartItems []userModels.CartItem
 	for _, item := range cart.CartItems {
 		var category adminModels.Category
-		// Check if the product's category exists and is listed
-		if err := database.DB.Where("category_name = ? AND status = ?", item.Product.CategoryName, true).First(&category).Error; err == nil {
-			// If the category is listed, include the item
+		if item.Product.IsListed && 
+           database.DB.Where("category_name = ? AND status = ?", item.Product.CategoryName, true).First(&category).Error == nil {
 			filteredCartItems = append(filteredCartItems, item)
 		}
 	}
 
-	// Recalculate total price based on filtered items
 	totalPrice := 0.0
 	for _, item := range filteredCartItems {
 		totalPrice += item.Price * float64(item.Quantity)
@@ -68,9 +63,19 @@ type RequestCartItem struct {
 	Quantity  uint `json:"quantity"`
 }
 
+
 func AddToCart(c *gin.Context) {
 	userID, _ := c.Get("id")
-	var req RequestCartItem
+
+	// Updated struct to handle wishlist_id
+	type CartInput struct {
+		WishlistID *uint `json:"wishlist_id"`
+		ProductID  *uint `json:"product_id"`
+		VariantID  uint  `json:"variant_id"`
+		Quantity   uint  `json:"quantity"`
+	}
+
+	var req CartInput
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error":   "Invalid request",
@@ -80,9 +85,27 @@ func AddToCart(c *gin.Context) {
 	}
 
 	err := database.DB.Transaction(func(tx *gorm.DB) error {
+		var productID uint
+
+		// If wishlist_id is provided, get the product_id from the wishlist
+		if req.WishlistID != nil {
+			var wishlist userModels.Wishlist
+			if err := tx.First(&wishlist, *req.WishlistID).Error; err != nil {
+				return gin.Error{Err: err, Meta: gin.H{"error": "Wishlist item not found"}}
+			}
+			if wishlist.UserID != userID.(uint) {
+				return gin.Error{Meta: gin.H{"error": "Unauthorized access to wishlist item"}}
+			}
+			productID = wishlist.ProductID
+		} else if req.ProductID != nil {
+			productID = *req.ProductID
+		} else {
+			return gin.Error{Meta: gin.H{"error": "Either product_id or wishlist_id is required"}}
+		}
+
 		var product adminModels.Product
-		if err := tx.Preload("Variants").First(&product, req.ProductID).Error; err != nil {
-			return err
+		if err := tx.Preload("Variants").First(&product, productID).Error; err != nil {
+			return gin.Error{Err: err, Meta: gin.H{"error": "Product not found"}}
 		}
 
 		var category adminModels.Category
@@ -95,7 +118,7 @@ func AddToCart(c *gin.Context) {
 		}
 
 		var variant adminModels.Variants
-		if err := tx.First(&variant, req.VariantID).Error; err != nil || req.ProductID != variant.ProductID {
+		if err := tx.First(&variant, req.VariantID).Error; err != nil || productID != variant.ProductID {
 			return gin.Error{Err: err, Meta: gin.H{"error": "Invalid variant"}}
 		}
 
@@ -114,7 +137,7 @@ func AddToCart(c *gin.Context) {
 		}
 
 		for i, item := range cart.CartItems {
-			if item.ProductID == req.ProductID && item.VariantsID == req.VariantID {
+			if item.ProductID == productID && item.VariantsID == req.VariantID {
 				newQnty := item.Quantity + req.Quantity
 				if newQnty > MAX_QUANTITY_PER_PRODUCT || newQnty > variant.Stock {
 					return gin.Error{Meta: gin.H{"error": "Quantity limit exceeded"}}
@@ -129,7 +152,7 @@ func AddToCart(c *gin.Context) {
 
 		item := userModels.CartItem{
 			CartID:     cart.ID,
-			ProductID:  req.ProductID,
+			ProductID:  productID,
 			VariantsID: req.VariantID,
 			Quantity:   req.Quantity,
 			Price:      product.Price + variant.ExtraPrice,
@@ -138,9 +161,12 @@ func AddToCart(c *gin.Context) {
 			return err
 		}
 
-		if err := tx.Where("user_id = ? AND product_id = ?", userID, req.ProductID).
-			Delete(&userModels.Wishlist{}).Error; err != nil {
-			return err
+		// Remove from wishlist if wishlist_id was provided
+		if req.WishlistID != nil {
+			if err := tx.Where("user_id = ? AND id = ?", userID, *req.WishlistID).
+				Delete(&userModels.Wishlist{}).Error; err != nil {
+				return err
+			}
 		}
 
 		if err := tx.Preload("CartItems").First(&cart, cart.ID).Error; err != nil {
@@ -187,11 +213,18 @@ func UpdateQuantity(c *gin.Context) {
 
 		for i, item := range cart.CartItems {
 			if item.ProductID == req.ProductID && item.VariantsID == req.VariantID {
-				if req.Quantity > variants.Stock || req.Quantity > MAX_QUANTITY_PER_PRODUCT {
+				if req.Quantity > variants.Stock {
 					return gin.Error{Meta: gin.H{
-						"error": "Quantity exceeds available stock or limit",
+						"error": "Quantity exceeds available stock",
 					}}
 				}
+
+				if req.Quantity > MAX_QUANTITY_PER_PRODUCT {
+					return gin.Error{Meta: gin.H{
+						"error": "Maximum limit is 5 items per product",
+					}}
+				}
+				
 				if req.Quantity == 0 {
 					if err := tx.Delete(&cart.CartItems[i]).Error; err != nil {
 						return err
@@ -221,7 +254,6 @@ func UpdateQuantity(c *gin.Context) {
 	database.DB.Where("user_id = ?", userID).Preload("CartItems").First(&cart)
 	c.JSON(http.StatusOK, cart)
 }
-
 type varitReq struct {
 	ProductID uint `json:"product_id"`
 	VariantID uint `json:"variant_id"`
@@ -274,7 +306,9 @@ func updateCartTotal(cart *userModels.Cart, tx *gorm.DB) error {
 		if err := tx.First(&product, item.ProductID).Error; err != nil {
 			return err
 		}
-		total += item.Price * float64(item.Quantity)
+		if product.IsListed {
+			total += item.Price * float64(item.Quantity)
+		}
 	}
 	cart.TotalPrice = total
 	return tx.Save(cart).Error

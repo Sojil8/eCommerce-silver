@@ -1,0 +1,24 @@
+<!-- sidebar.html -->
+<div class="w-64 bg-white shadow-md h-full p-6">
+    <div class="flex items-center mb-8">
+        <img src="{{if .profile_img}}{{.profile_img}}{{else}}/static/defaultProfile.png{{end}}" alt="Profile Image" class="w-12 h-12 rounded-full object-cover border-2 border-indigo-600">
+        <div class="ml-4">
+            <h3 class="text-lg font-semibold text-gray-900">{{.User.First_name}} {{.User.Last_name}}</h3>
+            <p class="text-gray-600 text-sm">{{.User.UserName}}</p>
+        </div>
+    </div>
+    <nav class="space-y-4">
+        <a href="/profile" class="flex items-center text-gray-700 hover:text-indigo-600 {{if eq .ActivePage "profile"}}text-indigo-600 font-semibold{{end}}">
+            <i class="fas fa-user mr-2"></i> Profile
+        </a>
+        <a href="/profile/orders" class="flex items-center text-gray-700 hover:text-indigo-600 {{if eq .ActivePage "orders"}}text-indigo-600 font-semibold{{end}}">
+            <i class="fas fa-shopping-bag mr-2"></i> Orders
+        </a>
+        <a href="/profile/addresses" class="flex items-center text-gray-700 hover:text-indigo-600 {{if eq .ActivePage "addresses"}}text-indigo-600 font-semibold{{end}}">
+            <i class="fas fa-map-marker-alt mr-2"></i> Addresses
+        </a>
+        <form action="/logout" method="POST" class="mt-4">
+            <button type="submit" class="w-full bg-red-600 text-white px-4 py-2 rounded-full hover:bg-red-700 transition-colors">Logout</button>
+        </form>
+    </nav>
+</div>

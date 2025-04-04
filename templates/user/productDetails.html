@@ -100,31 +100,7 @@
 
 <body class="bg-gray-100 font-sans antialiased">
     <!-- Navigation Bar -->
-    <nav class="bg-white shadow-md py-4">
-        <div class="container mx-auto px-4 flex items-center justify-between">
-            <!-- Logo -->
-            <a href="/home"
-                class="text-2xl font-bold text-indigo-600 hover:text-indigo-800 transition-colors">Silver</a>
-            <!-- Menu Links -->
-            <div class="hidden md:flex space-x-6">
-                <a href="/home" class="text-gray-700 hover:text-indigo-600 transition-colors">Home</a>
-                <a href="/shop" class="text-gray-700 hover:text-indigo-600 transition-colors">shop</a>
-            </div>
-            <!-- Icons -->
-            <div class="flex items-center space-x-4">
-                <a href="/cart" class="text-gray-700 hover:text-indigo-600 transition-colors">
-                    <i class="fas fa-shopping-cart"></i>
-                </a>
-                <a href="/profile" class="text-gray-700 hover:text-indigo-600 transition-colors">
-                    <i class="fas fa-user"></i>
-                </a>
-                <!-- Mobile Menu Button -->
-                <button class="md:hidden text-gray-700 hover:text-indigo-600 focus:outline-none">
-                    <i class="fas fa-bars"></i>
-                </button>
-            </div>
-        </div>
-    </nav>
+    {{template "navbar.html" .}}
 
 
     <!-- Breadcrumb -->
@@ -179,10 +155,10 @@
 
                     <!-- Price and Discount -->
                     <div class="flex items-center space-x-4">
-                        <span class="text-3xl font-bold text-indigo-600" id="current-price">₹{{ printf "%.2f"
+                        <span class="text-3xl font-bold text-indigo-600" id="current-price">${{ printf "%.2f"
                             .Product.Price }}</span>
                         {{ if gt .OriginalPrice .Product.Price }}
-                        <span class="text-lg text-gray-500 line-through" id="original-price">₹{{ printf "%.2f"
+                        <span class="text-lg text-gray-500 line-through" id="original-price">${{ printf "%.2f"
                             .OriginalPrice }}</span>
                         <span class="bg-green-100 text-green-800 text-sm font-medium px-3 py-1 rounded-full"
                             id="discount">{{ .DiscountPercentage }}% Off</span>
@@ -274,7 +250,7 @@
                             class="block text-gray-900 font-semibold hover:text-indigo-600 transition-colors">{{
                             .ProductName }}</a>
                         <div class="flex justify-between items-center mt-2">
-                            <span class="text-indigo-600 font-bold">₹{{ printf "%.2f" .Price }}</span>
+                            <span class="text-indigo-600 font-bold">${{ printf "%.2f" .Price }}</span>
                             <button class="text-gray-500 hover:text-red-500 transition-colors wishlist-btn"
                                 data-product-id="{{ .ID }}">
                                 <i class="far fa-heart"></i>
@@ -309,8 +285,8 @@
             const imgZoomContainer = document.querySelector('.img-zoom-container');
         
             // Base product info
-            let basePrice = parseFloat(currentPriceEl ? currentPriceEl.textContent.replace('₹', '') : 0);
-            let baseOriginalPrice = originalPriceEl ? parseFloat(originalPriceEl.textContent.replace('₹', '')) : basePrice;
+            let basePrice = parseFloat(currentPriceEl ? currentPriceEl.textContent.replace('$', '') : 0);
+            let baseOriginalPrice = originalPriceEl ? parseFloat(originalPriceEl.textContent.replace('$', '')) : basePrice;
             let selectedVariant = null;
         
             // Debugging: Confirm elements are found
@@ -477,10 +453,10 @@
                             const newOriginalPrice = baseOriginalPrice + selectedVariant.extraPrice;
                             const discountPercentage = newOriginalPrice > newPrice ?
                                 Math.round(((newOriginalPrice - newPrice) / newOriginalPrice) * 100) : 0;
-                            currentPriceEl.textContent = `₹${newPrice.toFixed(2)}`;
+                            currentPriceEl.textContent = `$${newPrice.toFixed(2)}`;
                             if (originalPriceEl && discountEl) {
                                 if (discountPercentage > 0) {
-                                    originalPriceEl.textContent = `₹${newOriginalPrice.toFixed(2)}`;
+                                    originalPriceEl.textContent = `$${newOriginalPrice.toFixed(2)}`;
                                     discountEl.textContent = `${discountPercentage}% Off`;
                                     originalPriceEl.style.display = 'inline';
                                     discountEl.style.display = 'inline';
@@ -585,7 +561,7 @@
             // Start initialization
             init();
         });
-        </script>
+    </script>
 </body>
 
 </html>

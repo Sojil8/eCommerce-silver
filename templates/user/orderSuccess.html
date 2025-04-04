@@ -9,25 +9,7 @@
 </head>
 <body class="bg-gray-50 flex flex-col min-h-screen">
   <!-- Navbar (similar to profile.html) -->
-  <header class="bg-white shadow-lg py-4 px-6 sticky top-0 z-10">
-    <div class="container mx-auto flex justify-between items-center">
-      <h1 class="text-3xl font-extrabold text-gray-900 tracking-tight">
-        <a href="/home" class="hover:text-indigo-600 transition-colors">Silver</a>
-      </h1>
-      <nav class="hidden md:flex space-x-8">
-        <a href="/home" class="text-gray-700 font-medium hover:text-indigo-600 transition-colors duration-200">Home</a>
-        <a href="/shop" class="text-gray-700 font-medium hover:text-indigo-600 transition-colors duration-200">Shop</a>
-      </nav>
-      <div class="flex items-center space-x-6 text-gray-700">
-        <a href="/wishlist" class="hover:text-indigo-600 transition-colors" title="Wishlist"><i class="fas fa-heart text-xl"></i></a>
-        <a href="/cart" class="hover:text-indigo-600 transition-colors" title="Cart"><i class="fas fa-shopping-cart text-xl"></i></a>
-        <a href="/profile" class="hover:text-indigo-600 transition-colors" title="Profile"><i class="fas fa-user text-xl"></i></a>
-        <form action="/logout" method="POST" class="inline">
-          <button type="submit" class="bg-red-600 text-white px-4 py-1 rounded-full hover:bg-red-700 transition-colors duration-200">Logout</button>
-        </form>
-      </div>
-    </div>
-  </header>
+  {{template "navbar.html" .}}
 
   <!-- Main Content -->
   <div class="container mx-auto p-6 flex-grow flex items-center justify-center">

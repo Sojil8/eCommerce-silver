@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>404 - Game Over</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-20px); }
+    }
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-5px); }
+      75% { transform: translateX(5px); }
+    }
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    .alien { animation: float 3s infinite ease-in-out; }
+    .spaceship { animation: shake 2s infinite ease-in-out; }
+    .laser { animation: blink 0.5s infinite; }
+  </style>
+</head>
+<body class="bg-black text-white min-h-screen flex flex-col items-center justify-center p-4">
+  <div class="max-w-2xl text-center">
+    <div class="space-y-8">
+      <div class="flex justify-center">
+        <!-- Aliens -->
+        <div class="alien text-6xl mx-2">👾</div>
+        <div class="alien text-6xl mx-2" style="animation-delay: 0.5s">👾</div>
+        <div class="alien text-6xl mx-2" style="animation-delay: 1s">👾</div>
+      </div>
+      
+      <h1 class="text-8xl font-bold text-green-500 mb-4">404</h1>
+      <h2 class="text-4xl font-bold mb-6">PAGE INVADED!</h2>
+      
+      <p class="text-xl mb-8">The aliens have abducted this page. Our brave spaceship is trying to recover it!</p>
+      
+      <div class="flex flex-col items-center">
+        <!-- Laser -->
+        <div class="laser h-16 w-1 bg-red-500 mb-4"></div>
+        
+        <!-- Spaceship -->
+        <div class="spaceship text-5xl mb-8">🚀</div>
+        
+        <!-- Game stats -->
+        <div class="text-left bg-gray-900 p-4 rounded-lg w-64 mt-4">
+          <p class="text-green-400 font-mono">SCORE: 0000404</p>
+          <p class="text-green-400 font-mono">LIVES: ❤️❤️❤️</p>
+        </div>
+        
+        <!-- Back button -->
+        <a href="/" class="mt-8 bg-green-600 hover:bg-green-500 text-white font-bold py-3 px-6 rounded-lg transition-all duration-300 uppercase tracking-wider">Continue Game</a>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Add some interactivity
+    document.addEventListener('mousemove', (e) => {
+      const spaceship = document.querySelector('.spaceship');
+      const maxMove = window.innerWidth / 3;
+      const moveX = (e.clientX - window.innerWidth / 2) / 10;
+      
+      if (spaceship) {
+        spaceship.style.transform = `translateX(${moveX}px)`;
+      }
+    });
+
+    // Random alien movements
+    const aliens = document.querySelectorAll('.alien');
+    aliens.forEach(alien => {
+      alien.addEventListener('click', () => {
+        alien.style.opacity = '0';
+        alien.style.transition = 'all 0.3s';
+        setTimeout(() => {
+          alien.style.opacity = '1';
+        }, 1000);
+      });
+    });
+  </script>
+</body>
+</html>

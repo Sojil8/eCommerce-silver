@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - Return Requests</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto p-6">
+        <h1 class="text-3xl font-bold text-gray-900 mb-6">Return Requests</h1>
+        <div class="bg-white rounded-lg shadow-md overflow-x-auto">
+            <table class="min-w-full">
+                <thead class="bg-gray-200">
+                    <tr>
+                        <th class="p-3 text-left">Order ID</th>
+                        <th class="p-3 text-left">User</th>
+                        <th class="p-3 text-left">Reason</th>
+                        <th class="p-3 text-left">Total</th>
+                        <th class="p-3 text-left">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{range .Returns}}
+                    <tr class="border-b">
+                        <td class="p-3">{{.Order.OrderIdUnique}}</td>
+                        <td class="p-3">{{.Order.User.UserName}} ({{.Order.User.Email}})</td>
+                        <td class="p-3">{{.Reason}}</td>
+                        <td class="p-3">${{printf "%.2f" .Order.TotalPrice}}</td>
+                        <td class="p-3">
+                            <button onclick="verifyReturn('{{.ID}}', true)" class="text-green-600 hover:text-green-800">Approve</button>
+                            <button onclick="verifyReturn('{{.ID}}', false)" class="ml-2 text-red-600 hover:text-red-800">Reject</button>
+                        </td>
+                    </tr>
+                    {{else}}
+                    <tr><td colspan="5" class="p-3 text-center text-gray-500">No return requests</td></tr>
+                    {{end}}
+                </tbody>
+            </table>
+        </div>
+        <a href="/admin/orders" class="mt-4 inline-block text-indigo-600 hover:text-indigo-800">Back to Orders</a>
+    </div>
+
+    <script>
+function verifyReturn(returnId, approve) {
+    Swal.fire({
+        title: `${approve ? 'Approve' : 'Reject'} Return?`,
+        text: `Are you sure you want to ${approve ? 'approve' : 'reject'} this return request?`,
+        showCancelButton: true,
+        confirmButtonText: 'Yes',
+        confirmButtonColor: approve ? '#10b981' : '#ef4444',
+    }).then((result) => {
+        if (result.isConfirmed) {
+            // Create a payload with the proper casing and type
+            const payload = JSON.stringify({
+                "approve": approve  // Make sure this is a boolean
+            });
+            
+            console.log("Sending payload:", payload);
+            
+            fetch(`/admin/returns/${returnId}/verify`, {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json'
+                },
+                body: payload,
+                credentials: 'include'
+            })
+            .then(response => {
+                console.log("Response status:", response.status);
+                return response.text().then(text => {
+                    console.log("Raw response:", text);
+                    try {
+                        return JSON.parse(text);
+                    } catch (e) {
+                        console.error("Failed to parse JSON:", e);
+                        return { status: 'error', error: 'Invalid server response' };
+                    }
+                });
+            })
+            .then(data => {
+                console.log("Processed response data:", data);
+                if (data.status === 'ok') {
+                    Swal.fire('Success', `Return request ${approve ? 'approved' : 'rejected'}`, 'success')
+                        .then(() => location.reload());
+                } else {
+                    Swal.fire('Error', data.error || data.details || 'Failed to process return', 'error');
+                }
+            })
+            .catch(error => {
+                console.error("Fetch error:", error);
+                Swal.fire('Error', 'Network or server error', 'error');
+            });
+        }
+    });
+}
+    </script>
+</body>
+</html>

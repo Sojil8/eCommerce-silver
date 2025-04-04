@@ -17,6 +17,7 @@ func init() {
 	router.LoadHTMLGlob("templates/**/*")
 	config.LoadEnv()
 	config.Cloudnary()
+	config.InitRazorPay()
 	config.InitGoogleOAuth()
 	database.ConnectDb()
 	middleware.SecretKeyCheck()

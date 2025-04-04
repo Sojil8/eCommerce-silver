@@ -29,6 +29,33 @@ func ShowCheckout(c *gin.Context) {
 		return
 	}
 
+	var validCartItems []userModels.CartItem
+	var invalidProductFound bool
+	for _, item := range cart.CartItems {
+		var category adminModels.Category
+		if item.Product.IsListed &&
+			database.DB.Where("category_name = ? AND status = ?", item.Product.CategoryName, true).First(&category).Error == nil {
+			validCartItems = append(validCartItems, item)
+		} else {
+			invalidProductFound = true
+		}
+	}
+
+	if len(validCartItems) == 0 {
+		helper.ResponseWithErr(c, http.StatusBadRequest, "No valid products in cart",
+			"Some products in your cart are no longer available", "")
+		return
+	}
+
+	if invalidProductFound {
+		totalPrice := 0.0
+		for _, item := range validCartItems {
+			totalPrice += item.Price * float64(item.Quantity)
+		}
+		cart.TotalPrice = totalPrice
+		cart.CartItems = validCartItems
+	}
+
 	var addresses []userModels.Address
 	if err := database.DB.Where("user_id = ?", userID).Find(&addresses).Error; err != nil {
 		helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to load addresses", "Database error", "")
@@ -82,9 +109,8 @@ func SetDefaultAddress(c *gin.Context) {
 }
 
 type PlaceOrderRequest struct {
-	AddressID uint `json:"address_id" binding:"required"`
+    AddressID uint `json:"address_id" binding:"required"`
 }
-
 
 func PlaceOrder(c *gin.Context) {
 	userID, _ := c.Get("id")
@@ -105,19 +131,46 @@ func PlaceOrder(c *gin.Context) {
 			First(&cart).Error; err != nil {
 			return err
 		}
+
+		var validCartItems []userModels.CartItem
+		for _, item := range cart.CartItems {
+			var category adminModels.Category
+			if item.Product.IsListed &&
+				tx.Where("category_name = ? AND status = ?", item.Product.CategoryName, true).First(&category).Error == nil {
+				validCartItems = append(validCartItems, item)
+			}
+		}
+
 		var address userModels.Address
 		if err := tx.Where("id = ? AND user_id = ?", req.AddressID, userID).First(&address).Error; err != nil {
 			return err
 		}
 
+		shippingAdd := adminModels.ShippingAddress{
+			OrderID:        orderID,
+			UserID:         address.UserID,
+			Name:           address.Name,
+			City:           address.City,
+			Landmark:       address.Landmark,
+			State:          address.State,
+			Pincode:        address.Pincode,
+			AddressType:    address.AddressType,
+			Phone:          address.Phone,
+			AlternatePhone: address.AlternatePhone,
+			TrackingStatus: "Pending",
+		}
+		if err := tx.Create(&shippingAdd).Error; err != nil {
+			return fmt.Errorf("failed to create shipping address: %v", err)
+		}
+
 		order := userModels.Orders{
 			UserID:        userID.(uint),
-			OrderID:       orderID,
+			OrderIdUnique: orderID,
 			AddressID:     address.ID,
 			TotalPrice:    cart.TotalPrice + shipping,
 			Status:        "Pending",
 			PaymentMethod: "Cash On Delivery",
-			OrderDate:     time.Now(), 
+			OrderDate:     time.Now(),
 		}
 		if err := tx.Create(&order).Error; err != nil {
 			return err
@@ -143,7 +196,19 @@ func PlaceOrder(c *gin.Context) {
 			if variant.Stock < item.Quantity {
 				return fmt.Errorf("insufficient stock for variant ID %d", item.VariantsID)
 			}
+
 			variant.Stock -= item.Quantity
+			if variant.Stock ==0{
+				var product adminModels.Product
+				if err:=tx.First(&product,item.ProductID).Error;err!=nil{
+					return err
+				}
+				product.InStock = false
+				if err:=tx.Save(&product).Error;err!=nil{
+					return err
+				}
+			}
+
 			if err := tx.Save(&variant).Error; err != nil {
 				return err
 			}
@@ -153,11 +218,7 @@ func PlaceOrder(c *gin.Context) {
 			return err
 		}
 
-		if err := tx.Delete(&cart).Error; err != nil {
-			return err
-		}
-
-		return nil
+		return tx.Delete(&cart).Error
 	})
 
 	if err != nil {
@@ -173,22 +234,22 @@ func PlaceOrder(c *gin.Context) {
 }
 
 func generateOrderID() string {
-	timestamp := time.Now().Format("20060102") 
-	randomNum := rand.Intn(10000)            
+	timestamp := time.Now().Format("20060102")
+	randomNum := rand.Intn(10000)
 	return fmt.Sprintf("ORD-%s-%04d", timestamp, randomNum)
 }
 
 func ShowOrderSuccess(c *gin.Context) {
-    userID, _ := c.Get("id")
-    orderID := c.Query("order_id")
-    var order userModels.Orders
-    if err := database.DB.Where("order_id = ? AND user_id = ?", orderID, userID).First(&order).Error; err != nil {
-        helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to load order", "Database error", "")
-        return
-    }
+	userID, _ := c.Get("id")
+	orderID := c.Query("order_id")
+	var order userModels.Orders
+	if err := database.DB.Where("order_id_unique  = ? AND user_id = ?", orderID, userID).First(&order).Error; err != nil {
+		helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to load order", "Database error", "")
+		return
+	}
 
-    c.HTML(http.StatusOK, "orderSuccess.html", gin.H{
-        "title":   "Order Successful",
-        "OrderID": order.OrderID,
-    })
+	c.HTML(http.StatusOK, "orderSuccess.html", gin.H{
+		"title":   "Order Successful",
+		"OrderID": order.OrderIdUnique,
+	})
 }

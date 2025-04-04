@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - Order Details</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto p-6">
+        <h1 class="text-3xl font-bold text-gray-900 mb-6">Order #{{.Order.OrderIdUnique}}</h1>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h2 class="text-xl font-semibold text-gray-900 mb-4">Order Details</h2>
+                <p class="text-gray-600">Date: {{.Order.OrderDate.Format "2006-01-02"}}</p>
+                <p class="text-gray-600">User: {{.Order.User.UserName}} ({{.Order.User.Email}})</p>
+                <p class="text-gray-600">Total: ${{printf "%.2f" .Order.TotalPrice}}</p>
+                <p class="text-gray-600">Payment Method: {{.Order.PaymentMethod}}</p>
+                <p class="text-gray-600">Status: <span class="font-medium {{if eq .Order.Status "Cancelled"}}text-red-600{{else if eq .Order.Status "Delivered"}}text-green-600{{else}}text-indigo-600{{end}}">{{.Order.Status}}</span></p>
+            </div>
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h2 class="text-xl font-semibold text-gray-900 mb-4">Shipping Address</h2>
+                <p class="text-gray-600">{{.Address.Name}} ({{.Address.AddressType}})</p>
+                <p class="text-gray-600">{{.Address.City}}, {{.Address.State}} - {{.Address.Pincode}}</p>
+                <p class="text-gray-600">Phone: {{.Address.Phone}}</p>
+            </div>
+        </div>
+        <div class="bg-white rounded-lg shadow-md p-6 mt-6">
+            <h2 class="text-xl font-semibold text-gray-900 mb-4">Items</h2>
+            {{range .Order.OrderItems}}
+            <div class="flex justify-between items-center border-b py-2">
+                <div>
+                    <p class="text-gray-700 font-medium">{{.Product.ProductName}} ({{.Variants.Color}})</p>
+                    <p class="text-gray-600">Qty: {{.Quantity}}</p>
+                    <p class="text-gray-600">Status: {{.Status}}</p>
+                </div>
+                <p class="text-indigo-600 font-bold">${{printf "%.2f" (mul .Price .Quantity)}}</p>
+            </div>
+            {{end}}
+        </div>
+        <a href="/admin/orders" class="mt-4 inline-block text-indigo-600 hover:text-indigo-800">Back to Orders</a>
+    </div>
+</body>
+</html>

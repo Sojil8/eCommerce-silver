@@ -6,65 +6,159 @@
     <title>Orders - Silver</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        .order-card {
+            transition: all 0.3s ease;
+        }
+        .order-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        .status-badge {
+            font-size: 0.75rem;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+        }
+        .search-input:focus {
+            border-color: #4f46e5;
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.2);
+        }
+        .order-image {
+            object-fit: cover;
+            transition: transform 0.3s ease;
+        }
+        .order-card:hover .order-image {
+            transform: scale(1.05);
+        }
+    </style>
 </head>
-<body class="bg-gray-100 flex flex-col min-h-screen">
-    <header class="bg-white shadow-lg py-4 px-6 sticky top-0 z-10">
-        <div class="container mx-auto flex justify-between items-center">
-            <h1 class="text-3xl font-extrabold text-gray-900 tracking-tight">
-                <a href="/home" class="hover:text-indigo-600 transition-colors">Silver</a>
-            </h1>
-            <div class="flex items-center space-x-6 text-gray-700">
-                <span class="text-gray-800 font-medium">{{.UserName}}</span>
-                <form action="/logout" method="POST" class="inline">
-                    <button type="submit" class="bg-red-600 text-white px-4 py-1 rounded-full hover:bg-red-700">Logout</button>
-                </form>
+<body class="bg-gray-50 flex flex-col min-h-screen">
+    {{template "navbar.html" .}}
+
+    <!-- Main Content -->
+    <div class="container mx-auto p-6 flex-grow">
+        <div class="flex justify-between items-center mb-8">
+            <h2 class="text-3xl font-bold text-gray-900 tracking-tight">Your Orders</h2>
+            <div class="relative w-full max-w-md">
+                <input type="text" id="searchInput" placeholder="Search by Product or Status" 
+                       class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg search-input bg-white text-gray-900 placeholder-gray-500"
+                       onkeyup="debouncedSearchOrders()">
+                <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
             </div>
         </div>
-    </header>
 
-    <div class="container mx-auto p-6 flex-grow">
-        <h2 class="text-4xl font-bold text-gray-900 mb-8 tracking-tight text-center">Your Orders</h2>
-        <div class="mb-6">
-            <input type="text" id="searchInput" placeholder="Search by Order ID or Status" class="w-full p-2 border rounded-lg focus:ring-indigo-500 focus:border-indigo-500" onkeyup="searchOrders()">
-        </div>
-        <div id="orderList">
+        <div id="orderList" class="space-y-6">
             {{if .Orders}}
-                {{range .Orders}}
-                    <div class="bg-white rounded-xl shadow-md p-6 mb-4">
-                        <div class="flex justify-between items-center">
-                            <div>
-                                <h3 class="text-xl font-semibold text-gray-900">Order #{{.OrderID}}</h3>
-                                <p class="text-gray-600">Date: {{.OrderDate.Format "2006-01-02"}}</p>
-                                <p class="text-gray-600">Status: <span class="font-medium {{if eq .Status "Cancelled"}}text-red-600{{else if eq .Status "Delivered"}}text-green-600{{else}}text-indigo-600{{end}}">{{.Status}}</span></p>
-                                <p class="text-gray-600">Total: ${{printf "%.2f" .TotalPrice}}</p>
+            {{range .Orders}}
+            <div class="order-card bg-white rounded-xl shadow-md p-6">
+                <div class="flex flex-col md:flex-row gap-6">
+                    <!-- Product Image -->
+                    <div class="w-full md:w-32 flex-shrink-0">
+                        {{if .OrderItems}}
+                            {{with index .OrderItems 0}}
+                                {{if .Product.Images}}
+                                    <img src="{{index .Product.Images 0}}" alt="{{.Product.ProductName}}" class="w-full h-32 rounded-lg border border-gray-200 order-image">
+                                {{else}}
+                                    <div class="w-full h-32 bg-gray-200 rounded-lg flex items-center justify-center text-gray-500">
+                                        <i class="fas fa-image text-2xl"></i>
+                                    </div>
+                                {{end}}
+                            {{end}}
+                        {{else}}
+                            <div class="w-full h-32 bg-gray-200 rounded-lg flex items-center justify-center text-gray-500">
+                                <i class="fas fa-image text-2xl"></i>
                             </div>
-                            <div class="space-x-2">
-                                <a href="/orders/details/{{.OrderID}}" class="text-indigo-600 hover:text-indigo-800">View Details</a>
+                        {{end}}
+                    </div>
+
+                    <!-- Order Details -->
+                    <div class="flex-1 flex flex-col md:flex-row justify-between items-start gap-4">
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900">
+                                {{if .OrderItems}}{{(index .OrderItems 0).Product.ProductName}}{{else}}Order #{{.OrderIdUnique}}{{end}}
+                            </h3>
+                            <div class="mt-2 space-y-1 text-sm text-gray-600">
+                                <p><span class="font-medium">Order ID:</span> {{.OrderIdUnique}}</p>
+                                <p><span class="font-medium">Date:</span> {{.OrderDate.Format "Jan 02, 2006"}}</p>
+                                <p><span class="font-medium">Total:</span> ${{printf "%.2f" .TotalPrice}}</p>
+                                <p><span class="font-medium">Items:</span> {{len .OrderItems}}</p>
+                            </div>
+                        </div>
+                        <div class="flex flex-col items-start md:items-end gap-2">
+                            <span class="status-badge font-medium text-white 
+                                {{if eq .Status "Cancelled"}}bg-red-600
+                                {{else if eq .Status "Delivered"}}bg-green-600
+                                {{else if eq .Status "Shipped"}}bg-blue-600
+                                {{else if eq .Status "Pending"}}bg-yellow-600
+                                {{else}}bg-gray-600{{end}}">
+                                {{.Status}}
+                            </span>
+                            <div class="flex gap-3 text-sm">
+                                <a href="/orders/details/{{.OrderIdUnique}}" class="text-indigo-600 hover:text-indigo-800 transition-colors">
+                                    <i class="fas fa-eye mr-1"></i> View Details
+                                </a>
                                 {{if eq .Status "Pending"}}
-                                    <button onclick="cancelOrder('{{.OrderID}}')" class="text-red-600 hover:text-red-800">Cancel Order</button>
+                                <button onclick="cancelOrder('{{.OrderIdUnique}}')" class="text-red-600 hover:text-red-800 transition-colors">
+                                    <i class="fas fa-times mr-1"></i> Cancel
+                                </button>
                                 {{end}}
                                 {{if eq .Status "Delivered"}}
-                                    <button onclick="returnOrder('{{.OrderID}}')" class="text-orange-600 hover:text-orange-800">Return Order</button>
+                                <button onclick="returnOrder('{{.OrderIdUnique}}')" class="text-orange-600 hover:text-orange-800 transition-colors">
+                                    <i class="fas fa-undo mr-1"></i> Return
+                                </button>
                                 {{end}}
-                                <a href="/orders/invoice/{{.OrderID}}" class="text-green-600 hover:text-green-800">Download Invoice</a>
+                                <a href="/orders/invoice/{{.OrderIdUnique}}" class="text-green-600 hover:text-green-800 transition-colors">
+                                    <i class="fas fa-file-download mr-1"></i> Invoice
+                                </a>
                             </div>
                         </div>
                     </div>
-                {{end}}
-            {{else}}
-                <p class="text-center text-gray-500 py-4">No orders found.</p>
+                </div>
+            </div>
             {{end}}
+            {{else}}
+            <div class="text-center py-12">
+                <i class="fas fa-shopping-bag text-5xl text-gray-300 mb-4"></i>
+                <p class="text-gray-500 text-lg">You haven't placed any orders yet.</p>
+                <a href="/shop" class="mt-4 inline-block bg-indigo-600 text-white px-6 py-2 rounded-full hover:bg-indigo-700 transition-colors">Start Shopping</a>
+            </div>
+            {{end}}
+        </div>
+
+        <!-- Pagination Placeholder (Optional) -->
+        <div class="mt-8 flex justify-center gap-2">
+            <button class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:bg-gray-400" disabled>Previous</button>
+            <button class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">Next</button>
         </div>
     </div>
 
+    <!-- Footer -->
     <footer class="bg-gray-900 text-white p-6 mt-auto">
-        <div class="container mx-auto flex justify-between items-center">
+        <div class="container mx-auto flex flex-col md:flex-row justify-between items-center">
             <p class="text-sm">© 2025 Silver. All rights reserved.</p>
+            <div class="mt-4 md:mt-0 space-x-6">
+                <a href="#" class="text-gray-300 hover:text-white transition-colors">Privacy Policy</a>
+                <a href="#" class="text-gray-300 hover:text-white transition-colors">Terms of Service</a>
+            </div>
         </div>
     </footer>
 
     <script>
+        // Debounce function to limit search requests
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+
+        // Cancel Order
         function cancelOrder(orderId) {
             Swal.fire({
                 title: 'Cancel Order?',
@@ -72,10 +166,13 @@
                 input: 'text',
                 inputPlaceholder: 'Reason (optional)',
                 showCancelButton: true,
-                confirmButtonText: 'Yes, cancel it!',
+                confirmButtonText: 'Yes, Cancel It!',
                 confirmButtonColor: '#ef4444',
+                cancelButtonColor: '#6b7280',
+                customClass: { popup: 'rounded-xl' }
             }).then((result) => {
                 if (result.isConfirmed) {
+                    Swal.fire({ title: 'Cancelling...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
                     fetch(`/orders/cancel/${orderId}`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -85,15 +182,18 @@
                     .then(response => response.json())
                     .then(data => {
                         if (data.status === 'ok') {
-                            Swal.fire('Cancelled!', 'Your order has been cancelled.', 'success').then(() => location.reload());
+                            Swal.fire({ icon: 'success', title: 'Cancelled!', text: 'Your order has been cancelled.', confirmButtonColor: '#4f46e5' })
+                                .then(() => location.reload());
                         } else {
-                            Swal.fire('Error', data.error || 'Failed to cancel order', 'error');
+                            Swal.fire({ icon: 'error', title: 'Error', text: data.error || 'Failed to cancel order', confirmButtonColor: '#4f46e5' });
                         }
-                    });
+                    })
+                    .catch(() => Swal.fire({ icon: 'error', title: 'Error', text: 'Something went wrong!', confirmButtonColor: '#4f46e5' }));
                 }
             });
         }
 
+        // Return Order
         function returnOrder(orderId) {
             Swal.fire({
                 title: 'Return Order?',
@@ -101,8 +201,10 @@
                 input: 'text',
                 inputPlaceholder: 'Reason (required)',
                 showCancelButton: true,
-                confirmButtonText: 'Yes, return it!',
+                confirmButtonText: 'Yes, Return It!',
                 confirmButtonColor: '#f97316',
+                cancelButtonColor: '#6b7280',
+                customClass: { popup: 'rounded-xl' },
                 preConfirm: (reason) => {
                     if (!reason) {
                         Swal.showValidationMessage('Reason is required');
@@ -111,6 +213,7 @@
                 }
             }).then((result) => {
                 if (result.isConfirmed) {
+                    Swal.fire({ title: 'Returning...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
                     fetch(`/orders/return/${orderId}`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -120,41 +223,105 @@
                     .then(response => response.json())
                     .then(data => {
                         if (data.status === 'ok') {
-                            Swal.fire('Returned!', 'Your order has been returned.', 'success').then(() => location.reload());
+                            Swal.fire({ icon: 'success', title: 'Returned!', text: 'Your order has been returned.', confirmButtonColor: '#4f46e5' })
+                                .then(() => location.reload());
                         } else {
-                            Swal.fire('Error', data.error || 'Failed to return order', 'error');
+                            Swal.fire({ icon: 'error', title: 'Error', text: data.error || 'Failed to return order', confirmButtonColor: '#4f46e5' });
                         }
-                    });
+                    })
+                    .catch(() => Swal.fire({ icon: 'error', title: 'Error', text: 'Something went wrong!', confirmButtonColor: '#4f46e5' }));
                 }
             });
         }
 
-        function searchOrders() {
-            const query = document.getElementById('searchInput').value;
-            fetch(`/orders/search?q=${encodeURIComponent(query)}`, { credentials: 'include' })
+        // Search Orders with Debouncing
+        const debouncedSearchOrders = debounce(function() {
+            const query = document.getElementById('searchInput').value.trim();
+            const orderList = document.getElementById('orderList');
+
+            if (query === '') {
+                location.reload(); // Reset to original list if query is empty
+                return;
+            }
+
+            fetch(`/orders/search?q=${encodeURIComponent(query)}`, {
+                method: 'GET',
+                credentials: 'include',
+                headers: { 'Accept': 'application/json' }
+            })
             .then(response => response.json())
             .then(orders => {
-                const orderList = document.getElementById('orderList');
-                orderList.innerHTML = orders.length ? orders.map(order => `
-                    <div class="bg-white rounded-xl shadow-md p-6 mb-4">
-                        <div class="flex justify-between items-center">
-                            <div>
-                                <h3 class="text-xl font-semibold text-gray-900">Order #${order.order_id}</h3>
-                                <p class="text-gray-600">Date: ${new Date(order.order_date).toLocaleDateString()}</p>
-                                <p class="text-gray-600">Status: <span class="${order.status === 'Cancelled' ? 'text-red-600' : order.status === 'Delivered' ? 'text-green-600' : 'text-indigo-600'} font-medium">${order.status}</span></p>
-                                <p class="text-gray-600">Total: $${order.total_price.toFixed(2)}</p>
-                            </div>
-                            <div class="space-x-2">
-                                <a href="/orders/${order.order_id}" class="text-indigo-600 hover:text-indigo-800">View Details</a>
-                                ${order.status === 'Pending' ? `<button onclick="cancelOrder('${order.order_id}')" class="text-red-600 hover:text-red-800">Cancel Order</button>` : ''}
-                                ${order.status === 'Delivered' ? `<button onclick="returnOrder('${order.order_id}')" class="text-orange-600 hover:text-orange-800">Return Order</button>` : ''}
-                                <a href="/orders/invoice/${order.order_id}" class="text-green-600 hover:text-green-800">Download Invoice</a>
-                            </div>
-                        </div>
-                    </div>
-                `).join('') : '<p class="text-center text-gray-500 py-4">No orders found.</p>';
+                if (Array.isArray(orders) && orders.length > 0) {
+                    orderList.innerHTML = orders.map(order => {
+                        const productName = order.OrderItems && order.OrderItems[0] && order.OrderItems[0].Product
+                            ? order.OrderItems[0].Product.ProductName
+                            : `Order #${order.OrderIdUnique}`;
+                        const orderDate = new Date(order.OrderDate).toLocaleDateString('en-US', {
+                            year: 'numeric', month: 'short', day: '2-digit'
+                        });
+                        const imageSrc = order.OrderItems && order.OrderItems[0] && order.OrderItems[0].Product.Images && order.OrderItems[0].Product.Images.length > 0
+                            ? order.OrderItems[0].Product.Images[0]
+                            : '';
+                        return `
+                            <div class="order-card bg-white rounded-xl shadow-md p-6">
+                                <div class="flex flex-col md:flex-row gap-6">
+                                    <div class="w-full md:w-32 flex-shrink-0">
+                                        ${imageSrc ? 
+                                            `<img src="${imageSrc}" alt="${productName}" class="w-full h-32 rounded-lg border border-gray-200 order-image">` :
+                                            `<div class="w-full h-32 bg-gray-200 rounded-lg flex items-center justify-center text-gray-500">
+                                                <i class="fas fa-image text-2xl"></i>
+                                            </div>`}
+                                    </div>
+                                    <div class="flex-1 flex flex-col md:flex-row justify-between items-start gap-4">
+                                        <div>
+                                            <h3 class="text-xl font-semibold text-gray-900">${productName}</h3>
+                                            <div class="mt-2 space-y-1 text-sm text-gray-600">
+                                                <p><span class="font-medium">Order ID:</span> ${order.OrderIdUnique}</p>
+                                                <p><span class="font-medium">Date:</span> ${orderDate}</p>
+                                                <p><span class="font-medium">Total:</span> $${parseFloat(order.TotalPrice).toFixed(2)}</p>
+                                                <p><span class="font-medium">Items:</span> ${order.OrderItems ? order.OrderItems.length : 0}</p>
+                                            </div>
+                                        </div>
+                                        <div class="flex flex-col items-start md:items-end gap-2">
+                                            <span class="status-badge font-medium text-white 
+                                                ${order.Status === 'Cancelled' ? 'bg-red-600' : 
+                                                  order.Status === 'Delivered' ? 'bg-green-600' : 
+                                                  order.Status === 'Shipped' ? 'bg-blue-600' : 
+                                                  order.Status === 'Pending' ? 'bg-yellow-600' : 'bg-gray-600'}">
+                                                ${order.Status}
+                                            </span>
+                                            <div class="flex gap-3 text-sm">
+                                                <a href="/orders/details/${order.OrderIdUnique}" class="text-indigo-600 hover:text-indigo-800 transition-colors">
+                                                    <i class="fas fa-eye mr-1"></i> View Details
+                                                </a>
+                                                ${order.Status === 'Pending' ? `<button onclick="cancelOrder('${order.OrderIdUnique}')" class="text-red-600 hover:text-red-800 transition-colors"><i class="fas fa-times mr-1"></i> Cancel</button>` : ''}
+                                                ${order.Status === 'Delivered' ? `<button onclick="returnOrder('${order.OrderIdUnique}')" class="text-orange-600 hover:text-orange-800 transition-colors"><i class="fas fa-undo mr-1"></i> Return</button>` : ''}
+                                                <a href="/orders/invoice/${order.OrderIdUnique}" class="text-green-600 hover:text-green-800 transition-colors">
+                                                    <i class="fas fa-file-download mr-1"></i> Invoice
+                                                </a>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>`;
+                    }).join('');
+                } else {
+                    orderList.innerHTML = `
+                        <div class="text-center py-12">
+                            <i class="fas fa-search text-5xl text-gray-300 mb-4"></i>
+                            <p class="text-gray-500 text-lg">No orders found matching your search.</p>
+                        </div>`;
+                }
+            })
+            .catch(error => {
+                console.error("Search error:", error);
+                orderList.innerHTML = `
+                    <div class="text-center py-12">
+                        <i class="fas fa-exclamation-triangle text-5xl text-red-300 mb-4"></i>
+                        <p class="text-red-500 text-lg">An error occurred while searching. Please try again.</p>
+                    </div>`;
             });
-        }
+        }, 300); // 300ms debounce delay
     </script>
 </body>
 </html>

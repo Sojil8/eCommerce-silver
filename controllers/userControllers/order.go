@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/Sojil8/eCommerce-silver/database"
 	"github.com/Sojil8/eCommerce-silver/helper"
@@ -18,7 +19,9 @@ import (
 func GetOrderList(c *gin.Context) {
 	userID, _ := c.Get("id")
 	var orders []userModels.Orders
-	if err := database.DB.Where("user_id = ?", userID).Preload("OrderItems").Find(&orders).Error; err != nil {
+	if err := database.DB.Where("user_id = ?", userID).
+		Preload("OrderItems.Product").Order("created_at DESC").
+		Find(&orders).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch orders"})
 		return
 	}
@@ -27,7 +30,6 @@ func GetOrderList(c *gin.Context) {
 		"Orders":   orders,
 		"UserName": c.GetString("user_name"),
 	})
-
 }
 
 var req struct {
@@ -44,7 +46,7 @@ func CancelOrder(c *gin.Context) {
 
 	err := database.DB.Transaction(func(tx *gorm.DB) error {
 		var order userModels.Orders
-		if err := tx.Where("user_id = ? AND order_id = ?", userID, orderID).Preload("OrderItems").First(&order).Error; err != nil {
+		if err := tx.Where("user_id = ? AND order_id_unique  = ?", userID, orderID).Preload("OrderItems").First(&order).Error; err != nil {
 			return err
 		}
 
@@ -91,7 +93,7 @@ func CancelOrderItem(c *gin.Context) {
 
 	err := database.DB.Transaction(func(tx *gorm.DB) error {
 		var order userModels.Orders
-		if err := tx.Where("user_id = ? AND order_id = ?", userId, orderID).Preload("OrderItems").First(&order).Error; err != nil {
+		if err := tx.Where("user_id = ? AND order_id_unique  = ?", userId, orderID).Preload("OrderItems").First(&order).Error; err != nil {
 			return err
 		}
 		if order.Status != "Pending" {
@@ -105,10 +107,10 @@ func CancelOrderItem(c *gin.Context) {
 					return err
 				}
 				order.OrderItems[i].Status = "Cancelled"
-				if err := tx.Save(&item).Error; err != nil {
+				if err := tx.Save(&order.OrderItems[i]).Error; err != nil {
 					return err
 				}
-				cancellation := userModels.Cancellation{OrderID: order.ID, ItemID: &item.ID, Reason: req.Reason}
+				cancellation := userModels.Cancellation{OrderID: order.ID, ItemID: &order.OrderItems[i].ID, Reason: req.Reason}
 				return tx.Create(&cancellation).Error
 			}
 		}
@@ -135,7 +137,7 @@ func ReturnOrder(c *gin.Context) {
 
 	err := database.DB.Transaction(func(tx *gorm.DB) error {
 		var order userModels.Orders
-		if err := tx.Where("order_id = ? user_id = ?", orderID, userID).
+		if err := tx.Where("order_id_unique  = ? AND user_id = ?", orderID, userID).
 			Preload("OrderItems").First(&order).Error; err != nil {
 			return err
 		}
@@ -174,72 +176,83 @@ func ReturnOrder(c *gin.Context) {
 func ShowOrderDetails(c *gin.Context) {
 	userID, _ := c.Get("id")
 	orderID := c.Param("order_id")
-	fmt.Println(userID)
 	var order userModels.Orders
-	if err := database.DB.Where("order_id = ? AND user_id = ?", orderID, userID).
+	if err := database.DB.Where("order_id_unique  = ? AND user_id = ?", orderID, userID).
 		Preload("OrderItems.Product").Preload("OrderItems.Variants").
 		First(&order).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Order not found"})
 		return
 	}
-	var address userModels.Address
-	database.DB.First(&address, order.AddressID)
+	var address adminModels.ShippingAddress
+	database.DB.Where("user_id = ? AND order_id = ?", userID, orderID).First(&address)
 	c.HTML(http.StatusOK, "orderDetail.html", gin.H{
-		"Order":    order,
-		"Address":  address,
-		"UserName": c.GetString("user_name"),
+		"Order":           order,
+		"ShippingAddress": address,
+		"UserName":        c.GetString("user_name"),
 	})
 }
 func DownloadInvoice(c *gin.Context) {
-    userID, _ := c.Get("id")
-    orderID := c.Param("order_id")
-    var order userModels.Orders
-    if err := database.DB.Where("order_id = ? AND user_id = ?", orderID, userID).
-        Preload("OrderItems.Product").Preload("OrderItems.Variants").First(&order).Error; err != nil {
-        c.JSON(http.StatusNotFound, gin.H{"error": "Order not found"})
-        return
-    }
+	userID, _ := c.Get("id")
+	orderID := c.Param("order_id")
+	var order userModels.Orders
+	if err := database.DB.Where("order_id_unique  = ? AND user_id = ?", orderID, userID).
+		Preload("OrderItems.Product").Preload("OrderItems.Variants").First(&order).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Order not found"})
+		return
+	}
 
-    pdf := gofpdf.New("P", "mm", "A4", "")
-    pdf.AddPage()
-    pdf.SetFont("Arial", "B", 16)
-    pdf.Cell(40, 10, fmt.Sprintf("Invoice - %s", order.OrderID))
-    pdf.Ln(20)
-    pdf.SetFont("Arial", "", 12)
-    pdf.Cell(40, 10, fmt.Sprintf("Order Date: %s", order.OrderDate.Format("2006-01-02")))
-    pdf.Ln(10)
-    pdf.Cell(40, 10, fmt.Sprintf("Total: $%.2f", order.TotalPrice))
-    pdf.Ln(10)
-    pdf.Cell(40, 10, "Items:")
-    pdf.Ln(10)
-    for _, item := range order.OrderItems {
-        pdf.Cell(40, 10, fmt.Sprintf("%s (%s) - Qty: %d - $%.2f", item.Product.ProductName, item.Variants.Color, item.Quantity, item.Price*float64(item.Quantity)))
-        pdf.Ln(10)
-    }
+	pdf := gofpdf.New("P", "mm", "A4", "")
+	pdf.AddPage()
+	pdf.SetFont("Arial", "B", 16)
+	pdf.Cell(40, 10, fmt.Sprintf("Invoice - %s", order.OrderIdUnique))
+	pdf.Ln(20)
+	pdf.SetFont("Arial", "", 12)
+	pdf.Cell(40, 10, fmt.Sprintf("Order Date: %s", order.OrderDate.Format("2006-01-02")))
+	pdf.Ln(10)
+	pdf.Cell(40, 10, fmt.Sprintf("Total: $%.2f", order.TotalPrice))
+	pdf.Ln(10)
+	pdf.Cell(40, 10, "Items:")
+	pdf.Ln(10)
+	for _, item := range order.OrderItems {
+		pdf.Cell(40, 10, fmt.Sprintf("%s (%s) - Qty: %d - $%.2f", item.Product.ProductName, item.Variants.Color, item.Quantity, item.Price*float64(item.Quantity)))
+		pdf.Ln(10)
+	}
 
-    var buf bytes.Buffer
-    if err := pdf.Output(&buf); err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate PDF"})
-        return
-    }
+	var buf bytes.Buffer
+	if err := pdf.Output(&buf); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate PDF"})
+		return
+	}
 
-    c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=invoice_%s.pdf", order.OrderID))
-    c.Data(http.StatusOK, "application/pdf", buf.Bytes())
+	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=invoice_%s.pdf", order.OrderIdUnique))
+	c.Data(http.StatusOK, "application/pdf", buf.Bytes())
 }
-// ... (rest of the file remains unchanged)
 
 func SearchOrders(c *gin.Context) {
 	userID, _ := c.Get("id")
 	query := c.Query("q")
 	var orders []userModels.Orders
-	if err := database.DB.Where("user_id = ? AND(order_id LIKE ? OR status LIKE ?)", userID, "%"+query+"%", "%"+query+"%").
-		Preload("OrderItems").Find(&orders).Error; err != nil {
+
+	if err := database.DB.Where("user_id = ?", userID).
+		Preload("OrderItems.Product").
+		Where("order_id_unique LIKE ? OR status LIKE ?", "%"+query+"%", "%"+query+"%").
+		Find(&orders).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to search orders"})
 		return
 	}
-	c.JSON(http.StatusOK, orders)
-}
+	
+	filteredOrders := []userModels.Orders{}
+	for _, order := range orders {
+		for _, item := range order.OrderItems {
+			if strings.Contains(strings.ToLower(item.Product.ProductName), strings.ToLower(query)) {
+				filteredOrders = append(filteredOrders, order)
+				break
+			}
+		}
+	}
 
+	c.JSON(http.StatusOK, filteredOrders)
+}
 func incrementStock(tx *gorm.DB, variantID, quantity uint) error {
 	var variant adminModels.Variants
 	if err := tx.First(&variant, variantID).Error; err != nil {

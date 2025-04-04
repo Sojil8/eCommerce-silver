@@ -1,39 +1,44 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Checkout - Silver</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/js/all.min.js" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/js/all.min.js"
+    crossorigin="anonymous"></script>
   <style>
-    .swal2-container { z-index: 9999; }
-    .key-value-pair { display: flex; justify-content: space-between; padding: 0.5rem 0; }
-    .key-value-pair span:first-child { font-weight: 500; color: #4B5563; }
-    .key-value-pair span:last-child { color: #1F2937; }
+    .swal2-container {
+      z-index: 9999;
+    }
+
+    .key-value-pair {
+      display: flex;
+      justify-content: space-between;
+      padding: 0.5rem 0;
+    }
+
+    .key-value-pair span:first-child {
+      font-weight: 500;
+      color: #4B5563;
+    }
+
+    .key-value-pair span:last-child {
+      color: #1F2937;
+    }
   </style>
 </head>
+
 <body class="bg-gray-100 flex flex-col min-h-screen">
   <!-- Navbar -->
-  <header class="bg-white shadow-lg py-4 px-6 sticky top-0 z-10">
-    <div class="container mx-auto flex justify-between items-center">
-      <h1 class="text-3xl font-extrabold text-gray-900 tracking-tight">
-        <a href="/home" class="hover:text-indigo-600 transition-colors">Silver</a>
-      </h1>
-      <div class="flex items-center space-x-6 text-gray-700">
-        <span class="text-gray-800 font-medium">{{.UserName}}</span>
-        <form action="/logout" method="POST" class="inline">
-          <button type="submit" class="bg-red-600 text-white px-4 py-1 rounded-full hover:bg-red-700 transition-colors duration-200">Logout</button>
-        </form>
-      </div>
-    </div>
-  </header>
+  {{template "navbar.html" .}}
 
   <!-- Main Content -->
   <div class="container mx-auto p-6 flex-grow">
     <h2 class="text-4xl font-bold text-gray-900 mb-8 tracking-tight text-center">Checkout</h2>
-    
+
     <!-- Customer Info and Shipping Address -->
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
       <!-- Customer Info -->
@@ -63,23 +68,30 @@
           <i class="fas fa-shipping-fast text-indigo-600 mr-2"></i> Shipping Address
         </h3>
         {{if .Addresses}}
-          <div class="space-y-4">
-            <select id="addressSelect" onchange="selectAddress(this.value)" class="w-full p-2 border rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
-              <option value="">Select an address</option>
-              {{range .Addresses}}
-                <option value="{{.ID}}" {{if .IsDefault}}selected{{end}}>
-                  {{.Name}} ({{.AddressType}}) - {{.City}}, {{.State}} - {{.Pincode}}
-                </option>
-              {{end}}
-            </select>
-            <div class="flex space-x-4">
-              <button onclick="showAddAddressModal()" class="flex-1 bg-indigo-600 text-white px-4 py-2 rounded-full hover:bg-indigo-700 transition-colors">Add New Address</button>
-              <button onclick="showEditAddressModal(document.getElementById('addressSelect').value)" class="flex-1 bg-gray-200 text-gray-700 px-4 py-2 rounded-full hover:bg-gray-300 transition-colors">Edit Selected</button>
-            </div>
+        <div class="space-y-4">
+          <select id="addressSelect" onchange="selectAddress(this.value)"
+            class="w-full p-2 border rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+            <option value="">Select an address</option>
+            {{range .Addresses}}
+            <option value="{{.ID}}" {{if .IsDefault}}selected{{end}}>
+              {{.Name}} ({{.AddressType}}) - {{.City}}, {{.State}} - {{.Pincode}}
+            </option>
+            {{end}}
+          </select>
+          <div class="flex space-x-4">
+            <button onclick="showAddAddressModal()"
+              class="flex-1 bg-indigo-600 text-white px-4 py-2 rounded-full hover:bg-indigo-700 transition-colors">Add
+              New Address</button>
+            <button onclick="showEditAddressModal(document.getElementById('addressSelect').value)"
+              class="flex-1 bg-gray-200 text-gray-700 px-4 py-2 rounded-full hover:bg-gray-300 transition-colors">Edit
+              Selected</button>
           </div>
+        </div>
         {{else}}
-          <p class="text-gray-500">No addresses found.</p>
-          <button onclick="showAddAddressModal()" class="mt-4 w-full bg-indigo-600 text-white px-4 py-2 rounded-full hover:bg-indigo-700 transition-colors">Add New Address</button>
+        <p class="text-gray-500">No addresses found.</p>
+        <button onclick="showAddAddressModal()"
+          class="mt-4 w-full bg-indigo-600 text-white px-4 py-2 rounded-full hover:bg-indigo-700 transition-colors">Add
+          New Address</button>
         {{end}}
       </div>
     </div>
@@ -90,35 +102,39 @@
         <i class="fas fa-shopping-cart text-indigo-600 mr-2"></i> Product Summary
       </h3>
       {{if .Cart.CartItems}}
-        <div class="space-y-4">
-          {{range .Cart.CartItems}}
-            <div class="flex items-center border-b py-4">
-              <img src="{{index .Product.Images 0}}" alt="{{.Product.ProductName}}" class="w-24 h-24 object-cover rounded-lg mr-4 border">
-              <div class="flex-1">
-                <p class="text-gray-800 font-medium text-lg">{{.Product.ProductName}} <span class="text-gray-500">({{.Variants.Color}})</span></p>
-                <p class="text-gray-600 text-sm">Quantity: {{.Quantity}}</p>
-                <p class="text-indigo-600 font-bold text-lg">${{printf "%.2f" (mul .Price .Quantity)}}</p>
-              </div>
-            </div>
-          {{end}}
-        </div>
-        <div class="mt-6 space-y-3 border-t pt-4">
-          <div class="flex justify-between text-gray-700 text-lg">
-            <span>Subtotal</span>
-            <span>${{printf "%.2f" .Cart.TotalPrice}}</span>
-          </div>
-          <div class="flex justify-between text-gray-700 text-lg">
-            <span>Shipping</span>
-            <span>${{printf "%.2f" .Shipping}}</span>
-          </div>
-          <div class="flex justify-between text-gray-900 font-bold text-xl border-t pt-3">
-            <span>Total</span>
-            <span>${{printf "%.2f" .FinalPrice}}</span>
+      <div class="space-y-4">
+        {{range .Cart.CartItems}}
+        <div class="flex items-center border-b py-4">
+          <img src="{{index .Product.Images 0}}" alt="{{.Product.ProductName}}"
+            class="w-24 h-24 object-cover rounded-lg mr-4 border">
+          <div class="flex-1">
+            <p class="text-gray-800 font-medium text-lg">{{.Product.ProductName}} <span
+                class="text-gray-500">({{.Variants.Color}})</span></p>
+            <p class="text-gray-600 text-sm">Quantity: {{.Quantity}}</p>
+            <p class="text-indigo-600 font-bold text-lg">${{printf "%.2f" (mul .Price .Quantity)}}</p>
           </div>
         </div>
-        <button onclick="placeOrder()" class="mt-6 w-full bg-indigo-600 text-white px-6 py-3 rounded-full hover:bg-indigo-700 transition-colors text-lg font-semibold">Place Order (COD)</button>
+        {{end}}
+      </div>
+      <div class="mt-6 space-y-3 border-t pt-4">
+        <div class="flex justify-between text-gray-700 text-lg">
+          <span>Subtotal</span>
+          <span>${{printf "%.2f" .Cart.TotalPrice}}</span>
+        </div>
+        <div class="flex justify-between text-gray-700 text-lg">
+          <span>Shipping</span>
+          <span>${{printf "%.2f" .Shipping}}</span>
+        </div>
+        <div class="flex justify-between text-gray-900 font-bold text-xl border-t pt-3">
+          <span>Total</span>
+          <span>${{printf "%.2f" .FinalPrice}}</span>
+        </div>
+      </div>
+      <button onclick="placeOrder()"
+        class="mt-6 w-full bg-indigo-600 text-white px-6 py-3 rounded-full hover:bg-indigo-700 transition-colors text-lg font-semibold">Place
+        Order (COD)</button>
       {{else}}
-        <p class="text-gray-500 text-center py-4">Your cart is empty.</p>
+      <p class="text-gray-500 text-center py-4">Your cart is empty.</p>
       {{end}}
     </div>
   </div>
@@ -136,31 +152,77 @@
     {{if .Addresses}}
       {{range .Addresses}}
         {{if .IsDefault}}
-          selectedAddressId = {{.ID}};
+          selectedAddressId = parseInt("{{.ID}}");
         {{end}}
       {{end}}
     {{end}}
 
-    function selectAddress(id) {
-      if (!id) return;
-      fetch(`/profile/set-default-address/${id}`, {
-        method: 'POST',
-        credentials: 'include'
-      })
-      .then(response => response.json())
-      .then(data => {
-        if (data.status === 'ok') {
-          selectedAddressId = id;
-          Swal.fire({ icon: 'success', title: 'Address Selected', text: 'This address is set for delivery.', confirmButtonColor: '#4f46e5', timer: 1500 });
-        } else {
-          Swal.fire({ icon: 'error', title: 'Error', text: data.message || 'Failed to set address', confirmButtonColor: '#4f46e5' });
-        }
-      })
-      .catch(error => {
-        console.error('Error:', error);
-        Swal.fire({ icon: 'error', title: 'Error', text: 'Could not connect to the server.', confirmButtonColor: '#4f46e5' });
-      });
-    }
+   // Replace the selectAddress function with this improved version
+function selectAddress(id) {
+  if (!id) {
+    // If empty string or null is selected, reset the selectedAddressId
+    selectedAddressId = null;
+    return;
+  }
+  selectedAddressId = parseInt(id);
+  fetch(`/profile/set-default-address/${id}`, {
+    method: 'POST',
+    credentials: 'include'
+  })
+    .then(response => response.json())
+    .then(data => {
+      if (data.status === 'ok') {
+        selectedAddressId = parseInt(id);
+        Swal.fire({ icon: 'success', title: 'Address Selected', text: 'This address is set for delivery.', confirmButtonColor: '#4f46e5', timer: 1500 });
+      } else {
+        Swal.fire({ icon: 'error', title: 'Error', text: data.message || 'Failed to set address', confirmButtonColor: '#4f46e5' });
+      }
+    })
+    .catch(error => {
+      console.error('Error:', error);
+      Swal.fire({ icon: 'error', title: 'Error', text: 'Could not connect to the server.', confirmButtonColor: '#4f46e5' });
+    });
+}
+
+// And also update the placeOrder function to check for the current select value, not just the selectedAddressId
+function placeOrder() {
+  // Get the current selected value in case the user just changed it
+  const addressSelectElement = document.getElementById('addressSelect');
+  const currentSelectedValue = addressSelectElement ? addressSelectElement.value : '';
+  
+  // Check both the selectedAddressId and the current selection
+  if (!selectedAddressId || currentSelectedValue === '') {
+    Swal.fire({ icon: 'warning', title: 'No Address Selected', text: 'Please select a delivery address.', confirmButtonColor: '#4f46e5' });
+    return;
+  }
+  
+  Swal.fire({
+    title: 'Placing Order',
+    text: 'Please wait...',
+    allowOutsideClick: false,
+    didOpen: () => Swal.showLoading()
+  });
+  
+  fetch('/checkout/place-order', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ address_id: selectedAddressId }),
+    credentials: 'include'
+  })
+    .then(response => response.json())
+    .then(data => {
+      if (data.status === 'ok') {
+        Swal.fire({ icon: 'success', title: 'Order Placed!', text: 'Your order has been successfully placed.', confirmButtonColor: '#4f46e5' })
+          .then(() => window.location.href = `/order/success?order_id=${data.order_id}`);
+      } else {
+        Swal.fire({ icon: 'error', title: 'Order Failed', text: data.message || 'Something went wrong', confirmButtonColor: '#4f46e5' });
+      }
+    })
+    .catch(error => {
+      console.error('Error:', error);
+      Swal.fire({ icon: 'error', title: 'Error', text: 'Could not connect to the server.', confirmButtonColor: '#4f46e5' });
+    });
+}
 
     function showAddAddressModal() {
       Swal.fire({
@@ -257,12 +319,12 @@
         method: 'GET',
         credentials: 'include'
       })
-      .then(response => response.json())
-      .then(data => {
-        if (data.status === 'ok') {
-          Swal.fire({
-            title: '<span class="text-indigo-600">Edit Address</span>',
-            html: `
+        .then(response => response.json())
+        .then(data => {
+          if (data.status === 'ok') {
+            Swal.fire({
+              title: '<span class="text-indigo-600">Edit Address</span>',
+              html: `
               <form id="editAddressForm" class="space-y-4">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
@@ -304,52 +366,52 @@
                 </div>
               </form>
             `,
-            showCancelButton: true,
-            confirmButtonText: 'Update Address',
-            confirmButtonColor: '#4f46e5',
-            cancelButtonText: 'Cancel',
-            width: '50rem',
-            preConfirm: () => {
-              const form = document.getElementById('editAddressForm');
-              const formData = new FormData(form);
-              const phone = formData.get('phone');
-              if (!/^\d{10}$/.test(phone)) {
-                Swal.showValidationMessage('Phone number must be exactly 10 digits');
-                return false;
-              }
-              return Object.fromEntries(formData);
-            }
-          }).then(async (result) => {
-            if (result.isConfirmed) {
-              Swal.fire({ title: 'Updating Address', text: 'Please wait...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
-              try {
-                const response = await fetch(`/profile/edit-address/${addressId}`, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify(result.value),
-                  credentials: 'include'
-                });
-                const data = await response.json();
-                if (response.ok) {
-                  Swal.fire({ icon: 'success', title: 'Address Updated!', text: 'Your address has been updated successfully.', confirmButtonColor: '#4f46e5' })
-                    .then(() => window.location.reload());
-                } else {
-                  Swal.fire({ icon: 'error', title: 'Failed to Update', text: data.message || 'Something went wrong', confirmButtonColor: '#4f46e5' });
+              showCancelButton: true,
+              confirmButtonText: 'Update Address',
+              confirmButtonColor: '#4f46e5',
+              cancelButtonText: 'Cancel',
+              width: '50rem',
+              preConfirm: () => {
+                const form = document.getElementById('editAddressForm');
+                const formData = new FormData(form);
+                const phone = formData.get('phone');
+                if (!/^\d{10}$/.test(phone)) {
+                  Swal.showValidationMessage('Phone number must be exactly 10 digits');
+                  return false;
                 }
-              } catch (error) {
-                console.error('Error:', error);
-                Swal.fire({ icon: 'error', title: 'Error', text: 'Could not connect to the server.', confirmButtonColor: '#4f46e5' });
+                return Object.fromEntries(formData);
               }
-            }
-          });
-        } else {
-          Swal.fire({ icon: 'error', title: 'Error', text: data.message || 'Failed to fetch address', confirmButtonColor: '#4f46e5' });
-        }
-      })
-      .catch(error => {
-        console.error('Error:', error);
-        Swal.fire({ icon: 'error', title: 'Error', text: 'Could not connect to the server.', confirmButtonColor: '#4f46e5' });
-      });
+            }).then(async (result) => {
+              if (result.isConfirmed) {
+                Swal.fire({ title: 'Updating Address', text: 'Please wait...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+                try {
+                  const response = await fetch(`/profile/edit-address/${addressId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(result.value),
+                    credentials: 'include'
+                  });
+                  const data = await response.json();
+                  if (response.ok) {
+                    Swal.fire({ icon: 'success', title: 'Address Updated!', text: 'Your address has been updated successfully.', confirmButtonColor: '#4f46e5' })
+                      .then(() => window.location.reload());
+                  } else {
+                    Swal.fire({ icon: 'error', title: 'Failed to Update', text: data.message || 'Something went wrong', confirmButtonColor: '#4f46e5' });
+                  }
+                } catch (error) {
+                  console.error('Error:', error);
+                  Swal.fire({ icon: 'error', title: 'Error', text: 'Could not connect to the server.', confirmButtonColor: '#4f46e5' });
+                }
+              }
+            });
+          } else {
+            Swal.fire({ icon: 'error', title: 'Error', text: data.message || 'Failed to fetch address', confirmButtonColor: '#4f46e5' });
+          }
+        })
+        .catch(error => {
+          console.error('Error:', error);
+          Swal.fire({ icon: 'error', title: 'Error', text: 'Could not connect to the server.', confirmButtonColor: '#4f46e5' });
+        });
     }
 
     function placeOrder() {
@@ -369,20 +431,21 @@
         body: JSON.stringify({ address_id: selectedAddressId }),
         credentials: 'include'
       })
-      .then(response => response.json())
-      .then(data => {
-        if (data.status === 'ok') {
-          Swal.fire({ icon: 'success', title: 'Order Placed!', text: 'Your order has been successfully placed.', confirmButtonColor: '#4f46e5' })
-            .then(() => window.location.href = `/order/success?order_id=${data.order_id}`);
-        } else {
-          Swal.fire({ icon: 'error', title: 'Order Failed', text: data.message || 'Something went wrong', confirmButtonColor: '#4f46e5' });
-        }
-      })
-      .catch(error => {
-        console.error('Error:', error);
-        Swal.fire({ icon: 'error', title: 'Error', text: 'Could not connect to the server.', confirmButtonColor: '#4f46e5' });
-      });
+        .then(response => response.json())
+        .then(data => {
+          if (data.status === 'ok') {
+            Swal.fire({ icon: 'success', title: 'Order Placed!', text: 'Your order has been successfully placed.', confirmButtonColor: '#4f46e5' })
+              .then(() => window.location.href = `/order/success?order_id=${data.order_id}`);
+          } else {
+            Swal.fire({ icon: 'error', title: 'Order Failed', text: data.message || 'Something went wrong', confirmButtonColor: '#4f46e5' });
+          }
+        })
+        .catch(error => {
+          console.error('Error:', error);
+          Swal.fire({ icon: 'error', title: 'Error', text: 'Could not connect to the server.', confirmButtonColor: '#4f46e5' });
+        });
     }
   </script>
 </body>
+
 </html>

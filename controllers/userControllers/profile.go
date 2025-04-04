@@ -3,7 +3,6 @@ package controllers
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"time"
 
@@ -17,30 +16,35 @@ import (
 func ShowProfile(c *gin.Context) {
 	userID, _ := c.Get("id")
 	var user userModels.Users
+	var addresses []userModels.Address
+	var orders []userModels.Orders 
+
 	if err := database.DB.First(&user, userID).Error; err != nil {
-		helper.ResponseWithErr(c, http.StatusNotFound, "User not found", "Profile not available", "")
+		helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to load profile", "Database error", "")
 		return
 	}
 
-	var orders []userModels.Orders
-	if err := database.DB.Where("user_id=?", userID).Find(&orders).Error; err != nil {
-		log.Println("Error fetching orders:", err)
-	}
-	
-	var addresses []userModels.Address
-	if err:=database.DB.Where("user_id = ?",userID).Find(&addresses).Error;err!=nil{
-		log.Println("Error fetching orders:", err)
+	if err := database.DB.Where("user_id = ?", userID).Find(&addresses).Error; err != nil {
+		helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to load addresses", "Database error", "")
+		return
 	}
 
-	c.HTML(http.StatusOK, "profile.html", gin.H{
-		"title":       "User Profile",
+	if err := database.DB.
+    Preload("OrderItems").       
+    Preload("OrderItems.Product"). 
+    Where("user_id = ?", userID).
+    Order("created_at DESC").  // Added ordering by created_at in descending order
+    Find(&orders).Error; err != nil {
+    helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to load orders", "Database error", "")
+    return
+}
+	c.HTML(http.StatusOK, "profileNew.html", gin.H{
 		"User":        user,
-		"Orders":      orders,
 		"Addresses":   addresses,
+		"Orders":      orders,
 		"profile_img": user.ProfileImage,
 	})
 }
-
 func ShowEditProfile(c *gin.Context) {
 	userID, _ := c.Get("id")
 	var user userModels.Users
@@ -251,102 +255,125 @@ var addressRequest struct {
 
 func AddAddress(c *gin.Context) {
 	userID, _ := c.Get("id")
+	var addressRequest struct {
+		AddressType    string `json:"address_type" binding:"required"`
+		Name           string `json:"name" binding:"required"`
+		City           string `json:"city" binding:"required"`
+		Landmark       string `json:"landmark"`
+		State          string `json:"state" binding:"required"`
+		Pincode        string `json:"pincode" binding:"required"`
+		Phone          string `json:"phone" binding:"required"`
+		AlternatePhone string `json:"alternate_phone"`
+	}
+
 	if err := c.ShouldBindJSON(&addressRequest); err != nil {
-		helper.ResponseWithErr(c, http.StatusBadRequest, "Invalid input", "Please check all fields", "")
+		helper.ResponseWithErr(c, http.StatusBadRequest, "Invalid input", err.Error(), "")
 		return
 	}
 
-	address:=userModels.Address{
-		UserID: userID.(uint),
-		AddressType: addressRequest.AddressType,
-		Name: addressRequest.Name,
-		City: addressRequest.City,
-		Landmark: addressRequest.Landmark,
-		State: addressRequest.State,
-		Pincode: addressRequest.Pincode,
-		Phone: addressRequest.Phone,
+	address := userModels.Address{
+		UserID:         userID.(uint),
+		AddressType:    addressRequest.AddressType,
+		Name:           addressRequest.Name,
+		City:           addressRequest.City,
+		Landmark:       addressRequest.Landmark,
+		State:          addressRequest.State,
+		Pincode:        addressRequest.Pincode,
+		Phone:          addressRequest.Phone,
 		AlternatePhone: addressRequest.AlternatePhone,
 	}
-	if err:=database.DB.Create(&address).Error;err!=nil{
-		helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to add address", "Database error", "")
-        return
+
+	if err := database.DB.Create(&address).Error; err != nil {
+		helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to add address", "Database error", err.Error())
+		return
 	}
 
-	c.JSON(http.StatusOK,gin.H{
+	c.JSON(http.StatusOK, gin.H{
 		"status":  "ok",
-        "message": "Address added successfully",
+		"message": "Address added successfully",
+		"address": address,
+	})
+}
+func EditAddress(c *gin.Context) {
+	userID, _ := c.Get("id")
+	addressID := c.Param("address_id")
+
+	var addressRequest struct {
+		AddressType    string `json:"address_type" binding:"required"`
+		Name           string `json:"name" binding:"required"`
+		City           string `json:"city" binding:"required"`
+		Landmark       string `json:"landmark"`
+		State          string `json:"state" binding:"required"`
+		Pincode        string `json:"pincode" binding:"required"`
+		Phone          string `json:"phone" binding:"required"`
+		AlternatePhone string `json:"alternate_phone"`
+	}
+
+	if err := c.ShouldBindJSON(&addressRequest); err != nil {
+		helper.ResponseWithErr(c, http.StatusBadRequest, "Invalid input", err.Error(), "")
+		return
+	}
+
+	var address userModels.Address
+	if err := database.DB.Where("id = ? AND user_id = ?", addressID, userID).First(&address).Error; err != nil {
+		helper.ResponseWithErr(c, http.StatusNotFound, "Address not found", "Invalid address ID", "")
+		return
+	}
+
+	address.AddressType = addressRequest.AddressType
+	address.Name = addressRequest.Name
+	address.City = addressRequest.City
+	address.Landmark = addressRequest.Landmark
+	address.State = addressRequest.State
+	address.Pincode = addressRequest.Pincode
+	address.Phone = addressRequest.Phone
+	address.AlternatePhone = addressRequest.AlternatePhone
+
+	if err := database.DB.Save(&address).Error; err != nil {
+		helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to update address", "Database error", err.Error())
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"status":  "ok",
+		"message": "Address updated successfully",
+		"address": address,
+	})
+}
+func DeleteAddress(c *gin.Context) {
+	userID, _ := c.Get("id")
+	addressID := c.Param("address_id")
+
+	var address userModels.Address
+	if err := database.DB.Where("id = ? AND user_id = ?", addressID, userID).First(&address).Error; err != nil {
+		helper.ResponseWithErr(c, http.StatusNotFound, "Address not found", "Invalid address ID", "")
+		return
+	}
+
+	if err := database.DB.Delete(&address).Error; err != nil {
+		helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to delete address", "Database error", "")
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"status":  "ok",
+		"message": "Address deleted successfully",
 	})
 }
 
-
-func EditAddress(c *gin.Context){
-	userID,_:=c.Get("id")
-	addressID:=c.Param("address_id")
-	if err:=c.ShouldBind(&addressRequest);err!=nil{
-		helper.ResponseWithErr(c, http.StatusBadRequest, "Invalid input", "Please check all fields", "")
-        return
-	}
-
-	var address userModels.Address
-	if err:=database.DB.Where("id = ? AND user_id = ?",addressID,userID).First(&address).Error;err!=nil{
-		helper.ResponseWithErr(c, http.StatusNotFound, "Address not found", "Invalid address ID", "")
-        return
-	}
-
-	address.AddressType=addressRequest.AddressType
-	address.Name = addressRequest.Name
-    address.City = addressRequest.City
-    address.Landmark = addressRequest.Landmark
-    address.State = addressRequest.State
-    address.Pincode = addressRequest.Pincode
-    address.Phone = addressRequest.Phone
-    address.AlternatePhone = addressRequest.AlternatePhone	
-
-	if err:=database.DB.Save(&address).Error;err!=nil{
-		helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to update address", "Database error", "")
-        return
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-        "status":  "ok",
-        "message": "Address updated successfully",
-    })
-}
-
-func DeleteAddress(c *gin.Context){
-	userID,_:=c.Get("id")
-	addressID:=c.Param("address_id")
-
-	var address userModels.Address
-	if err:=database.DB.Where("id = ? AND user_id = ?",addressID,userID).First(&address).Error;err!=nil{
-		helper.ResponseWithErr(c, http.StatusNotFound, "Address not found", "Invalid address ID", "")
-        return
-	}
-	
-	if err:=database.DB.Delete(&address).Error;err!=nil{
-		helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to delete address", "Database error", "")
-        return
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-        "status":  "ok",
-        "message": "Address deleted successfully",
-    })
-}
-
 func GetAddress(c *gin.Context) {
-    userID, _ := c.Get("id")
-    addressID := c.Param("address_id")
+	userID, _ := c.Get("id")
+	addressID := c.Param("address_id")
 
-    var address userModels.Address
-    if err := database.DB.Where("id = ? AND user_id = ?", addressID, userID).First(&address).Error; err != nil {
-        helper.ResponseWithErr(c, http.StatusNotFound, "Address not found", "Invalid address ID", "")
-        return
-    }
+	var address userModels.Address
+	if err := database.DB.Where("id = ? AND user_id = ?", addressID, userID).First(&address).Error; err != nil {
+		helper.ResponseWithErr(c, http.StatusNotFound, "Address not found", "Invalid address ID", "")
+		return
+	}
 
-    c.JSON(http.StatusOK, gin.H{
-        "status":  "ok",
-        "message": "Address fetched successfully",
-        "address": address,
-    })
+	c.JSON(http.StatusOK, gin.H{
+		"status":  "ok",
+		"message": "Address fetched successfully",
+		"address": address,
+	})
 }

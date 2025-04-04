@@ -35,9 +35,15 @@ func AdminRoutes(c *gin.Engine) {
 			protected.POST("/products/add", controllers.AddProduct)
 			protected.GET("/products/edit/:id", controllers.ShowEditProductForm)
 			protected.PATCH("/products/edit/:id", controllers.EditProduct)
-
 			// protected.GET("/products/details/:id",controllers.ProductDetailsHandler)
 			protected.PATCH("/products/toggle/:id", controllers.ToggleProductStatus)
+
+			//order
+			protected.GET("/orders", controllers.ListOrder)
+			protected.POST("/orders/:order_id/status", controllers.UpdateOrderStatus)
+			protected.GET("/orders/:order_id", controllers.ViewOrdetailsAdmin)
+			protected.GET("/returns", controllers.ListReturnRequests)
+			protected.POST("/returns/:return_id/verify", controllers.VerifyReturnRequest)
 
 			protected.POST("/logout", controllers.AdminLogout)
 		}

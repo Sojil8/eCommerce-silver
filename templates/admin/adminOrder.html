@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - Orders</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .sidebar { min-height: calc(100vh - 56px); }
+        .shadow-glow { box-shadow: 0 4px 15px rgba(0, 123, 255, 0.2); }
+        .hover-scale:hover {
+            transform: scale(1.05);
+            transition: transform 0.2s ease-in-out;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 font-sans min-h-screen">
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg bg-gray-800 text-white shadow-md">
+        <div class="container-fluid px-4">
+            <a class="navbar-brand text-xl font-bold text-white hover:text-blue-300 transition-colors" href="/admin/dashboard">Admin Dashboard</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto space-x-4">
+                    <li class="nav-item">
+                        <a class="nav-link text-gray-200 hover:text-blue-300 transition-colors" href="/admin/profile">Profile</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link text-gray-200 hover:text-blue-300 transition-colors" href="#" onclick="logout(event)">Logout</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Container -->
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Sidebar -->
+            <div class="col-md-2 sidebar bg-gray-900 text-white p-4">
+                <a href="/admin/user-management" class="block py-2 px-3 rounded hover:bg-gray-700 hover:text-white transition-colors">Customers</a>
+                <a href="/admin/category" class="block py-2 px-3 rounded hover:bg-gray-700 hover:text-white transition-colors">Categories</a>
+                <a href="/admin/products" class="block py-2 px-3 rounded hover:bg-gray-700 hover:text-white transition-colors">Products</a>
+                <a href="/admin/orders" class="block py-2 px-3 rounded bg-blue-600 text-white hover:bg-blue-700 transition-colors">Orders</a>
+                <a href="/admin/returns" class="block py-2 px-3 rounded hover:bg-gray-700 hover:text-white transition-colors">Return</a>
+                <a href="#" class="block py-2 px-3 rounded hover:bg-gray-700 hover:text-white transition-colors" onclick="logout(event)">Logout</a>
+            </div>
+
+            <!-- Main Content -->
+            <div class="col-md-10 main-content p-6">
+                <div class="bg-white rounded-lg shadow-md p-6">
+                    <h1 class="text-3xl font-bold text-gray-900 mb-6">Order Management</h1>
+
+                    <!-- Search, Sort, Filter -->
+                    <div class="bg-white p-4 rounded-lg shadow-glow mb-6">
+                        <div class="flex flex-col md:flex-row gap-4">
+                            <input type="text" id="search" value="{{.Search}}" placeholder="Search by Order ID or User" class="w-full md:w-1/3 p-2 border rounded-lg focus:ring-blue-500 focus:border-blue-500" onkeyup="if(event.key === 'Enter') searchOrders()">
+                            <select id="sort" class="w-full md:w-1/4 p-2 border rounded-lg" onchange="searchOrders()">
+                                <option value="order_date desc" {{if eq .Sort "order_date desc"}}selected{{end}}>Date (Newest First)</option>
+                                <option value="order_date asc" {{if eq .Sort "order_date asc"}}selected{{end}}>Date (Oldest First)</option>
+                                <option value="total_price desc" {{if eq .Sort "total_price desc"}}selected{{end}}>Price (High to Low)</option>
+                                <option value="total_price asc" {{if eq .Sort "total_price asc"}}selected{{end}}>Price (Low to High)</option>
+                            </select>
+                            <select id="filter" class="w-full md:w-1/4 p-2 border rounded-lg" onchange="searchOrders()">
+                                <option value="" {{if eq .Filter ""}}selected{{end}}>All Statuses</option>
+                                <option value="Pending" {{if eq .Filter "Pending"}}selected{{end}}>Pending</option>
+                                <option value="Shipped" {{if eq .Filter "Shipped"}}selected{{end}}>Shipped</option>
+                                <option value="Out for Delivery" {{if eq .Filter "Out for Delivery"}}selected{{end}}>Out for Delivery</option>
+                                <option value="Delivered" {{if eq .Filter "Delivered"}}selected{{end}}>Delivered</option>
+                                <option value="Cancelled" {{if eq .Filter "Cancelled"}}selected{{end}}>Cancelled</option>
+                            </select>
+                            <button onclick="clearSearch()" class="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 hover-scale transition-all">Clear</button>
+                        </div>
+                    </div>
+
+                    <!-- Orders Table -->
+                    <div class="bg-white rounded-lg shadow-md overflow-x-auto">
+                        <table class="min-w-full table table-striped table-bordered">
+                            <thead class="bg-gray-800 text-white">
+                                <tr>
+                                    <th class="p-3 text-left">Order ID</th>
+                                    <th class="p-3 text-left">Date</th>
+                                    <th class="p-3 text-left">User</th>
+                                    <th class="p-3 text-left">Total</th>
+                                    <th class="p-3 text-left">Status</th>
+                                    <th class="p-3 text-left">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {{range .Orders}}
+                                <tr class="border-b hover:bg-gray-50 transition-colors">
+                                    <td class="p-3">{{.OrderIdUnique}}</td>
+                                    <td class="p-3">{{.OrderDate.Format "2006-01-02"}}</td>
+                                    <td class="p-3">{{.User.UserName}} ({{.User.Email}})</td>
+                                    <td class="p-3">${{printf "%.2f" .TotalPrice}}</td>
+                                    <td class="p-3">
+                                        <select onchange="updateStatus('{{.OrderIdUnique}}', this.value)" class="p-1 border rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                                            <option value="Pending" {{if eq .Status "Pending"}}selected{{end}}>Pending</option>
+                                            <option value="Shipped" {{if eq .Status "Shipped"}}selected{{end}}>Shipped</option>
+                                            <option value="Out for Delivery" {{if eq .Status "Out for Delivery"}}selected{{end}}>Out for Delivery</option>
+                                            <option value="Delivered" {{if eq .Status "Delivered"}}selected{{end}}>Delivered</option>
+                                            <option value="Cancelled" {{if eq .Status "Cancelled"}}selected{{end}} disabled>Cancelled</option>
+                                        </select>
+                                    </td>
+                                    <td class="p-3">
+                                        <a href="/admin/orders/{{.OrderIdUnique}}" class="text-indigo-600 hover:text-indigo-800 hover-scale transition-all">View</a>
+                                    </td>
+                                </tr>
+                                {{else}}
+                                <tr><td colspan="6" class="p-3 text-center text-gray-500">No orders found</td></tr>
+                                {{end}}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Pagination -->
+                    <div class="mt-4 flex justify-between items-center">
+                        <p class="text-gray-600">Showing {{len .Orders}} of {{.Total}} orders</p>
+                        <div class="space-x-2">
+                            {{if gt .Page 1}}
+                            <a href="?page={{sub .Page 1}}&limit={{.Limit}}&search={{.Search}}&sort={{.Sort}}&status={{.Filter}}" class="px-3 py-1 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 hover-scale transition-all">Previous</a>
+                            {{end}}
+                            {{range $i := until .TotalPages}}
+                            <a href="?page={{add $i 1}}&limit={{.Limit}}&search={{.Search}}&sort={{.Sort}}&status={{.Filter}}" class="px-3 py-1 {{if eq (add $i 1) $.Page}}bg-indigo-600 text-white{{else}}bg-gray-200 text-gray-700{{end}} rounded-lg hover:bg-indigo-500 hover:text-white hover-scale transition-all">{{add $i 1}}</a>
+                            {{end}}
+                            {{if lt .Page .TotalPages}}
+                            <a href="?page={{add .Page 1}}&limit={{.Limit}}&search={{.Search}}&sort={{.Sort}}&status={{.Filter}}" class="px-3 py-1 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 hover-scale transition-all">Next</a>
+                            {{end}}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer bg-gray-800 text-white text-center py-4 mt-6">
+        <p>© 2025 Admin Dashboard. All rights reserved.</p>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function searchOrders() {
+            const search = document.getElementById('search').value;
+            const sort = document.getElementById('sort').value;
+            const filter = document.getElementById('filter').value;
+            window.location.href = `/admin/orders?page=1&limit={{.Limit}}&search=${encodeURIComponent(search)}&sort=${encodeURIComponent(sort)}&status=${encodeURIComponent(filter)}`;
+        }
+
+        function clearSearch() {
+            window.location.href = '/admin/orders?page=1&limit={{.Limit}}';
+        }
+
+        function updateStatus(orderId, status) {
+            Swal.fire({
+                title: 'Update Status?',
+                text: `Change order ${orderId} status to ${status}?`,
+                showCancelButton: true,
+                confirmButtonText: 'Yes',
+                confirmButtonColor: '#4f46e5',
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    fetch(`/admin/orders/${orderId}/status`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ status }),
+                        credentials: 'include'
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.status === 'ok') {
+                            Swal.fire('Success', 'Status updated', 'success').then(() => location.reload());
+                        } else {
+                            Swal.fire('Error', data.error || 'Failed to update status', 'error');
+                        }
+                    });
+                }
+            });
+        }
+
+        async function logout(event) {
+            event.preventDefault();
+            try {
+                const response = await fetch('/admin/logout', {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+
+                if (response.ok) {
+                    window.location.replace("/admin/login");
+                } else {
+                    const errorData = await response.json();
+                    Swal.fire("Error", errorData.message || "Logout failed", "error");
+                }
+            } catch (error) {
+                Swal.fire("Error", "An error occurred while logging out", "error");
+            }
+        }
+    </script>
+</body>
+</html>

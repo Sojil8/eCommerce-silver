@@ -3,14 +3,15 @@ package userModels
 import (
 	"time"
 
-	"github.com/Sojil8/eCommerce-silver/models/adminModels" 
+	"github.com/Sojil8/eCommerce-silver/models/adminModels"
 	"gorm.io/gorm"
 )
 
 type Orders struct {
-	*gorm.Model
+	gorm.Model
 	UserID        uint        `json:"user_id"`
-	OrderID       string      `gorm:"uniqueIndex" json:"order_id"`
+	User          Users       `gorm:"foreignKey:UserID" json:"user"`
+	OrderIdUnique string      `gorm:"type:varchar(255);unique" json:"order_id"`
 	AddressID     uint        `json:"address_id"`
 	TotalPrice    float64     `json:"total_price"`
 	PaymentMethod string      `json:"payment_method"`
@@ -22,13 +23,13 @@ type Orders struct {
 type OrderItem struct {
 	*gorm.Model
 	OrderID    uint                 `json:"order_id"`
-	ProductID  uint                 `json:"product_id" gorm:"index"` 
+	ProductID  uint                 `json:"product_id" gorm:"index"`
 	VariantsID uint                 `json:"variants_id" gorm:"index"`
 	Quantity   uint                 `json:"quantity"`
 	Price      float64              `json:"price"`
 	Status     string               `json:"status"`
-	Product    adminModels.Product  `gorm:"foreignKey:ProductID" json:"product"`  
-	Variants   adminModels.Variants `gorm:"foreignKey:VariantsID" json:"variants"` 
+	Product    adminModels.Product  `gorm:"foreignKey:ProductID" json:"product"`
+	Variants   adminModels.Variants `gorm:"foreignKey:VariantsID" json:"variants"`
 }
 
 type Cancellation struct {
@@ -41,5 +42,6 @@ type Cancellation struct {
 type Return struct {
 	gorm.Model
 	OrderID uint   `json:"order_id"`
+	Order   Orders `gorm:"foreignKey:OrderID" json:"order"`
 	Reason  string `json:"reason"`
 }

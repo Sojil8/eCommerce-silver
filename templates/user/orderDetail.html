@@ -9,22 +9,11 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
 </head>
 <body class="bg-gray-100 flex flex-col min-h-screen">
-    <header class="bg-white shadow-lg py-4 px-6 sticky top-0 z-10">
-        <div class="container mx-auto flex justify-between items-center">
-            <h1 class="text-3xl font-extrabold text-gray-900 tracking-tight">
-                <a href="/home" class="hover:text-indigo-600 transition-colors">Silver</a>
-            </h1>
-            <div class="flex items-center space-x-6 text-gray-700">
-                <span class="text-gray-800 font-medium">{{.UserName}}</span>
-                <form action="/logout" method="POST" class="inline">
-                    <button type="submit" class="bg-red-600 text-white px-4 py-1 rounded-full hover:bg-red-700">Logout</button>
-                </form>
-            </div>
-        </div>
+    {{template "navbar.html" .}}
     </header>
 
     <div class="container mx-auto p-6 flex-grow">
-        <h2 class="text-4xl font-bold text-gray-900 mb-8 tracking-tight">Order #{{.Order.OrderID}}</h2>
+        <h2 class="text-4xl font-bold text-gray-900 mb-8 tracking-tight">Order #{{.Order.OrderIdUnique}}</h2>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div class="bg-white rounded-xl shadow-md p-6">
                 <h3 class="text-xl font-semibold text-gray-900 mb-4">Order Details</h3>
@@ -32,20 +21,20 @@
                 <p class="text-gray-600">Status: <span class="font-medium {{if eq .Order.Status "Cancelled"}}text-red-600{{else if eq .Order.Status "Delivered"}}text-green-600{{else}}text-indigo-600{{end}}">{{.Order.Status}}</span></p>
                 <p class="text-gray-600">Total: ${{printf "%.2f" .Order.TotalPrice}}</p>
                 <div class="mt-4">
-                    <a href="/orders/invoice/{{.Order.OrderID}}" class="text-green-600 hover:text-green-800">Download Invoice</a>
+                    <a href="/orders/invoice/{{.Order.OrderIdUnique}}" class="text-green-600 hover:text-green-800">Download Invoice</a>
                     {{if eq .Order.Status "Pending"}}
-                        <button onclick="cancelOrder('{{.Order.OrderID}}')" class="ml-4 text-red-600 hover:text-red-800">Cancel Order</button>
+                        <button onclick="cancelOrder('{{.Order.OrderIdUnique}}')" class="ml-4 text-red-600 hover:text-red-800">Cancel Order</button>
                     {{end}}
                     {{if eq .Order.Status "Delivered"}}
-                        <button onclick="returnOrder('{{.Order.OrderID}}')" class="ml-4 text-orange-600 hover:text-orange-800">Return Order</button>
+                        <button onclick="returnOrder('{{.Order.OrderIdUnique}}')" class="ml-4 text-orange-600 hover:text-orange-800">Return Order</button>
                     {{end}}
                 </div>
             </div>
             <div class="bg-white rounded-xl shadow-md p-6">
                 <h3 class="text-xl font-semibold text-gray-900 mb-4">Shipping Address</h3>
-                <p class="text-gray-600">{{.Address.Name}} ({{.Address.AddressType}})</p>
-                <p class="text-gray-600">{{.Address.City}}, {{.Address.State}} - {{.Address.Pincode}}</p>
-                <p class="text-gray-600">Phone: {{.Address.Phone}}</p>
+                <p class="text-gray-600">{{.ShippingAddress.Name}} ({{.ShippingAddress.AddressType}})</p>
+                <p class="text-gray-600">{{.ShippingAddress.City}}, {{.ShippingAddress.State}} - {{.ShippingAddress.Pincode}}</p>
+                <p class="text-gray-600">Phone: {{.ShippingAddress.Phone}}</p>
             </div>
         </div>
         <div class="bg-white rounded-xl shadow-md p-6 mt-6">
@@ -60,7 +49,7 @@
                         <p class="text-indigo-600 font-bold">${{printf "%.2f" (mul .Price .Quantity)}}</p>
                     </div>
                     {{if eq $.Order.Status "Pending" "Active"}} <!-- Use $.Order.Status to access the parent order -->
-                    <button onclick="cancelItem('{{$.Order.OrderID}}', '{{.ID}}')" class="text-red-600 hover:text-red-800">Cancel Item</button>
+                    <button onclick="cancelItem('{{$.Order.OrderIdUnique}}', '{{.ID}}')" class="text-red-600 hover:text-red-800">Cancel Item</button>
                 {{end}}
                 </div>
             {{end}}

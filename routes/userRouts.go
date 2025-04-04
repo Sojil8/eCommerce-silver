@@ -33,7 +33,6 @@ func UserRoutes(c *gin.Engine) {
 			protected.GET("/product/details/:id", controllers.GetProductDetails)
 			protected.GET("/shop", controllers.GetUserShop)
 			protected.POST("/shop", controllers.GetUserShop)
-			protected.POST("/logout", controllers.LogoutUser)
 
 			// Profile
 			protected.GET("/profile", controllers.ShowProfile)
@@ -43,7 +42,7 @@ func UserRoutes(c *gin.Engine) {
 			protected.POST("/profile/verify-email", controllers.VerifyEditEmail)
 			protected.POST("/profile/change-password", controllers.ChangePassword)
 
-			// Cart 
+			// Cart
 			protected.GET("/cart", controllers.GetCart)
 			protected.POST("/cart/add", controllers.AddToCart)
 			protected.PUT("/cart/update", controllers.UpdateQuantity)
@@ -55,23 +54,31 @@ func UserRoutes(c *gin.Engine) {
 			protected.POST("/profile/delete-address/:address_id", controllers.DeleteAddress)
 			protected.GET("/profile/get-address/:address_id", controllers.GetAddress)
 
-			// Checkout 
+			// Checkout
 			protected.GET("/checkout", controllers.ShowCheckout)
 			protected.POST("/profile/set-default-address/:address_id", controllers.SetDefaultAddress)
 			protected.POST("/checkout/place-order", controllers.PlaceOrder)
 			protected.GET("/order/success", controllers.ShowOrderSuccess)
 
-			// Order 
-			protected.GET("/orders", controllers.GetOrderList) 
+			// Order
+			protected.GET("/orders", controllers.GetOrderList)
 			protected.POST("/orders/cancel/:order_id", controllers.CancelOrder)
-			protected.POST("/orders/cancel-item/:order_id/:item_id", controllers.CancelOrderItem) 
-			protected.POST("/orders/return/:order_id", controllers.ReturnOrder) 
+			protected.POST("/orders/cancel-item/:order_id/:item_id", controllers.CancelOrderItem)
+			protected.POST("/orders/return/:order_id", controllers.ReturnOrder)
 			protected.GET("/orders/details/:order_id", controllers.ShowOrderDetails)
 			protected.GET("/orders/invoice/:order_id", controllers.DownloadInvoice)
 			protected.GET("/orders/search", controllers.SearchOrders)
+
+			//wishlist
+			protected.GET("/wishlist", controllers.ShowWishlist)
+			protected.POST("/wishlist/add/:id", controllers.AddToWishlist)
+			protected.DELETE("/wishlist/remove/:id", controllers.RemoveWishList)
+
+			protected.POST("/logout", controllers.LogoutUser)
 		}
 		authGroup := c.Group("/auth")
 		authGroup.GET("/google", config.GoogleLogin)
 		authGroup.GET("/google/callback", config.GoogleCallback)
+		c.NoRoute(controllers.NotFound)
 	}
 }
