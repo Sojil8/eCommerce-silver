@@ -17,7 +17,7 @@ func ShowProfile(c *gin.Context) {
 	userID, _ := c.Get("id")
 	var user userModels.Users
 	var addresses []userModels.Address
-	var orders []userModels.Orders 
+	var orders []userModels.Orders
 
 	if err := database.DB.First(&user, userID).Error; err != nil {
 		helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to load profile", "Database error", "")
@@ -29,20 +29,48 @@ func ShowProfile(c *gin.Context) {
 		return
 	}
 
-	if err := database.DB.
-    Preload("OrderItems").       
-    Preload("OrderItems.Product"). 
-    Where("user_id = ?", userID).
-    Order("created_at DESC").  // Added ordering by created_at in descending order
-    Find(&orders).Error; err != nil {
-    helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to load orders", "Database error", "")
-    return
-}
+	if err := database.DB.Preload("OrderItems").Preload("OrderItems.Product").
+		Where("user_id = ?", userID).
+		Order("created_at DESC").
+		Find(&orders).Error; err != nil {
+		helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to load orders", "Database error", "")
+		return
+	}
+
+	userr, exists := c.Get("user")
+	userName, nameExists := c.Get("user_name")
+	if !exists || !nameExists {
+		c.HTML(http.StatusOK, "home.html", gin.H{
+			"status":        "success",
+			"UserName":      "Guest",
+			"WishlistCount": 0,
+			"CartCount":     0,
+			"ProfileImage":"",
+		})
+		return
+	}
+
+	userData := userr.(userModels.Users)
+	userNameStr := userName.(string)
+
+	var wishlistCount, cartCount int64
+	if err := database.DB.Model(&userModels.Wishlist{}).Where("user_id = ?", userData.ID).Count(&wishlistCount).Error; err != nil {
+		wishlistCount = 0
+	}
+	if err := database.DB.Model(&userModels.CartItem{}).Joins("JOIN carts ON carts.id = cart_items.cart_id").Where("carts.user_id = ?", userData.ID).Count(&cartCount).Error; err != nil {
+		cartCount = 0
+	}
+
+
+
 	c.HTML(http.StatusOK, "profileNew.html", gin.H{
 		"User":        user,
 		"Addresses":   addresses,
 		"Orders":      orders,
-		"profile_img": user.ProfileImage,
+		"UserName":      userNameStr,
+		"ProfileImage":  userData.ProfileImage,
+		"WishlistCount": wishlistCount,
+		"CartCount":     cartCount,
 	})
 }
 func ShowEditProfile(c *gin.Context) {

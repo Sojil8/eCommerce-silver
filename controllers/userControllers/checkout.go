@@ -127,6 +127,44 @@ func ShowCheckout(c *gin.Context) {
 		return
 	}
 
+	userr, exists := c.Get("user")
+	userName, nameExists := c.Get("user_name")
+	if !exists || !nameExists {
+		c.HTML(http.StatusOK, "checkout.html", gin.H{
+			"title":         "Checkout",
+		"Cart":          cart,
+		"Addresses":     addresses,
+		"Shipping":      shipping,
+		"FinalPrice":    finalPrice,
+		"Subtotal":      cart.TotalPrice,
+		"Discount":      discount,
+		"CouponApplied": couponApplied,
+		"AppliedCoupon": appliedCoupon,
+		"UserEmail":     user.Email,
+		"UserPhone":     user.Phone,
+		"RazorpayKey":   os.Getenv("RAZORPAY_KEY_ID"),
+			"status":        "success",
+			"UserName":      "Guest",
+			"WishlistCount": 0,
+			"CartCount":     0,
+			"ProfileImage":"",
+		})
+		return
+	}
+
+	userData := userr.(userModels.Users)
+	userNameStr := userName.(string)
+
+	var wishlistCount, cartCount int64
+	if err := database.DB.Model(&userModels.Wishlist{}).Where("user_id = ?", userData.ID).Count(&wishlistCount).Error; err != nil {
+		wishlistCount = 0
+	}
+	if err := database.DB.Model(&userModels.CartItem{}).Joins("JOIN carts ON carts.id = cart_items.cart_id").Where("carts.user_id = ?", userData.ID).Count(&cartCount).Error; err != nil {
+		cartCount = 0
+	}
+
+
+
 	c.HTML(http.StatusOK, "checkout.html", gin.H{
 		"title":         "Checkout",
 		"Cart":          cart,
@@ -137,10 +175,13 @@ func ShowCheckout(c *gin.Context) {
 		"Discount":      discount,
 		"CouponApplied": couponApplied,
 		"AppliedCoupon": appliedCoupon,
-		"UserName":      userName,
 		"UserEmail":     user.Email,
 		"UserPhone":     user.Phone,
 		"RazorpayKey":   os.Getenv("RAZORPAY_KEY_ID"),
+		"UserName":      userNameStr,
+		"ProfileImage":  userData.ProfileImage,
+		"WishlistCount": wishlistCount,
+		"CartCount":     cartCount,
 	})
 }
 

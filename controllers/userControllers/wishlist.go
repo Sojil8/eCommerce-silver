@@ -19,13 +19,42 @@ func ShowWishlist(c *gin.Context) {
 
 	var wishlistItems []userModels.Wishlist
 	if err := database.DB.Preload("Product.Variants").Where("user_id = ?", userID).Find(&wishlistItems).Error; err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load wishlist"})
-        return
-    }
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load wishlist"})
+		return
+	}
+	user, exists := c.Get("user")
+	userName, nameExists := c.Get("user_name")
+	if !exists || !nameExists {
+		c.HTML(http.StatusOK, "wishlist.html", gin.H{
+			"status":        "success",
+			"Wishlist":      wishlistItems,
+			"Title":         "My Wishlist",
+			"UserName":      "Guest",
+			"WishlistCount": 0,
+			"CartCount":     0,
+			"ProfileImage":  "",
+		})
+		return
+	}
+
+	userData := user.(userModels.Users)
+	userNameStr := userName.(string)
+
+	var wishlistCount, cartCount int64
+	if err := database.DB.Model(&userModels.Wishlist{}).Where("user_id = ?", userData.ID).Count(&wishlistCount).Error; err != nil {
+		wishlistCount = 0
+	}
+	if err := database.DB.Model(&userModels.CartItem{}).Joins("JOIN carts ON carts.id = cart_items.cart_id").Where("carts.user_id = ?", userData.ID).Count(&cartCount).Error; err != nil {
+		cartCount = 0
+	}
 
 	c.HTML(http.StatusOK, "wishlist.html", gin.H{
-		"Wishlist": wishlistItems,
-		"Title":    "My Wishlist",
+		"Wishlist":      wishlistItems,
+		"Title":         "My Wishlist",
+		"UserName":      userNameStr,
+		"ProfileImage":  userData.ProfileImage,
+		"WishlistCount": wishlistCount,
+		"CartCount":     cartCount,
 	})
 
 }
@@ -73,31 +102,31 @@ func AddToWishlist(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Product added to wishlist"})
 }
 func RemoveWishList(c *gin.Context) {
-    userID, exist := c.Get("id")
-    if !exist {
-        c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
-        return
-    }
+	userID, exist := c.Get("id")
+	if !exist {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
 
-    wishlistIDStr := c.Param("id")
-    wishlistID, err := strconv.Atoi(wishlistIDStr)
-    if err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid wishlist ID"})
-        return
-    }
+	wishlistIDStr := c.Param("id")
+	wishlistID, err := strconv.Atoi(wishlistIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid wishlist ID"})
+		return
+	}
 
-    c.Writer.Header().Set("Content-Type", "application/json")
+	c.Writer.Header().Set("Content-Type", "application/json")
 
-    result := database.DB.Where("id = ? AND user_id = ?", wishlistID, userID).Delete(&userModels.Wishlist{})
-    if result.Error != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to remove from wishlist", "details": result.Error.Error()})
-        return
-    }
-    
-    if result.RowsAffected == 0 {
-        c.JSON(http.StatusNotFound, gin.H{"error": "Wishlist item not found or not authorized"})
-        return
-    }
+	result := database.DB.Where("id = ? AND user_id = ?", wishlistID, userID).Delete(&userModels.Wishlist{})
+	if result.Error != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to remove from wishlist", "details": result.Error.Error()})
+		return
+	}
 
-    c.JSON(http.StatusOK, gin.H{"message": "Product removed from wishlist"})
+	if result.RowsAffected == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Wishlist item not found or not authorized"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Product removed from wishlist"})
 }

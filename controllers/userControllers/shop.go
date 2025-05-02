@@ -8,6 +8,7 @@ import (
 	"github.com/Sojil8/eCommerce-silver/database"
 	"github.com/Sojil8/eCommerce-silver/helper"
 	"github.com/Sojil8/eCommerce-silver/models/adminModels"
+	"github.com/Sojil8/eCommerce-silver/models/userModels"
 	"github.com/gin-gonic/gin"
 )
 
@@ -89,7 +90,7 @@ func GetUserShop(c *gin.Context) {
 	var availableProducts []adminModels.Product
 	for _, p := range products {
 		for _, v := range p.Variants {
-			if v.Stock >=	 0 {
+			if v.Stock >= 0 {
 				availableProducts = append(availableProducts, p)
 				break
 			}
@@ -102,15 +103,40 @@ func GetUserShop(c *gin.Context) {
 		return
 	}
 
-	userName, exits := c.Get("user_name")
-	if !exits {
-		userName = "Guest"
+	user, exists := c.Get("user")
+	userName, nameExists := c.Get("user_name")
+	if !exists || !nameExists {
+		c.HTML(http.StatusOK, "home.html", gin.H{
+			"Products":      availableProducts,
+			"Categories":    categories,
+			"Query":         query,
+			"status":        "success",
+			"UserName":      "Guest",
+			"WishlistCount": 0,
+			"CartCount":     0,
+			"ProfileImage":  "",
+		})
+		return
+	}
+
+	userData := user.(userModels.Users)
+	userNameStr := userName.(string)
+
+	var wishlistCount, cartCount int64
+	if err := database.DB.Model(&userModels.Wishlist{}).Where("user_id = ?", userData.ID).Count(&wishlistCount).Error; err != nil {
+		wishlistCount = 0
+	}
+	if err := database.DB.Model(&userModels.CartItem{}).Joins("JOIN carts ON carts.id = cart_items.cart_id").Where("carts.user_id = ?", userData.ID).Count(&cartCount).Error; err != nil {
+		cartCount = 0
 	}
 
 	c.HTML(http.StatusOK, "shop.html", gin.H{
-		"Products":   availableProducts,
-		"Categories": categories,
-		"Query":      query,
-		"UserName":   userName,
+		"Products":      availableProducts,
+		"Categories":    categories,
+		"Query":         query,
+		"UserName":      userNameStr,
+		"ProfileImage":  userData.ProfileImage,
+		"WishlistCount": wishlistCount,
+		"CartCount":     cartCount,
 	})
 }

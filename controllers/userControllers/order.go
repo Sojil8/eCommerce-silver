@@ -32,9 +32,37 @@ func GetOrderList(c *gin.Context) {
 		return
 	}
 
+	user, exists := c.Get("user")
+	userName, nameExists := c.Get("user_name")
+	if !exists || !nameExists {
+		c.HTML(http.StatusOK, "order.html", gin.H{
+			"status":        "success",
+			"Orders":        orders,
+			"UserName":      "Guest",
+			"WishlistCount": 0,
+			"CartCount":     0,
+			"ProfileImage":  "",
+		})
+		return
+	}
+
+	userData := user.(userModels.Users)
+	userNameStr := userName.(string)
+
+	var wishlistCount, cartCount int64
+	if err := database.DB.Model(&userModels.Wishlist{}).Where("user_id = ?", userData.ID).Count(&wishlistCount).Error; err != nil {
+		wishlistCount = 0
+	}
+	if err := database.DB.Model(&userModels.CartItem{}).Joins("JOIN carts ON carts.id = cart_items.cart_id").Where("carts.user_id = ?", userData.ID).Count(&cartCount).Error; err != nil {
+		cartCount = 0
+	}
+
 	c.HTML(http.StatusOK, "order.html", gin.H{
-		"Orders":   orders,
-		"UserName": c.GetString("user_name"),
+		"Orders":        orders,
+		"UserName":      userNameStr,
+		"ProfileImage":  userData.ProfileImage,
+		"WishlistCount": wishlistCount,
+		"CartCount":     cartCount,
 	})
 }
 
@@ -68,7 +96,7 @@ func CancelOrder(c *gin.Context) {
 			client := razorpay.NewClient(os.Getenv("RAZORPAY_KEY_ID"), os.Getenv("RAZORPAY_KEY_SECRET"))
 			data := map[string]interface{}{
 				"payment_id": payment.RazorpayPaymentID,
-				"amount":     int(payment.Amount * 100), 
+				"amount":     int(payment.Amount * 100),
 				"speed":      "normal",
 			}
 			options := map[string]string{}
@@ -157,7 +185,7 @@ func CancelOrderItem(c *gin.Context) {
 					client := razorpay.NewClient(os.Getenv("RAZORPAY_KEY_ID"), os.Getenv("RAZORPAY_KEY_SECRET"))
 					data := map[string]interface{}{
 						"payment_id": payment.RazorpayPaymentID,
-						"amount":     int(item.Price * float64(item.Quantity) * 100), 
+						"amount":     int(item.Price * float64(item.Quantity) * 100),
 						"speed":      "normal",
 					}
 					options := map[string]string{}

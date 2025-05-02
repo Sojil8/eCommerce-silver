@@ -105,6 +105,7 @@ func Authenticate(cookieName, expectedRole, loginRedirect string) gin.HandlerFun
 				return
 			}
 			c.Set("user_name", user.UserName)
+			c.Set("user", user)
 		} else {
 			c.Redirect(http.StatusSeeOther, loginRedirect)
 			c.Abort()
