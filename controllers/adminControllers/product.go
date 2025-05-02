@@ -12,8 +12,6 @@ import (
 )
 
 func GetProducts(c *gin.Context) {
-    fmt.Println("GetProducts handler called")
-    middleware.ClearCache()
     pageStr := c.Query("page")
     searchQuery := c.Query("search")
 

@@ -45,6 +45,13 @@ func AdminRoutes(c *gin.Engine) {
 			protected.GET("/returns", controllers.ListReturnRequests)
 			protected.POST("/returns/:return_id/verify", controllers.VerifyReturnRequest)
 
+			//coupons 
+			protected.GET("/coupons",controllers.ShowCoupon)
+			protected.POST("/coupons/add",controllers.AddCoupon)
+			protected.GET("/coupons/get/:id",controllers.GetCoupon)
+			protected.POST("/coupons/edit/:id",controllers.EditCoupon)
+			protected.DELETE("/coupons/delete/:id",controllers.DeleteCoupon)
+
 			protected.POST("/logout", controllers.AdminLogout)
 		}
 	}

@@ -9,6 +9,7 @@ type Cart struct {
     gorm.Model
     UserID     uint   `json:"user_id"`
     TotalPrice float64   `json:"total"`
+	CouponID  uint `json:"coupon_id"`
     CartItems  []CartItem `gorm:"foreignKey:CartID"` 
 }
 

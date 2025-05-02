@@ -18,15 +18,15 @@
             <div class="bg-white rounded-xl shadow-md p-6">
                 <h3 class="text-xl font-semibold text-gray-900 mb-4">Order Details</h3>
                 <p class="text-gray-600">Date: {{.Order.OrderDate.Format "2006-01-02"}}</p>
-                <p class="text-gray-600">Status: <span class="font-medium {{if eq .Order.Status "Cancelled"}}text-red-600{{else if eq .Order.Status "Delivered"}}text-green-600{{else}}text-indigo-600{{end}}">{{.Order.Status}}</span></p>
+                <p class="text-gray-600">Status: <span class="font-medium {{if eq .Order.Status "Cancelled"}}text-red-600{{else if eq .Order.Status "Delivered"}}text-green-600{{else if eq .Order.Status "Return Requested"}}text-orange-600{{else if eq .Order.Status "Return Approved"}}text-green-600{{else if eq .Order.Status "Return Rejected"}}text-red-600{{else}}text-indigo-600{{end}}">{{.Order.Status}}</span></p>
                 <p class="text-gray-600">Total: ${{printf "%.2f" .Order.TotalPrice}}</p>
                 <div class="mt-4">
                     <a href="/orders/invoice/{{.Order.OrderIdUnique}}" class="text-green-600 hover:text-green-800">Download Invoice</a>
-                    {{if eq .Order.Status "Pending"}}
+                    {{if or (eq .Order.Status "Pending") (eq .Order.Status "Confirmed")}}
                         <button onclick="cancelOrder('{{.Order.OrderIdUnique}}')" class="ml-4 text-red-600 hover:text-red-800">Cancel Order</button>
                     {{end}}
                     {{if eq .Order.Status "Delivered"}}
-                        <button onclick="returnOrder('{{.Order.OrderIdUnique}}')" class="ml-4 text-orange-600 hover:text-orange-800">Return Order</button>
+                        <button onclick="returnOrder('{{.Order.OrderIdUnique}}')" class="ml-4 text-orange-600 hover:text-orange-800">Request Return</button>
                     {{end}}
                 </div>
             </div>
@@ -45,12 +45,12 @@
                     <div class="flex-1">
                         <p class="text-gray-800 font-medium text-lg">{{.Product.ProductName}} <span class="text-gray-500">({{.Variants.Color}})</span></p>
                         <p class="text-gray-600">Quantity: {{.Quantity}}</p>
-                        <p class="text-gray-600">Status: <span class="font-medium {{if eq .Status "Cancelled"}}text-red-600{{else}}text-green-600{{end}}">{{.Status}}</span></p>
+                        <p class="text-gray-600">Status: <span class="font-medium {{if eq .Status "Cancelled"}}text-red-600{{else if eq .Status "Returned"}}text-orange-600{{else}}text-green-600{{end}}">{{.Status}}</span></p>
                         <p class="text-indigo-600 font-bold">${{printf "%.2f" (mul .Price .Quantity)}}</p>
                     </div>
-                    {{if eq $.Order.Status "Pending" "Active"}} <!-- Use $.Order.Status to access the parent order -->
-                    <button onclick="cancelItem('{{$.Order.OrderIdUnique}}', '{{.ID}}')" class="text-red-600 hover:text-red-800">Cancel Item</button>
-                {{end}}
+                    {{if and (or (eq $.Order.Status "Pending") (eq $.Order.Status "Confirmed")) (ne $.Order.Status "Cancelled") (gt (len $.Order.OrderItems) 1)}}
+                        <button onclick="cancelItem('{{$.Order.OrderIdUnique}}', '{{.ID}}')" class="text-red-600 hover:text-red-800">Cancel Item</button>
+                    {{end}}
                 </div>
             {{end}}
         </div>
@@ -87,6 +87,10 @@
                         } else {
                             Swal.fire('Error', data.error || 'Failed to cancel order', 'error');
                         }
+                    })
+                    .catch(error => {
+                        console.error('CancelOrder Error:', error);
+                        Swal.fire('Error', 'Could not connect to the server.', 'error');
                     });
                 }
             });
@@ -116,6 +120,10 @@
                         } else {
                             Swal.fire('Error', data.error || 'Failed to cancel item', 'error');
                         }
+                    })
+                    .catch(error => {
+                        console.error('CancelItem Error:', error);
+                        Swal.fire('Error', 'Could not connect to the server.', 'error');
                     });
                 }
             });
@@ -123,12 +131,12 @@
 
         function returnOrder(orderId) {
             Swal.fire({
-                title: 'Return Order?',
+                title: 'Request Return?',
                 text: 'Please provide a reason for returning this order.',
                 input: 'text',
                 inputPlaceholder: 'Reason (required)',
                 showCancelButton: true,
-                confirmButtonText: 'Yes, return it!',
+                confirmButtonText: 'Yes, request return!',
                 confirmButtonColor: '#f97316',
                 preConfirm: (reason) => {
                     if (!reason) {
@@ -147,10 +155,14 @@
                     .then(response => response.json())
                     .then(data => {
                         if (data.status === 'ok') {
-                            Swal.fire('Returned!', 'Your order has been returned.', 'success').then(() => location.reload());
+                            Swal.fire('Return Requested!', 'Your return request has been submitted.', 'success').then(() => location.reload());
                         } else {
-                            Swal.fire('Error', data.error || 'Failed to return order', 'error');
+                            Swal.fire('Error', data.error || 'Failed to request return', 'error');
                         }
+                    })
+                    .catch(error => {
+                        console.error('ReturnOrder Error:', error);
+                        Swal.fire('Error', 'Could not connect to the server.', 'error');
                     });
                 }
             });

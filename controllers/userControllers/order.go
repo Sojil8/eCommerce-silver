@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 
@@ -13,8 +14,13 @@ import (
 	"github.com/Sojil8/eCommerce-silver/models/userModels"
 	"github.com/gin-gonic/gin"
 	"github.com/jung-kurt/gofpdf"
+	"github.com/razorpay/razorpay-go"
 	"gorm.io/gorm"
 )
+
+var req struct {
+	Reason string `json:"reason"`
+}
 
 func GetOrderList(c *gin.Context) {
 	userID, _ := c.Get("id")
@@ -32,10 +38,6 @@ func GetOrderList(c *gin.Context) {
 	})
 }
 
-var req struct {
-	Reason string `json:"reason"`
-}
-
 func CancelOrder(c *gin.Context) {
 	userID, _ := c.Get("id")
 	orderID := c.Param("order_id")
@@ -46,27 +48,57 @@ func CancelOrder(c *gin.Context) {
 
 	err := database.DB.Transaction(func(tx *gorm.DB) error {
 		var order userModels.Orders
-		if err := tx.Where("user_id = ? AND order_id_unique  = ?", userID, orderID).Preload("OrderItems").First(&order).Error; err != nil {
+		if err := tx.Where("user_id = ? AND order_id_unique = ?", userID, orderID).Preload("OrderItems").First(&order).Error; err != nil {
 			return err
 		}
+		if order.Status != "Pending" && order.Status != "Confirmed" {
+			return gin.Error{Meta: gin.H{"error": "Only pending or confirmed orders can be cancelled"}}
+		}
 
-		if order.Status != "Pending" {
-			return gin.Error{Meta: gin.H{"error": "Only pending orders can be cancelled"}}
+		if order.Status == "Cancelled" {
+			return gin.Error{Meta: gin.H{"error": "Order is already cancelled"}}
+		}
+
+		if order.PaymentMethod == "ONLINE" {
+			var payment adminModels.PaymentDetails
+			if err := tx.Where("order_id = ? AND status = ?", order.ID, "Success").First(&payment).Error; err != nil {
+				return fmt.Errorf("payment details not found: %v", err)
+			}
+
+			client := razorpay.NewClient(os.Getenv("RAZORPAY_KEY_ID"), os.Getenv("RAZORPAY_KEY_SECRET"))
+			data := map[string]interface{}{
+				"payment_id": payment.RazorpayPaymentID,
+				"amount":     int(payment.Amount * 100), 
+				"speed":      "normal",
+			}
+			options := map[string]string{}
+			_, err := client.Refund.Create(data, options)
+			if err != nil {
+				return fmt.Errorf("failed to initiate refund: %v", err)
+			}
+			payment.Status = "Refunded"
+			if err := tx.Save(&payment).Error; err != nil {
+				return fmt.Errorf("failed to update payment status: %v", err)
+			}
 		}
 
 		for _, item := range order.OrderItems {
-			if err := incrementStock(tx, item.VariantsID, item.Quantity); err != nil {
-				return err
-			}
-			item.Status = "Cancelled"
-			if err := tx.Save(&item).Error; err != nil {
-				return err
+			if item.Status == "Active" {
+				if err := incrementStock(tx, item.VariantsID, item.Quantity); err != nil {
+					return err
+				}
+				item.Status = "Cancelled"
+				if err := tx.Save(&item).Error; err != nil {
+					return err
+				}
 			}
 		}
+
 		order.Status = "Cancelled"
 		if err := tx.Save(&order).Error; err != nil {
 			return err
 		}
+
 		cancellation := userModels.Cancellation{OrderID: order.ID, Reason: req.Reason}
 		return tx.Create(&cancellation).Error
 	})
@@ -74,7 +106,7 @@ func CancelOrder(c *gin.Context) {
 		if ginErr, ok := err.(gin.Error); ok && ginErr.Meta != nil {
 			c.JSON(http.StatusBadRequest, ginErr.Meta)
 		} else {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to cancel order"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to cancel order: %v", err)})
 		}
 		return
 	}
@@ -82,7 +114,7 @@ func CancelOrder(c *gin.Context) {
 }
 
 func CancelOrderItem(c *gin.Context) {
-	userId, _ := c.Get("id")
+	userID, _ := c.Get("id")
 	orderID := c.Param("order_id")
 	itemID := c.Param("item_id")
 
@@ -93,16 +125,53 @@ func CancelOrderItem(c *gin.Context) {
 
 	err := database.DB.Transaction(func(tx *gorm.DB) error {
 		var order userModels.Orders
-		if err := tx.Where("user_id = ? AND order_id_unique  = ?", userId, orderID).Preload("OrderItems").First(&order).Error; err != nil {
+		if err := tx.Where("user_id = ? AND order_id_unique = ?", userID, orderID).Preload("OrderItems").First(&order).Error; err != nil {
 			return err
 		}
-		if order.Status != "Pending" {
-			return gin.Error{Meta: gin.H{"error": "Only pending orders can be modified"}}
+
+		if order.Status != "Pending" && order.Status != "Confirmed" {
+			return gin.Error{Meta: gin.H{"error": "Only pending or confirmed orders can be modified"}}
 		}
 
-		itemIDUint, _ := strconv.ParseUint(itemID, 10, 32)
+		if order.Status == "Cancelled" {
+			return gin.Error{Meta: gin.H{"error": "Order is already cancelled"}}
+		}
+
+		itemIDUint, err := strconv.ParseUint(itemID, 10, 32)
+		if err != nil {
+			return fmt.Errorf("invalid item ID: %v", err)
+		}
+
 		for i, item := range order.OrderItems {
 			if item.ID == uint(itemIDUint) {
+				if item.Status != "Active" {
+					return gin.Error{Meta: gin.H{"error": "Item is already cancelled or not active"}}
+				}
+
+				if order.PaymentMethod == "ONLINE" {
+					var payment adminModels.PaymentDetails
+					if err := tx.Where("order_id = ? AND status = ?", order.ID, "Success").First(&payment).Error; err != nil {
+						return fmt.Errorf("payment details not found: %v", err)
+					}
+
+					client := razorpay.NewClient(os.Getenv("RAZORPAY_KEY_ID"), os.Getenv("RAZORPAY_KEY_SECRET"))
+					data := map[string]interface{}{
+						"payment_id": payment.RazorpayPaymentID,
+						"amount":     int(item.Price * float64(item.Quantity) * 100), 
+						"speed":      "normal",
+					}
+					options := map[string]string{}
+					_, err := client.Refund.Create(data, options)
+					if err != nil {
+						return fmt.Errorf("failed to initiate refund: %v", err)
+					}
+
+					payment.Amount -= item.Price * float64(item.Quantity)
+					if err := tx.Save(&payment).Error; err != nil {
+						return fmt.Errorf("failed to update payment amount: %v", err)
+					}
+				}
+
 				if err := incrementStock(tx, item.VariantsID, item.Quantity); err != nil {
 					return err
 				}
@@ -111,7 +180,56 @@ func CancelOrderItem(c *gin.Context) {
 					return err
 				}
 				cancellation := userModels.Cancellation{OrderID: order.ID, ItemID: &order.OrderItems[i].ID, Reason: req.Reason}
-				return tx.Create(&cancellation).Error
+				if err := tx.Create(&cancellation).Error; err != nil {
+					return err
+				}
+
+				allCancelled := true
+				for _, item := range order.OrderItems {
+					if item.Status != "Cancelled" {
+						allCancelled = false
+						break
+					}
+				}
+
+				if allCancelled {
+					if order.PaymentMethod == "ONLINE" {
+						var payment adminModels.PaymentDetails
+						if err := tx.Where("order_id = ? AND status = ?", order.ID, "Success").First(&payment).Error; err != nil {
+							return fmt.Errorf("payment details not found: %v", err)
+						}
+						if payment.Amount > 0 {
+							client := razorpay.NewClient(os.Getenv("RAZORPAY_KEY_ID"), os.Getenv("RAZORPAY_KEY_SECRET"))
+							data := map[string]interface{}{
+								"payment_id": payment.RazorpayPaymentID,
+								"amount":     int(payment.Amount * 100),
+								"speed":      "normal",
+							}
+							options := map[string]string{}
+							_, err := client.Refund.Create(data, options)
+							if err != nil {
+								return fmt.Errorf("failed to initiate final refund: %v", err)
+							}
+							payment.Status = "Refunded"
+							payment.Amount = 0
+							if err := tx.Save(&payment).Error; err != nil {
+								return fmt.Errorf("failed to update payment status: %v", err)
+							}
+						}
+					}
+
+					order.Status = "Cancelled"
+					if err := tx.Save(&order).Error; err != nil {
+						return err
+					}
+
+					orderCancellation := userModels.Cancellation{OrderID: order.ID, Reason: req.Reason}
+					if err := tx.Create(&orderCancellation).Error; err != nil {
+						return err
+					}
+				}
+
+				return nil
 			}
 		}
 		return gin.Error{Meta: gin.H{"error": "Item not found"}}
@@ -120,7 +238,7 @@ func CancelOrderItem(c *gin.Context) {
 		if ginErr, ok := err.(gin.Error); ok && ginErr.Meta != nil {
 			c.JSON(http.StatusBadRequest, ginErr.Meta)
 		} else {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to cancel item"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to cancel item: %v", err)})
 		}
 		return
 	}
@@ -137,13 +255,45 @@ func ReturnOrder(c *gin.Context) {
 
 	err := database.DB.Transaction(func(tx *gorm.DB) error {
 		var order userModels.Orders
-		if err := tx.Where("order_id_unique  = ? AND user_id = ?", orderID, userID).
+		if err := tx.Where("order_id_unique = ? AND user_id = ?", orderID, userID).
 			Preload("OrderItems").First(&order).Error; err != nil {
 			return err
 		}
 		if order.Status != "Delivered" {
 			return gin.Error{Meta: gin.H{"error": "Only delivered orders can be returned"}}
 		}
+
+		order.Status = "Return Requested"
+		if err := tx.Save(&order).Error; err != nil {
+			return err
+		}
+
+		returnReq := userModels.Return{OrderID: order.ID, Reason: req.Reason, Status: "Requested"}
+		return tx.Create(&returnReq).Error
+	})
+	if err != nil {
+		if ginErr, ok := err.(gin.Error); ok && ginErr.Meta != nil {
+			c.JSON(http.StatusBadRequest, ginErr.Meta)
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to request return: %v", err)})
+		}
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"status": "ok", "message": "Return requested successfully"})
+}
+
+func ApproveReturn(c *gin.Context) {
+	orderID := c.Param("order_id")
+
+	err := database.DB.Transaction(func(tx *gorm.DB) error {
+		var order userModels.Orders
+		if err := tx.Where("order_id_unique = ?", orderID).Preload("OrderItems").First(&order).Error; err != nil {
+			return err
+		}
+		if order.Status != "Return Requested" {
+			return gin.Error{Meta: gin.H{"error": "Only return requested orders can be approved"}}
+		}
+
 		for _, item := range order.OrderItems {
 			if item.Status == "Active" {
 				if err := incrementStock(tx, item.VariantsID, item.Quantity); err != nil {
@@ -155,29 +305,93 @@ func ReturnOrder(c *gin.Context) {
 				}
 			}
 		}
-		order.Status = "Returned"
+
+		if order.PaymentMethod == "ONLINE" {
+			var payment adminModels.PaymentDetails
+			if err := tx.Where("order_id = ? AND status = ?", order.ID, "Success").First(&payment).Error; err != nil {
+				return fmt.Errorf("payment details not found: %v", err)
+			}
+
+			client := razorpay.NewClient(os.Getenv("RAZORPAY_KEY_ID"), os.Getenv("RAZORPAY_KEY_SECRET"))
+			data := map[string]interface{}{
+				"payment_id": payment.RazorpayPaymentID,
+				"amount":     int(payment.Amount * 100),
+				"speed":      "normal",
+			}
+			options := map[string]string{}
+			_, err := client.Refund.Create(data, options)
+			if err != nil {
+				return fmt.Errorf("failed to initiate refund: %v", err)
+			}
+			payment.Status = "Refunded"
+			if err := tx.Save(&payment).Error; err != nil {
+				return fmt.Errorf("failed to update payment status: %v", err)
+			}
+		}
+
+		order.Status = "Return Approved"
 		if err := tx.Save(&order).Error; err != nil {
 			return err
 		}
-		returnReq := userModels.Return{OrderID: order.ID, Reason: req.Reason}
-		return tx.Create(&returnReq).Error
+
+		var returnReq userModels.Return
+		if err := tx.Where("order_id = ?", order.ID).First(&returnReq).Error; err != nil {
+			return err
+		}
+		returnReq.Status = "Approved"
+		return tx.Save(&returnReq).Error
 	})
 	if err != nil {
 		if ginErr, ok := err.(gin.Error); ok && ginErr.Meta != nil {
 			c.JSON(http.StatusBadRequest, ginErr.Meta)
 		} else {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to return order"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to approve return: %v", err)})
 		}
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"status": "ok", "message": "Order returned successfully"})
+	c.JSON(http.StatusOK, gin.H{"status": "ok", "message": "Return approved successfully"})
+}
+
+func RejectReturn(c *gin.Context) {
+	orderID := c.Param("order_id")
+
+	err := database.DB.Transaction(func(tx *gorm.DB) error {
+		var order userModels.Orders
+		if err := tx.Where("order_id_unique = ?", orderID).First(&order).Error; err != nil {
+			return err
+		}
+		if order.Status != "Return Requested" {
+			return gin.Error{Meta: gin.H{"error": "Only return requested orders can be rejected"}}
+		}
+
+		order.Status = "Return Rejected"
+		if err := tx.Save(&order).Error; err != nil {
+			return err
+		}
+
+		var returnReq userModels.Return
+		if err := tx.Where("order_id = ?", order.ID).First(&returnReq).Error; err != nil {
+			return err
+		}
+		returnReq.Status = "Rejected"
+		return tx.Save(&returnReq).Error
+	})
+	if err != nil {
+		if ginErr, ok := err.(gin.Error); ok && ginErr.Meta != nil {
+			c.JSON(http.StatusBadRequest, ginErr.Meta)
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to reject return: %v", err)})
+		}
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"status": "ok", "message": "Return rejected successfully"})
 }
 
 func ShowOrderDetails(c *gin.Context) {
 	userID, _ := c.Get("id")
 	orderID := c.Param("order_id")
 	var order userModels.Orders
-	if err := database.DB.Where("order_id_unique  = ? AND user_id = ?", orderID, userID).
+	if err := database.DB.Where("order_id_unique = ? AND user_id = ?", orderID, userID).
 		Preload("OrderItems.Product").Preload("OrderItems.Variants").
 		First(&order).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Order not found"})
@@ -191,11 +405,12 @@ func ShowOrderDetails(c *gin.Context) {
 		"UserName":        c.GetString("user_name"),
 	})
 }
+
 func DownloadInvoice(c *gin.Context) {
 	userID, _ := c.Get("id")
 	orderID := c.Param("order_id")
 	var order userModels.Orders
-	if err := database.DB.Where("order_id_unique  = ? AND user_id = ?", orderID, userID).
+	if err := database.DB.Where("order_id_unique = ? AND user_id = ?", orderID, userID).
 		Preload("OrderItems.Product").Preload("OrderItems.Variants").First(&order).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Order not found"})
 		return
@@ -240,7 +455,7 @@ func SearchOrders(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to search orders"})
 		return
 	}
-	
+
 	filteredOrders := []userModels.Orders{}
 	for _, order := range orders {
 		for _, item := range order.OrderItems {
@@ -253,6 +468,7 @@ func SearchOrders(c *gin.Context) {
 
 	c.JSON(http.StatusOK, filteredOrders)
 }
+
 func incrementStock(tx *gorm.DB, variantID, quantity uint) error {
 	var variant adminModels.Variants
 	if err := tx.First(&variant, variantID).Error; err != nil {

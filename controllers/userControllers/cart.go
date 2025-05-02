@@ -33,8 +33,8 @@ func GetCart(c *gin.Context) {
 	var filteredCartItems []userModels.CartItem
 	for _, item := range cart.CartItems {
 		var category adminModels.Category
-		if item.Product.IsListed && 
-           database.DB.Where("category_name = ? AND status = ?", item.Product.CategoryName, true).First(&category).Error == nil {
+		if item.Product.IsListed &&
+			database.DB.Where("category_name = ? AND status = ?", item.Product.CategoryName, true).First(&category).Error == nil {
 			filteredCartItems = append(filteredCartItems, item)
 		}
 	}
@@ -63,17 +63,15 @@ type RequestCartItem struct {
 	Quantity  uint `json:"quantity"`
 }
 
+type CartInput struct {
+	WishlistID *uint `json:"wishlist_id"`
+	ProductID  *uint `json:"product_id"`
+	VariantID  uint  `json:"variant_id"`
+	Quantity   uint  `json:"quantity"`
+}
 
 func AddToCart(c *gin.Context) {
 	userID, _ := c.Get("id")
-
-	// Updated struct to handle wishlist_id
-	type CartInput struct {
-		WishlistID *uint `json:"wishlist_id"`
-		ProductID  *uint `json:"product_id"`
-		VariantID  uint  `json:"variant_id"`
-		Quantity   uint  `json:"quantity"`
-	}
 
 	var req CartInput
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -87,7 +85,6 @@ func AddToCart(c *gin.Context) {
 	err := database.DB.Transaction(func(tx *gorm.DB) error {
 		var productID uint
 
-		// If wishlist_id is provided, get the product_id from the wishlist
 		if req.WishlistID != nil {
 			var wishlist userModels.Wishlist
 			if err := tx.First(&wishlist, *req.WishlistID).Error; err != nil {
@@ -161,7 +158,6 @@ func AddToCart(c *gin.Context) {
 			return err
 		}
 
-		// Remove from wishlist if wishlist_id was provided
 		if req.WishlistID != nil {
 			if err := tx.Where("user_id = ? AND id = ?", userID, *req.WishlistID).
 				Delete(&userModels.Wishlist{}).Error; err != nil {
@@ -224,7 +220,7 @@ func UpdateQuantity(c *gin.Context) {
 						"error": "Maximum limit is 5 items per product",
 					}}
 				}
-				
+
 				if req.Quantity == 0 {
 					if err := tx.Delete(&cart.CartItems[i]).Error; err != nil {
 						return err
@@ -254,6 +250,7 @@ func UpdateQuantity(c *gin.Context) {
 	database.DB.Where("user_id = ?", userID).Preload("CartItems").First(&cart)
 	c.JSON(http.StatusOK, cart)
 }
+
 type varitReq struct {
 	ProductID uint `json:"product_id"`
 	VariantID uint `json:"variant_id"`

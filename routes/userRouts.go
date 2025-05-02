@@ -58,7 +58,10 @@ func UserRoutes(c *gin.Engine) {
 			protected.GET("/checkout", controllers.ShowCheckout)
 			protected.POST("/profile/set-default-address/:address_id", controllers.SetDefaultAddress)
 			protected.POST("/checkout/place-order", controllers.PlaceOrder)
+			// protected.POST("/checkout/create-razorpay-order",controllers.CreateRazorpayOrder)
+			protected.POST("/checkout/verify-payment", controllers.VerifyPayment)
 			protected.GET("/order/success", controllers.ShowOrderSuccess)
+			protected.GET("/order/failure",controllers.ShowOrderFailure)
 
 			// Order
 			protected.GET("/orders", controllers.GetOrderList)
@@ -73,6 +76,12 @@ func UserRoutes(c *gin.Engine) {
 			protected.GET("/wishlist", controllers.ShowWishlist)
 			protected.POST("/wishlist/add/:id", controllers.AddToWishlist)
 			protected.DELETE("/wishlist/remove/:id", controllers.RemoveWishList)
+
+			//coupons
+			protected.POST("/checkout/apply-coupon", controllers.ApplyCoupon)
+			protected.POST("/checkout/remove-coupon", controllers.RemoveCoupon)
+			protected.GET("/checkout/available-coupons",controllers.GetAvailableCoupons)
+
 
 			protected.POST("/logout", controllers.LogoutUser)
 		}

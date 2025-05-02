@@ -3,45 +3,52 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>User - Product Listing</title>
-  <!-- Tailwind CSS -->
+  <title>Silver Shop - Premium Watches</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- SweetAlert2 for popups -->
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-  <!-- Font Awesome for icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Poppins', sans-serif; }
+    .product-card:hover .product-image { transform: scale(1.05); }
+    .out-of-stock-badge { transition: all 0.3s ease; }
+    .product-card:hover .out-of-stock-badge { transform: translateY(-2px); }
+  </style>
 </head>
-<body class="bg-gray-100 flex flex-col min-h-screen font-sans">
-  <!-- Include Navbar Partial -->
+<body class="bg-gradient-to-b from-gray-50 to-gray-100 flex flex-col min-h-screen">
   {{template "navbar.html" .}}
 
-  <!-- Banner -->
-  <div class="w-full bg-gradient-to-r from-indigo-500 to-purple-600 relative">
-    <img src="/static/Banner.jpg" alt="Banner Image" class="w-full h-80 object-cover opacity-80">
+  <div class="relative w-full bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-500">
+    <img src="/static/Banner.jpg" alt="Banner Image" class="w-full h-96 object-cover opacity-70">
     <div class="absolute inset-0 flex items-center justify-center">
-      <h2 class="text-5xl font-extrabold text-white tracking-wide drop-shadow-lg">Discover Timeless Elegance</h2>
+      <div class="text-center">
+        <h2 class="text-5xl md:text-6xl font-bold text-white tracking-tight drop-shadow-xl">Discover Timeless Elegance</h2>
+        <p class="mt-4 text-lg text-white/90">Explore our curated collection of premium watches</p>
+      </div>
     </div>
   </div>
 
-  <!-- Main Content -->
-  <div class="container mx-auto p-8 flex-grow">
-    <h2 class="text-4xl font-bold text-gray-900 mb-10 tracking-tight text-center">Explore Our Premium Watches</h2>
-    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-10">
+  <div class="container mx-auto px-4 sm:px-6 lg:px-8 py-12 flex-grow">
+    <h2 class="text-4xl font-semibold text-gray-800 mb-12 text-center tracking-wide">Our Premium Watches</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
       {{if .Products}}
         {{range .Products}}
-          <div class="relative bg-white rounded-2xl shadow-lg overflow-hidden group transform transition-all duration-500 hover:shadow-2xl hover:-translate-y-2">
+          <div class="product-card relative bg-white rounded-xl shadow-md overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
             <div class="relative">
-              <img src="{{index .Images 0}}" alt="{{.ProductName}}" class="w-full h-60 object-cover transition-transform duration-500 group-hover:scale-105">
-              <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                <a href="/product/details/{{.ID}}" class="bg-yellow-400 text-gray-900 px-6 py-2 rounded-full font-semibold hover:bg-yellow-500 transition-colors duration-200">View Product</a>
+              <img src="{{index .Images 0}}" alt="{{.ProductName}}" class="product-image w-full h-64 object-cover transition-transform duration-500">
+              <div class="absolute inset-0 flex items-center justify-center bg-black bg-opacity-0 hover:bg-opacity-30 transition-all duration-300">
+                <a href="/product/details/{{.ID}}" class="bg-gradient-to-r from-yellow-400 to-yellow-500 text-gray-900 px-6 py-2 rounded-full font-medium opacity-0 hover:opacity-100 transition-opacity duration-300 transform hover:scale-105">View Product</a>
               </div>
+              {{if not (anyVariantInStock .Variants)}}
+                <div class="out-of-stock-badge absolute top-3 right-3 bg-gradient-to-r from-red-500 to-red-600 text-white text-xs font-semibold px-3 py-1 rounded-full shadow-sm">Out of Stock</div>
+              {{end}}
             </div>
             <div class="p-5">
-              <h3 class="text-xl font-semibold text-gray-900 truncate">{{.ProductName}}</h3>
-              <p class="text-gray-600 text-sm">{{.CategoryName}}</p>
-              <div class="flex justify-between items-center mt-3">
-                <p class="text-indigo-700 font-bold text-xl">${{printf "%.2f" .Price}}</p>
-                <button class="text-indigo-700 hover:text-indigo-900 transition-colors" onclick="addToCart('{{.ID}}')">
+              <h3 class="text-lg font-semibold text-gray-800 truncate">{{.ProductName}}</h3>
+              <p class="text-sm text-gray-500">{{.CategoryName}}</p>
+              <div class="flex justify-between items-center mt-4">
+                <p class="text-indigo-600 font-bold text-xl">${{printf "%.2f" .Price}}</p>
+                <button onclick="addToCart('{{.ID}}')" class="text-indigo-600 hover:text-indigo-800 transition-colors duration-200 transform hover:scale-110">
                   <i class="fas fa-cart-plus text-2xl"></i>
                 </button>
               </div>
@@ -49,77 +56,23 @@
           </div>
         {{end}}
       {{else}}
-        <p class="text-center text-gray-600 col-span-full text-lg font-medium">No products found</p>
+        <p class="text-center text-gray-500 col-span-full text-lg font-medium">No products found</p>
       {{end}}
     </div>
   </div>
 
-  <!-- About Us Section -->
-  <section id="about" class="bg-gradient-to-b from-gray-50 to-indigo-50 py-16">
-    <div class="container mx-auto px-8">
-      <h2 class="text-4xl font-bold text-gray-900 mb-8 text-center tracking-tight">About Us</h2>
-      <div class="max-w-3xl mx-auto text-center">
-        <p class="text-lg text-gray-700 leading-relaxed">
-          Welcome to <span class="font-semibold text-indigo-600">Silver Shop</span>, your ultimate destination for premium watches! We are passionate about bringing you a curated collection of high-quality timepieces that blend style, functionality, and craftsmanship. Our platform specializes in offering a diverse range of watches, including elegant analog watches for men and women, cutting-edge digital watches, luxury chronographs, and timeless classics. Whether you're looking for a statement piece for a special occasion or a reliable everyday companion, we’ve got you covered with products that reflect sophistication and durability.
-        </p>
-        <p class="text-lg text-gray-700 leading-relaxed mt-4">
-          At Silver Shop, we believe that a watch is more than just a tool to tell time—it’s an expression of your personality and a symbol of excellence. Our mission is to provide you with top-tier products sourced from trusted brands and artisans, ensuring every piece meets the highest standards of quality and design.
-        </p>
-      </div>
-    </div>
-  </section>
-
-  <!-- What We Do Section -->
-  <section id="what-we-do" class="bg-white py-16">
-    <div class="container mx-auto px-8">
-      <h2 class="text-4xl font-bold text-gray-900 mb-8 text-center tracking-tight">What We Do</h2>
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-10">
-        <div class="bg-indigo-50 p-6 rounded-xl shadow-md hover:shadow-lg transition-shadow duration-300">
-          <i class="fas fa-clock text-4xl text-indigo-600 mb-4"></i>
-          <h3 class="text-xl font-semibold text-gray-900">Curate Premium Watches</h3>
-          <p class="text-gray-600 mt-2">We handpick the finest watches, from sleek analog designs to advanced digital models, ensuring variety and quality for every taste.</p>
+  <footer class="bg-gradient-to-r from-indigo-800 to-purple-900 text-white py-8 mt-auto">
+    <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex flex-col md:flex-row justify-between items-center">
+        <p class="text-sm">© 2025 Silver Shop. All rights reserved.</p>
+        <div class="mt-4 md:mt-0 space-x-6">
+          <a href="#" class="text-gray-200 hover:text-yellow-300 transition-colors duration-200">Privacy Policy</a>
+          <a href="#" class="text-gray-200 hover:text-yellow-300 transition-colors duration-200">Terms of Service</a>
         </div>
-        <div class="bg-indigo-50 p-6 rounded-xl shadow-md hover:shadow-lg transition-shadow duration-300">
-          <i class="fas fa-star text-4xl text-indigo-600 mb-4"></i>
-          <h3 class="text-xl font-semibold text-gray-900">Ensure Top Quality</h3>
-          <p class="text-gray-600 mt-2">Every product undergoes rigorous quality checks to guarantee durability, precision, and elegance in every tick.</p>
-        </div>
-        <div class="bg-indigo-50 p-6 rounded-xl shadow-md hover:shadow-lg transition-shadow duration-300">
-          <i class="fas fa-truck text-4xl text-indigo-600 mb-4"></i>
-          <h3 class="text-xl font-semibold text-gray-900">Fast & Reliable Delivery</h3>
-          <p class="text-gray-600 mt-2">We prioritize swift and secure shipping so you can enjoy your new watch without delay.</p>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Contact Details Section -->
-  <section class="bg-gray-900 text-white py-16">
-    <div class="container mx-auto px-8">
-      <h2 class="text-4xl font-bold text-center mb-8 tracking-tight">Get in Touch</h2>
-      <div class="max-w-2xl mx-auto text-center">
-        <p class="text-lg text-gray-300">Have questions or need assistance? Reach out to us!</p>
-        <div class="mt-6 space-y-4">
-          <p><i class="fas fa-envelope mr-2"></i> Email: <a href="mailto:support@silvershop.com" class="hover:text-yellow-300 transition-colors">support@silvershop.com</a></p>
-          <p><i class="fas fa-phone mr-2"></i> Phone: <a href="tel:+1234567890" class="hover:text-yellow-300 transition-colors">+1 (234) 567-890</a></p>
-          <p><i class="fas fa-map-marker-alt mr-2"></i> Address: 123 Timepiece Lane, Watch City, USA</p>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Footer -->
-  <footer class="bg-gradient-to-r from-indigo-700 to-purple-800 text-white p-6 mt-auto">
-    <div class="container mx-auto flex flex-col md:flex-row justify-between items-center">
-      <p class="text-sm">© 2025 Silver Shop. All rights reserved.</p>
-      <div class="mt-4 md:mt-0 space-x-6">
-        <a href="#" class="text-gray-200 hover:text-yellow-300 transition-colors duration-200">Privacy Policy</a>
-        <a href="#" class="text-gray-200 hover:text-yellow-300 transition-colors duration-200">Terms of Service</a>
       </div>
     </div>
   </footer>
 
-  <!-- JavaScript -->
   <script>
     async function addToCart(productId) {
       try {

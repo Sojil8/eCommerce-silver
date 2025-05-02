@@ -16,7 +16,10 @@ type Orders struct {
 	TotalPrice    float64     `json:"total_price"`
 	PaymentMethod string      `json:"payment_method"`
 	OrderItems    []OrderItem `gorm:"foreignKey:OrderID" json:"order_items"`
+	CouponID      uint        `json:"coupon_id"`
 	Status        string      `json:"status"`
+	Discount      float64	 `json:"discount"`
+	Subtotal      float64   `json:"subtotal"`
 	OrderDate     time.Time   `json:"order_date"`
 }
 
@@ -44,4 +47,5 @@ type Return struct {
 	OrderID uint   `json:"order_id"`
 	Order   Orders `gorm:"foreignKey:OrderID" json:"order"`
 	Reason  string `json:"reason"`
+	Status string `json:"status"`
 }

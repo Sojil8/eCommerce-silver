@@ -89,7 +89,7 @@ func GetUserShop(c *gin.Context) {
 	var availableProducts []adminModels.Product
 	for _, p := range products {
 		for _, v := range p.Variants {
-			if v.Stock > 0 {
+			if v.Stock >=	 0 {
 				availableProducts = append(availableProducts, p)
 				break
 			}

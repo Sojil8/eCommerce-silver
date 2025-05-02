@@ -13,77 +13,143 @@
 
   <!-- Main Content -->
   <div class="container mx-auto p-6 flex-grow">
-    <h2 class="text-3xl font-bold text-gray-900 mb-8 tracking-tight">Shop Our Collection</h2>
+    <h2 class="text-3xl font-bold text-gray-900 mb-4 tracking-tight">Shop Our Collection</h2>
 
-    <!-- Filters and Search -->
+    <!-- Search Bar at Top -->
     <div class="bg-white p-4 rounded-lg shadow-md mb-6">
-      <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <!-- Search -->
-        <div class="relative">
-          <input type="text" id="search" class="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Search products..." value="{{.Query.Search}}">
-          <button id="clear-search" class="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-red-600"><i class="fas fa-times"></i></button>
-        </div>
-
-        <!-- Sort -->
-        <select id="sort" class="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
-          <option value="" {{if eq .Query.Sort ""}}selected{{end}}>Default</option>
-          <option value="price_low_to_high" {{if eq .Query.Sort "price_low_to_high"}}selected{{end}}>Price: Low to High</option>
-          <option value="price_high_to_low" {{if eq .Query.Sort "price_high_to_low"}}selected{{end}}>Price: High to Low</option>
-          <option value="a_to_z" {{if eq .Query.Sort "a_to_z"}}selected{{end}}>A to Z</option>
-          <option value="z_to_a" {{if eq .Query.Sort "z_to_a"}}selected{{end}}>Z to A</option>
-        </select>
-
-        <!-- Category Filter -->
-        <select id="category" class="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
-          <option value="" {{if eq .Query.Category ""}}selected{{end}}>All Categories</option>
-          {{range .Categories}}
-            <option value="{{.CategoryName}}" {{if eq $.Query.Category .CategoryName}}selected{{end}}>{{.CategoryName}}</option>
-          {{end}}
-        </select>
-
-        <!-- Pre-built Price Range -->
-        <select id="price-range" class="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
-          <option value="" {{if and (eq .Query.PriceMin 0.0) (eq .Query.PriceMax 0.0)}}selected{{end}}>All Prices</option>
-          <option value="0-500" {{if and (eq .Query.PriceMin 0.0) (eq .Query.PriceMax 500.0)}}selected{{end}}>₹0 - ₹500</option>
-          <option value="500-1000" {{if and (eq .Query.PriceMin 500.0) (eq .Query.PriceMax 1000.0)}}selected{{end}}>₹500 - ₹1,000</option>
-          <option value="1000-2000" {{if and (eq .Query.PriceMin 1000.0) (eq .Query.PriceMax 2000.0)}}selected{{end}}>₹1,000 - ₹2,000</option>
-          <option value="2000-5000" {{if and (eq .Query.PriceMin 2000.0) (eq .Query.PriceMax 5000.0)}}selected{{end}}>₹2,000 - ₹5,000</option>
-          <option value="5000-" {{if and (eq .Query.PriceMin 5000.0) (eq .Query.PriceMax 0.0)}}selected{{end}}>₹5,000+</option>
-        </select>
+      <div class="relative">
+        <input type="text" id="search" class="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 pl-10" placeholder="Search products..." value="{{.Query.Search}}">
+        <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+        <button id="clear-search" class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-red-600"><i class="fas fa-times"></i></button>
       </div>
-      <button id="apply-filters" class="mt-4 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors">Apply Filters</button>
     </div>
 
-    <!-- Product Listing -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
-      {{if .Products}}
-        {{range .Products}}
-          <div class="relative bg-white rounded-xl shadow-md overflow-hidden group transform transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
-            <div class="relative">
-              {{if gt (len .Images) 0}}
-                <img src="{{index .Images 0}}" alt="{{.ProductName}}" class="w-full h-56 object-cover transition-opacity duration-300 group-hover:opacity-75">
-              {{else}}
-                <img src="/static/default-product.jpg" alt="{{.ProductName}}" class="w-full h-56 object-cover transition-opacity duration-300 group-hover:opacity-75">
-              {{end}}
-              <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                <a href="/product/details/{{.ID}}" class="bg-indigo-600 text-white px-6 py-2 rounded-full font-medium hover:bg-indigo-700 transition-colors duration-200">View Product</a>
-              </div>
-            </div>
-            <div class="p-4">
-              <h3 class="text-lg font-semibold text-gray-900 truncate">{{.ProductName}}</h3>
-              <p class="text-gray-500 text-sm">{{.CategoryName}}</p>
-              <div class="flex justify-between items-center mt-2">
-                <p class="text-indigo-600 font-bold text-lg">₹{{printf "%.2f" .Price}}</p>
-                <button class="text-indigo-600 hover:text-indigo-800 transition-colors" onclick="addToCart('{{.ID}}')">
-                  <i class="fas fa-cart-plus text-xl"></i>
-                </button>
-              </div>
+    <div class="flex flex-col md:flex-row gap-6">
+      <!-- Left Side Filters -->
+      <div class="w-full md:w-1/4">
+        <div class="bg-white p-4 rounded-lg shadow-md sticky top-4">
+          <h3 class="font-medium text-lg text-gray-900 mb-4 pb-2 border-b">Filters</h3>
+          
+          <!-- Sort - As radio buttons -->
+          <div class="mb-6">
+            <h4 class="text-sm font-medium text-gray-700 mb-2">Sort By</h4>
+            <div class="space-y-2">
+              <label class="flex items-center">
+                <input type="radio" name="sort" value="" {{if eq .Query.Sort ""}}checked{{end}} class="h-4 w-4 text-indigo-600 focus:ring-indigo-500">
+                <span class="ml-2 text-sm text-gray-700">Default</span>
+              </label>
+              <label class="flex items-center">
+                <input type="radio" name="sort" value="price_low_to_high" {{if eq .Query.Sort "price_low_to_high"}}checked{{end}} class="h-4 w-4 text-indigo-600 focus:ring-indigo-500">
+                <span class="ml-2 text-sm text-gray-700">Price: Low to High</span>
+              </label>
+              <label class="flex items-center">
+                <input type="radio" name="sort" value="price_high_to_low" {{if eq .Query.Sort "price_high_to_low"}}checked{{end}} class="h-4 w-4 text-indigo-600 focus:ring-indigo-500">
+                <span class="ml-2 text-sm text-gray-700">Price: High to Low</span>
+              </label>
+              <label class="flex items-center">
+                <input type="radio" name="sort" value="a_to_z" {{if eq .Query.Sort "a_to_z"}}checked{{end}} class="h-4 w-4 text-indigo-600 focus:ring-indigo-500">
+                <span class="ml-2 text-sm text-gray-700">A to Z</span>
+              </label>
+              <label class="flex items-center">
+                <input type="radio" name="sort" value="z_to_a" {{if eq .Query.Sort "z_to_a"}}checked{{end}} class="h-4 w-4 text-indigo-600 focus:ring-indigo-500">
+                <span class="ml-2 text-sm text-gray-700">Z to A</span>
+              </label>
             </div>
           </div>
-        {{end}}
-      {{else}}
-        <p class="text-center text-gray-500 col-span-full text-lg">No products found</p>
-      {{end}}
+
+          <!-- Category Filter - As radio buttons -->
+          <div class="mb-6">
+            <h4 class="text-sm font-medium text-gray-700 mb-2">Category</h4>
+            <div class="space-y-2">
+              <label class="flex items-center">
+                <input type="radio" name="category" value="" {{if eq .Query.Category ""}}checked{{end}} class="h-4 w-4 text-indigo-600 focus:ring-indigo-500">
+                <span class="ml-2 text-sm text-gray-700">All Categories</span>
+              </label>
+              {{range .Categories}}
+                <label class="flex items-center">
+                  <input type="radio" name="category" value="{{.CategoryName}}" {{if eq $.Query.Category .CategoryName}}checked{{end}} class="h-4 w-4 text-indigo-600 focus:ring-indigo-500">
+                  <span class="ml-2 text-sm text-gray-700">{{.CategoryName}}</span>
+                </label>
+              {{end}}
+            </div>
+          </div>
+
+          <!-- Price Range - As radio buttons -->
+          <div class="mb-6">
+            <h4 class="text-sm font-medium text-gray-700 mb-2">Price Range</h4>
+            <div class="space-y-2">
+              <label class="flex items-center">
+                <input type="radio" name="price-range" value="" {{if and (eq .Query.PriceMin 0.0) (eq .Query.PriceMax 0.0)}}checked{{end}} class="h-4 w-4 text-indigo-600 focus:ring-indigo-500">
+                <span class="ml-2 text-sm text-gray-700">All Prices</span>
+              </label>
+              <label class="flex items-center">
+                <input type="radio" name="price-range" value="0-500" {{if and (eq .Query.PriceMin 0.0) (eq .Query.PriceMax 500.0)}}checked{{end}} class="h-4 w-4 text-indigo-600 focus:ring-indigo-500">
+                <span class="ml-2 text-sm text-gray-700">₹0 - ₹500</span>
+              </label>
+              <label class="flex items-center">
+                <input type="radio" name="price-range" value="500-1000" {{if and (eq .Query.PriceMin 500.0) (eq .Query.PriceMax 1000.0)}}checked{{end}} class="h-4 w-4 text-indigo-600 focus:ring-indigo-500">
+                <span class="ml-2 text-sm text-gray-700">₹500 - ₹1,000</span>
+              </label>
+              <label class="flex items-center">
+                <input type="radio" name="price-range" value="1000-2000" {{if and (eq .Query.PriceMin 1000.0) (eq .Query.PriceMax 2000.0)}}checked{{end}} class="h-4 w-4 text-indigo-600 focus:ring-indigo-500">
+                <span class="ml-2 text-sm text-gray-700">₹1,000 - ₹2,000</span>
+              </label>
+              <label class="flex items-center">
+                <input type="radio" name="price-range" value="2000-5000" {{if and (eq .Query.PriceMin 2000.0) (eq .Query.PriceMax 5000.0)}}checked{{end}} class="h-4 w-4 text-indigo-600 focus:ring-indigo-500">
+                <span class="ml-2 text-sm text-gray-700">₹2,000 - ₹5,000</span>
+              </label>
+              <label class="flex items-center">
+                <input type="radio" name="price-range" value="5000-" {{if and (eq .Query.PriceMin 5000.0) (eq .Query.PriceMax 0.0)}}checked{{end}} class="h-4 w-4 text-indigo-600 focus:ring-indigo-500">
+                <span class="ml-2 text-sm text-gray-700">₹5,000+</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Clear filters button - only visible when filters are active -->
+          <div id="clear-filters-container" class="mt-4" style="display: none;">
+            <button id="clear-filters" class="w-full bg-gray-200 text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-300 transition-colors flex items-center justify-center">
+              <i class="fas fa-times-circle mr-2"></i>Clear All Filters
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Product Listing -->
+      <div class="w-full md:w-3/4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {{if .Products}}
+            {{range .Products}}
+              <div class="relative bg-white rounded-xl shadow-md overflow-hidden group transform transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
+                <div class="relative">
+                  {{if gt (len .Images) 0}}
+                    <img src="{{index .Images 0}}" alt="{{.ProductName}}" class="w-full h-56 object-cover transition-opacity duration-300 group-hover:opacity-75">
+                  {{else}}
+                    <img src="/static/default-product.jpg" alt="{{.ProductName}}" class="w-full h-56 object-cover transition-opacity duration-300 group-hover:opacity-75">
+                  {{end}}
+                  <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                    <a href="/product/details/{{.ID}}" class="bg-indigo-600 text-white px-6 py-2 rounded-full font-medium hover:bg-indigo-700 transition-colors duration-200">View Product</a>
+                  </div>
+                  {{if not (anyVariantInStock .Variants)}}
+                  <div class="out-of-stock-badge absolute top-3 right-3 bg-gradient-to-r from-red-500 to-red-600 text-white text-xs font-semibold px-3 py-1 rounded-full shadow-sm">Out of Stock</div>
+                 {{end}}
+                </div>
+                <div class="p-4">
+                  <h3 class="text-lg font-semibold text-gray-900 truncate">{{.ProductName}}</h3>
+                  <p class="text-gray-500 text-sm">{{.CategoryName}}</p>
+                  <div class="flex justify-between items-center mt-2">
+                    <p class="text-indigo-600 font-bold text-lg">₹{{printf "%.2f" .Price}}</p>
+                    <button class="text-indigo-600 hover:text-indigo-800 transition-colors" onclick="addToCart('{{.ID}}')">
+                      <i class="fas fa-cart-plus text-xl"></i>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            {{end}}
+          {{else}}
+            <p class="text-center text-gray-500 col-span-full text-lg">No products found</p>
+          {{end}}
+        </div>
+      </div>
     </div>
   </div>
 
@@ -103,22 +169,83 @@
     document.addEventListener('DOMContentLoaded', function() {
       const searchInput = document.getElementById('search');
       const clearSearchBtn = document.getElementById('clear-search');
-      const sortSelect = document.getElementById('sort');
-      const categorySelect = document.getElementById('category');
-      const priceRangeSelect = document.getElementById('price-range');
-      const applyFiltersBtn = document.getElementById('apply-filters');
+      const clearFiltersBtn = document.getElementById('clear-filters');
+      const clearFiltersContainer = document.getElementById('clear-filters-container');
+      
+      // Get all radio inputs for filters
+      const sortRadios = document.querySelectorAll('input[name="sort"]');
+      const categoryRadios = document.querySelectorAll('input[name="category"]');
+      const priceRangeRadios = document.querySelectorAll('input[name="price-range"]');
+      
+      // Function to check if any filters are active
+      function checkForActiveFilters() {
+        const hasSearch = searchInput.value.trim() !== '';
+        const hasSort = Array.from(sortRadios).some(radio => radio.checked && radio.value !== '');
+        const hasCategory = Array.from(categoryRadios).some(radio => radio.checked && radio.value !== '');
+        const hasPriceRange = Array.from(priceRangeRadios).some(radio => radio.checked && radio.value !== '');
+        
+        // Show/hide clear filters button based on active filters
+        clearFiltersContainer.style.display = (hasSearch || hasSort || hasCategory || hasPriceRange) ? 'block' : 'none';
+        
+        return hasSearch || hasSort || hasCategory || hasPriceRange;
+      }
 
-      // Clear search
+      // Initial check for active filters
+      checkForActiveFilters();
+
+      // Clear search input and apply
       clearSearchBtn.addEventListener('click', function() {
         searchInput.value = '';
         applyFilters();
       });
 
-      // Apply filters
-      applyFiltersBtn.addEventListener('click', applyFilters);
+      // Search input event
+      searchInput.addEventListener('input', function() {
+        checkForActiveFilters();
+      });
+      
+      searchInput.addEventListener('keyup', function(e) {
+        if (e.key === 'Enter') {
+          applyFilters();
+        }
+      });
+
+      // Add event listeners to all radio buttons
+      function addRadioListeners(radios) {
+        radios.forEach(radio => {
+          radio.addEventListener('change', function() {
+            checkForActiveFilters();
+            applyFilters();
+          });
+        });
+      }
+      
+      addRadioListeners(sortRadios);
+      addRadioListeners(categoryRadios);
+      addRadioListeners(priceRangeRadios);
+
+      // Clear all filters
+      clearFiltersBtn.addEventListener('click', function() {
+        // Reset search input
+        searchInput.value = '';
+        
+        // Reset all radio buttons to default options
+        document.querySelector('input[name="sort"][value=""]').checked = true;
+        document.querySelector('input[name="category"][value=""]').checked = true;
+        document.querySelector('input[name="price-range"][value=""]').checked = true;
+        
+        // Update UI and apply filters
+        checkForActiveFilters();
+        applyFilters();
+      });
 
       function applyFilters() {
-        const priceRange = priceRangeSelect.value.split('-');
+        // Get selected radio values
+        const selectedSort = document.querySelector('input[name="sort"]:checked').value;
+        const selectedCategory = document.querySelector('input[name="category"]:checked').value;
+        const selectedPriceRange = document.querySelector('input[name="price-range"]:checked').value;
+        
+        const priceRange = selectedPriceRange.split('-');
         let priceMin = 0;
         let priceMax = 0;
         if (priceRange[0] !== '') {
@@ -128,8 +255,8 @@
 
         const query = {
           search: searchInput.value.trim(),
-          sort: sortSelect.value,
-          category: categorySelect.value,
+          sort: selectedSort,
+          category: selectedCategory,
           price_min: priceMin,
           price_max: priceMax
         };

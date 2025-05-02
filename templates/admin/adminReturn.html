@@ -6,95 +6,198 @@
     <title>Admin - Return Requests</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .sidebar { min-height: calc(100vh - 56px); }
+        .shadow-glow { box-shadow: 0 4px 15px rgba(0, 123, 255, 0.2); }
+        .hover-scale:hover {
+            transform: scale(1.05);
+            transition: transform 0.2s ease-in-out;
+        }
+        .returns-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .returns-table th, .returns-table td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .returns-table th {
+            background-color: #f9fafb;
+            font-weight: 600;
+            color: #374151;
+        }
+        .returns-table tr:hover {
+            background-color: #f3f4f6;
+        }
+    </style>
 </head>
-<body class="bg-gray-100 min-h-screen">
-    <div class="container mx-auto p-6">
-        <h1 class="text-3xl font-bold text-gray-900 mb-6">Return Requests</h1>
-        <div class="bg-white rounded-lg shadow-md overflow-x-auto">
-            <table class="min-w-full">
-                <thead class="bg-gray-200">
-                    <tr>
-                        <th class="p-3 text-left">Order ID</th>
-                        <th class="p-3 text-left">User</th>
-                        <th class="p-3 text-left">Reason</th>
-                        <th class="p-3 text-left">Total</th>
-                        <th class="p-3 text-left">Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {{range .Returns}}
-                    <tr class="border-b">
-                        <td class="p-3">{{.Order.OrderIdUnique}}</td>
-                        <td class="p-3">{{.Order.User.UserName}} ({{.Order.User.Email}})</td>
-                        <td class="p-3">{{.Reason}}</td>
-                        <td class="p-3">${{printf "%.2f" .Order.TotalPrice}}</td>
-                        <td class="p-3">
-                            <button onclick="verifyReturn('{{.ID}}', true)" class="text-green-600 hover:text-green-800">Approve</button>
-                            <button onclick="verifyReturn('{{.ID}}', false)" class="ml-2 text-red-600 hover:text-red-800">Reject</button>
-                        </td>
-                    </tr>
-                    {{else}}
-                    <tr><td colspan="5" class="p-3 text-center text-gray-500">No return requests</td></tr>
-                    {{end}}
-                </tbody>
-            </table>
+<body class="bg-gray-100 font-sans min-h-screen">
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg bg-gray-800 text-white shadow-md">
+        <div class="container-fluid px-4">
+            <a class="navbar-brand text-xl font-bold text-white hover:text-blue-300 transition-colors" href="/admin/dashboard">Admin Dashboard</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto space-x-4">
+                    <li class="nav-item">
+                        <a class="nav-link text-gray-200 hover:text-blue-300 transition-colors" href="/admin/profile">Profile</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link text-gray-200 hover:text-blue-300 transition-colors" href="#" onclick="logout(event)">Logout</a>
+                    </li>
+                </ul>
+            </div>
         </div>
-        <a href="/admin/orders" class="mt-4 inline-block text-indigo-600 hover:text-indigo-800">Back to Orders</a>
+    </nav>
+
+    <!-- Main Container -->
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Sidebar -->
+            <div class="col-md-2 sidebar bg-gray-900 text-white p-4">
+                <a href="/admin/user-management" class="block py-2 px-3 rounded hover:bg-gray-700 hover:text-white transition-colors">Customers</a>
+                <a href="/admin/category" class="block py-2 px-3 rounded hover:bg-gray-700 hover:text-white transition-colors">Categories</a>
+                <a href="/admin/products" class="block py-2 px-3 rounded hover:bg-gray-700 hover:text-white transition-colors">Products</a>
+                <a href="/admin/orders" class="block py-2 px-3 rounded hover:bg-gray-700 hover:text-white transition-colors">Orders</a>
+                <a href="/admin/coupons" class="block py-2 px-3 rounded hover:bg-gray-700 hover:text-white transition-colors">Coupons</a>
+                <a href="/admin/returns" class="block py-2 px-3 rounded bg-blue-600 text-white hover:bg-blue-700 transition-colors">Return</a>
+                <a href="#" class="block py-2 px-3 rounded hover:bg-gray-700 hover:text-white transition-colors" onclick="logout(event)">Logout</a>
+            </div>
+
+            <!-- Main Content -->
+            <div class="col-md-10 main-content p-6">
+                <div class="bg-white rounded-lg shadow-md p-6">
+                    <h1 class="text-3xl font-bold text-gray-900 mb-6 tracking-tight">Return Requests</h1>
+
+                    <!-- Returns Table -->
+                    <div class="bg-white rounded-xl shadow-glow overflow-x-auto">
+                        <table class="returns-table table table-striped table-bordered">
+                            <thead class="bg-gray-800 text-white">
+                                <tr>
+                                    <th class="p-3 text-left">Order ID</th>
+                                    <th class="p-3 text-left">User</th>
+                                    <th class="p-3 text-left">Reason</th>
+                                    <th class="p-3 text-left">Total</th>
+                                    <th class="p-3 text-left">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {{range .Returns}}
+                                <tr class="border-b hover:bg-gray-50 transition-colors">
+                                    <td class="p-3">{{.Order.OrderIdUnique}}</td>
+                                    <td class="p-3">{{.Order.User.UserName}} ({{.Order.User.Email}})</td>
+                                    <td class="p-3">{{.Reason}}</td>
+                                    <td class="p-3">${{printf "%.2f" .Order.TotalPrice}}</td>
+                                    <td class="p-3">
+                                        <button onclick="verifyReturn('{{.ID}}', true)" class="text-green-600 hover:text-green-800 hover-scale transition-all mr-2">
+                                            <i class="fas fa-check mr-1"></i>Approve
+                                        </button>
+                                        <button onclick="verifyReturn('{{.ID}}', false)" class="text-red-600 hover:text-red-800 hover-scale transition-all">
+                                            <i class="fas fa-times mr-1"></i>Reject
+                                        </button>
+                                    </td>
+                                </tr>
+                                {{else}}
+                                <tr>
+                                    <td colspan="5" class="p-3 text-center text-gray-500">No return requests</td>
+                                </tr>
+                                {{end}}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Back to Orders Link -->
+                    <a href="/admin/orders" class="mt-4 inline-block text-indigo-600 hover:text-indigo-800 hover-scale transition-all">
+                        <i class="fas fa-arrow-left mr-2"></i>Back to Orders
+                    </a>
+                </div>
+            </div>
+        </div>
     </div>
 
+    <!-- Footer -->
+    <div class="footer bg-gray-800 text-white text-center py-4 mt-6">
+        <p>© 2025 Admin Dashboard. All rights reserved.</p>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-function verifyReturn(returnId, approve) {
-    Swal.fire({
-        title: `${approve ? 'Approve' : 'Reject'} Return?`,
-        text: `Are you sure you want to ${approve ? 'approve' : 'reject'} this return request?`,
-        showCancelButton: true,
-        confirmButtonText: 'Yes',
-        confirmButtonColor: approve ? '#10b981' : '#ef4444',
-    }).then((result) => {
-        if (result.isConfirmed) {
-            // Create a payload with the proper casing and type
-            const payload = JSON.stringify({
-                "approve": approve  // Make sure this is a boolean
-            });
-            
-            console.log("Sending payload:", payload);
-            
-            fetch(`/admin/returns/${returnId}/verify`, {
-                method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json'
-                },
-                body: payload,
-                credentials: 'include'
-            })
-            .then(response => {
-                console.log("Response status:", response.status);
-                return response.text().then(text => {
-                    console.log("Raw response:", text);
-                    try {
-                        return JSON.parse(text);
-                    } catch (e) {
-                        console.error("Failed to parse JSON:", e);
-                        return { status: 'error', error: 'Invalid server response' };
-                    }
-                });
-            })
-            .then(data => {
-                console.log("Processed response data:", data);
-                if (data.status === 'ok') {
-                    Swal.fire('Success', `Return request ${approve ? 'approved' : 'rejected'}`, 'success')
-                        .then(() => location.reload());
-                } else {
-                    Swal.fire('Error', data.error || data.details || 'Failed to process return', 'error');
+        function verifyReturn(returnId, approve) {
+            Swal.fire({
+                title: `${approve ? 'Approve' : 'Reject'} Return?`,
+                text: `Are you sure you want to ${approve ? 'approve' : 'reject'} this return request?`,
+                showCancelButton: true,
+                confirmButtonText: 'Yes',
+                confirmButtonColor: approve ? '#10b981' : '#ef4444',
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    const payload = JSON.stringify({
+                        "approve": approve
+                    });
+
+                    console.log("Sending payload:", payload);
+
+                    fetch(`/admin/returns/${returnId}/verify`, {
+                        method: 'POST',
+                        headers: { 
+                            'Content-Type': 'application/json'
+                        },
+                        body: payload,
+                        credentials: 'include'
+                    })
+                    .then(response => {
+                        console.log("Response status:", response.status);
+                        return response.text().then(text => {
+                            console.log("Raw response:", text);
+                            try {
+                                return JSON.parse(text);
+                            } catch (e) {
+                                console.error("Failed to parse JSON:", e);
+                                return { status: 'error', error: 'Invalid server response' };
+                            }
+                        });
+                    })
+                    .then(data => {
+                        console.log("Processed response data:", data);
+                        if (data.status === 'ok') {
+                            Swal.fire('Success', `Return request ${approve ? 'approved' : 'rejected'}`, 'success')
+                                .then(() => location.reload());
+                        } else {
+                            Swal.fire('Error', data.error || data.details || 'Failed to process return', 'error');
+                        }
+                    })
+                    .catch(error => {
+                        console.error("Fetch error:", error);
+                        Swal.fire('Error', 'Network or server error', 'error');
+                    });
                 }
-            })
-            .catch(error => {
-                console.error("Fetch error:", error);
-                Swal.fire('Error', 'Network or server error', 'error');
             });
         }
-    });
-}
+
+        async function logout(event) {
+            event.preventDefault();
+            try {
+                const response = await fetch('/admin/logout', {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+
+                if (response.ok) {
+                    window.location.replace("/admin/login");
+                } else {
+                    const errorData = await response.json();
+                    Swal.fire("Error", errorData.message || "Logout failed", "error");
+                }
+            } catch (error) {
+                Swal.fire("Error", "An error occurred while logging out", "error");
+            }
+        }
     </script>
 </body>
 </html>

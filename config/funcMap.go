@@ -2,6 +2,7 @@ package config
 
 import (
 	"text/template"
+	"github.com/Sojil8/eCommerce-silver/models/adminModels" // Adjust import based on your project structure
 )
 
 func SetupTemplateFunctions() template.FuncMap {
@@ -21,6 +22,14 @@ func SetupTemplateFunctions() template.FuncMap {
 		},
 		"mul": func(a float64, b uint) float64 {
 			return a * float64(b)
+		},
+		"anyVariantInStock": func(variants []adminModels.Variants) bool {
+			for _, v := range variants {
+				if v.Stock > 0 {
+					return true
+				}
+			}
+			return false
 		},
 	}
 }

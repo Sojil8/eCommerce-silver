@@ -7,7 +7,6 @@ import (
 
 	"github.com/Sojil8/eCommerce-silver/database"
 	"github.com/Sojil8/eCommerce-silver/helper"
-	"github.com/Sojil8/eCommerce-silver/middleware"
 	"github.com/Sojil8/eCommerce-silver/models/adminModels"
 	"github.com/gin-gonic/gin"
 )
@@ -20,7 +19,7 @@ func ShowAddProductForm(c *gin.Context) {
 	}
 
 	c.HTML(http.StatusOK, "productAdd.html", gin.H{
-		"Product":    nil, 
+		"Product":    nil,
 		"Categories": categories,
 	})
 }
@@ -49,16 +48,6 @@ func ShowEditProductForm(c *gin.Context) {
 		"Product":    &product,
 		"Categories": categories,
 	})
-}
-
-
-func GetCategoriesAPI(c *gin.Context) {
-	var categories []adminModels.Category
-	if err := database.DB.Where("status = ?", true).Find(&categories).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch categories"})
-		return
-	}
-	c.JSON(http.StatusOK, categories)
 }
 
 func AddProduct(c *gin.Context) {
@@ -170,7 +159,7 @@ func AddProduct(c *gin.Context) {
 }
 
 func EditProduct(c *gin.Context) {
-	middleware.ClearCache()
+
 	idStr := c.Param("id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
@@ -218,8 +207,8 @@ func EditProduct(c *gin.Context) {
 	}
 
 	files := form.File["images"]
-	if len(files) > 0 { 
-		if len(files) + len(product.Images) < 3 && len(files) < 3 {
+	if len(files) > 0 {
+		if len(files)+len(product.Images) < 3 && len(files) < 3 {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "At least 3 images are required when updating images"})
 			return
 		}
