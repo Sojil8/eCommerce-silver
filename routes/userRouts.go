@@ -41,6 +41,7 @@ func UserRoutes(c *gin.Engine) {
 			protected.GET("/profile/verify-email", controllers.ShowVerifyEditEmail)
 			protected.POST("/profile/verify-email", controllers.VerifyEditEmail)
 			protected.POST("/profile/change-password", controllers.ChangePassword)
+			protected.GET("/wallet/balance", controllers.ShowWallet)
 
 			// Cart
 			protected.GET("/cart", controllers.GetCart)
@@ -81,6 +82,9 @@ func UserRoutes(c *gin.Engine) {
 			protected.POST("/checkout/apply-coupon", controllers.ApplyCoupon)
 			protected.POST("/checkout/remove-coupon", controllers.RemoveCoupon)
 			protected.GET("/checkout/available-coupons",controllers.GetAvailableCoupons)
+
+			//wallet
+			
 
 
 			protected.POST("/logout", controllers.LogoutUser)

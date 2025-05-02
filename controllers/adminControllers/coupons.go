@@ -45,6 +45,11 @@ func AddCoupon(c *gin.Context) {
 		return
 	}
 
+	if req.DiscountPercentage >=50{
+		helper.ResponseWithErr(c,http.StatusBadRequest,"discount percentage should be less than 50","discount percentage should be less than 50","")
+		return
+	}
+
 	if req.MinPurchaseAmount > req.MaxPurchaseAmount && req.MaxPurchaseAmount > 0 {
 		helper.ResponseWithErr(c, http.StatusBadRequest, "Invalid amounts", "Min purchase amount cannot exceed max purchase amount", "")
 		return
@@ -55,6 +60,7 @@ func AddCoupon(c *gin.Context) {
 		helper.ResponseWithErr(c, http.StatusBadRequest, "Coupon code exists", "Coupon code already exists", "")
 		return
 	}
+	
 
 	coupon := adminModels.Coupons{
 		CouponCode:         req.CouponCode,
@@ -152,6 +158,11 @@ func EditCoupon(c *gin.Context) {
 
 	if req.MinPurchaseAmount > req.MaxPurchaseAmount && req.MaxPurchaseAmount > 0 {
 		helper.ResponseWithErr(c, http.StatusBadRequest, "Invalid amounts", "Min purchase amount cannot exceed max purchase amount", "")
+		return
+	}
+
+	if req.DiscountPercentage >= 50{
+		helper.ResponseWithErr(c,http.StatusBadRequest,"discount percentage should be less than 50","discount percentage should be less than 50","")
 		return
 	}
 

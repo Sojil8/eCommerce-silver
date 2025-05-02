@@ -1,12 +1,20 @@
 package config
 
 import (
+	"strings"
 	"text/template"
+
 	"github.com/Sojil8/eCommerce-silver/models/adminModels" // Adjust import based on your project structure
 )
 
 func SetupTemplateFunctions() template.FuncMap {
 	return template.FuncMap{
+		"title": func(s string) string {
+			if s == "" {
+				return s
+			}
+			return strings.ToUpper(string(s[0])) + s[1:]
+		},
 		"sub": func(a, b int) int {
 			return a - b
 		},

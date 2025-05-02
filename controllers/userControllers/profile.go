@@ -14,60 +14,60 @@ import (
 )
 
 func ShowProfile(c *gin.Context) {
-	userID, _ := c.Get("id")
-	var user userModels.Users
-	var addresses []userModels.Address
-	var orders []userModels.Orders
-
-	if err := database.DB.First(&user, userID).Error; err != nil {
-		helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to load profile", "Database error", "")
+	userID, exists := c.Get("id")
+	if !exists {
+		helper.ResponseWithErr(c, http.StatusUnauthorized, "User ID not found in context", "Please log in", "/login")
 		return
 	}
 
-	if err := database.DB.Where("user_id = ?", userID).Find(&addresses).Error; err != nil {
-		helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to load addresses", "Database error", "")
+	userIDUint, ok := userID.(uint)
+	if !ok {
+		helper.ResponseWithErr(c, http.StatusInternalServerError, "Invalid user ID type", "Error processing user ID", "")
 		return
 	}
 
-	if err := database.DB.Preload("OrderItems").Preload("OrderItems.Product").
-		Where("user_id = ?", userID).
-		Order("created_at DESC").
-		Find(&orders).Error; err != nil {
-		helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to load orders", "Database error", "")
-		return
-	}
-
-	userr, exists := c.Get("user")
+	user, exists := c.Get("user")
 	userName, nameExists := c.Get("user_name")
 	if !exists || !nameExists {
-		c.HTML(http.StatusOK, "home.html", gin.H{
-			"status":        "success",
-			"UserName":      "Guest",
-			"WishlistCount": 0,
-			"CartCount":     0,
-			"ProfileImage":"",
-		})
+		helper.ResponseWithErr(c, http.StatusUnauthorized, "User data not found", "Please log in", "/login")
 		return
 	}
 
-	userData := userr.(userModels.Users)
+	userData := user.(userModels.Users)
 	userNameStr := userName.(string)
 
+	// Fetch wallet
+	var wallet userModels.Wallet
+	if err := database.DB.Where("user_id = ?", userIDUint).First(&wallet).Error; err != nil {
+		// Wallet not found, create a new one
+		wallet = userModels.Wallet{
+			UserID:  userIDUint,
+			Balance: 0.0,
+		}
+		if err := database.DB.Create(&wallet).Error; err != nil {
+			helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to create wallet", "Error creating wallet", "")
+			return
+		}
+	}
+
+	// Fetch addresses, orders, etc.
+	var addresses []userModels.Address
+	database.DB.Where("user_id = ?", userIDUint).Find(&addresses)
+
+	var orders []userModels.Orders
+	database.DB.Where("user_id = ?", userIDUint).Preload("OrderItems.Product").Order("order_date DESC").Find(&orders)
+
 	var wishlistCount, cartCount int64
-	if err := database.DB.Model(&userModels.Wishlist{}).Where("user_id = ?", userData.ID).Count(&wishlistCount).Error; err != nil {
-		wishlistCount = 0
-	}
-	if err := database.DB.Model(&userModels.CartItem{}).Joins("JOIN carts ON carts.id = cart_items.cart_id").Where("carts.user_id = ?", userData.ID).Count(&cartCount).Error; err != nil {
-		cartCount = 0
-	}
-
-
+	database.DB.Model(&userModels.Wishlist{}).Where("user_id = ?", userData.ID).Count(&wishlistCount)
+	database.DB.Model(&userModels.CartItem{}).Joins("JOIN carts ON carts.id = cart_items.cart_id").Where("carts.user_id = ?", userData.ID).Count(&cartCount)
 
 	c.HTML(http.StatusOK, "profileNew.html", gin.H{
-		"User":        user,
-		"Addresses":   addresses,
-		"Orders":      orders,
+		"User":          userData,
 		"UserName":      userNameStr,
+		"Wallet":        wallet,
+		"Addresses":     addresses,
+		"Orders":        orders,
+		"ActiveTab":     "profile",
 		"ProfileImage":  userData.ProfileImage,
 		"WishlistCount": wishlistCount,
 		"CartCount":     cartCount,
@@ -403,5 +403,50 @@ func GetAddress(c *gin.Context) {
 		"status":  "ok",
 		"message": "Address fetched successfully",
 		"address": address,
+	})
+}
+
+func ShowWallet(c *gin.Context) {
+	userID, _ := c.Get("id")
+	var wallet userModels.Wallet
+	if err := database.DB.Where("user_id = ?", userID).First(&wallet).Error; err != nil {
+		// Create a new wallet if not found
+		wallet = userModels.Wallet{
+			UserID:  userID.(uint),
+			Balance: 0,
+		}
+		if err := database.DB.Create(&wallet).Error; err != nil {
+			helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to initialize wallet", "Error creating wallet", "")
+			return
+		}
+	}
+
+	user, exists := c.Get("user")
+	userName, nameExists := c.Get("user_name")
+	if !exists || !nameExists {
+		helper.ResponseWithErr(c, http.StatusUnauthorized, "User data not found", "Please log in", "/login")
+		return
+	}
+
+	userData := user.(userModels.Users)
+	userNameStr := userName.(string)
+
+	var wishlistCount, cartCount int64
+	if err := database.DB.Model(&userModels.Wishlist{}).Where("user_id = ?", userData.ID).Count(&wishlistCount).Error; err != nil {
+		wishlistCount = 0
+	}
+	if err := database.DB.Model(&userModels.CartItem{}).Joins("JOIN carts ON carts.id = cart_items.cart_id").Where("carts.user_id = ?", userData.ID).Count(&cartCount).Error; err != nil {
+		cartCount = 0
+	}
+
+	c.HTML(http.StatusOK, "profileNew.html", gin.H{
+		"Wallet": wallet,
+
+		"UserName":      userNameStr,
+		"ProfileImage":  userData.ProfileImage,
+		"WishlistCount": wishlistCount,
+		"CartCount":     cartCount,
+		"UserData":      userData,
+		"ActiveTab":     "wallet",
 	})
 }
