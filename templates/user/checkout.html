@@ -7,7 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11" defer></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/js/all.min.js" crossorigin="anonymous" defer></script>
-    <script src="https://checkout.razorpay.com/v1/checkout.js?v=1.0.0" defer></script>
+    <script src="https://checkout.razorpay.com/v1/checkout.js" defer></script>
     <style>
         .swal2-container { z-index: 9999; }
         .key-value-pair {
@@ -194,7 +194,7 @@
 
                 <!-- Place Order -->
                 <div>
-                    <button onclick="placeOrder()" class="btn-primary w-full py-3 text-sm sm:text-base font-semibold flex items-center justify-center">
+                    <button id="placeOrderBtn" class="btn-primary w-full py-3 text-sm sm:text-base font-semibold flex items-center justify-center">
                         <i class="fas fa-check-circle mr-2"></i> Place Order
                     </button>
                 </div>
@@ -232,11 +232,16 @@
             finalTotal: document.getElementById('finalTotal'),
             paymentMethod: document.getElementById('paymentMethod'),
             couponSection: document.getElementById('couponSection'),
-            couponContainer: document.getElementById('couponContainer')
+            couponContainer: document.getElementById('couponContainer'),
+            placeOrderBtn: document.getElementById('placeOrderBtn')
         };
 
         // Initialize
-        document.addEventListener('DOMContentLoaded', fetchCoupons);
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('DOM loaded, initializing checkout page');
+            fetchCoupons();
+            els.placeOrderBtn.addEventListener('click', placeOrder);
+        });
 
         // Utility Functions
         const showAlert = (icon, title, text, timer = 0) => {
@@ -339,7 +344,6 @@
                     state.discount = data.discount || 0;
                     state.finalTotal = data.final_price || state.subtotal + state.shipping;
 
-                    // Update UI using the couponCode directly
                     els.couponDiscountRow.style.display = 'flex';
                     els.couponDiscount.textContent = `-$${state.discount.toFixed(2)}`;
                     els.finalTotal.textContent = `$${state.finalTotal.toFixed(2)}`;
@@ -358,7 +362,6 @@
                     els.couponMessage.classList.remove('hidden', 'text-red-600');
                     els.couponMessage.classList.add('text-green-600');
 
-                    // Refresh available coupons
                     await fetchCoupons();
                 } else {
                     els.couponMessage.textContent = data.message || 'Invalid coupon';
@@ -385,7 +388,6 @@
                     state.discount = 0;
                     state.finalTotal = data.final_price || state.subtotal + state.shipping;
 
-                    // Update UI
                     els.couponDiscountRow.style.display = 'none';
                     els.finalTotal.textContent = `$${state.finalTotal.toFixed(2)}`;
                     els.couponContainer.innerHTML = `
@@ -396,14 +398,12 @@
                         </div>
                         <p id="couponMessage" class="mt-2 text-xs sm:text-sm text-gray-600 hidden"></p>
                     `;
-                    // Rebind DOM elements
                     els.couponCode = document.getElementById('couponCode');
                     els.couponMessage = document.getElementById('couponMessage');
                     els.couponMessage.textContent = 'Coupon removed successfully!';
                     els.couponMessage.classList.remove('hidden', 'text-red-600');
                     els.couponMessage.classList.add('text-green-600');
 
-                    // Refresh available coupons
                     await fetchCoupons();
                 } else {
                     els.couponMessage.textContent = data.message || 'Failed to remove coupon';
@@ -566,6 +566,11 @@
 
         // Order Functions
         async function placeOrder() {
+            console.log('Place Order button clicked', {
+                selectedAddressId: state.selectedAddressId,
+                paymentMethod: els.paymentMethod.value
+            });
+
             if (!state.selectedAddressId || !els.addressSelect.value) {
                 showAlert('warning', 'No Address Selected', 'Please select a delivery address.', 2000);
                 return;
@@ -577,6 +582,8 @@
                     payment_method: els.paymentMethod.value
                 });
                 closeLoading();
+
+                console.log('Place Order response:', data);
 
                 if (data.status === 'payment_required') {
                     if (els.paymentMethod.value === 'COD') {
@@ -613,6 +620,14 @@
                                     contact: "{{.UserPhone}}" || ''
                                 },
                                 theme: { color: '#4f46e5' },
+                                methods: {
+                                    card: true,
+                                    netbanking: true,
+                                    upi: true,
+                                    wallet: true,
+                                    emi: true,
+                                    paylater: true
+                                },
                                 modal: {
                                     ondismiss: () => {
                                         showAlert('warning', 'Payment Cancelled', 'Payment was cancelled by the user.', 2000);
@@ -644,6 +659,7 @@
         }
 
         async function verifyPayment(response) {
+            console.log('Verifying payment:', response);
             try {
                 showLoading();
                 const data = await apiCall('/checkout/verify-payment', 'POST', {

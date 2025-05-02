@@ -317,7 +317,7 @@ func PlaceOrder(c *gin.Context) {
 		amount := int(finalPrice * 100)
 		data := map[string]interface{}{
 			"amount":   amount,
-			"currency": "USD",
+			"currency": "INR", // Changed from USD to INR to match frontend
 			"receipt":  fmt.Sprintf("receipt_%d_%d", userID, time.Now().Unix()),
 		}
 

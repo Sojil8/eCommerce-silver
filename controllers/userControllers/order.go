@@ -104,6 +104,7 @@ func CancelOrder(c *gin.Context) {
 			if err != nil {
 				return fmt.Errorf("failed to initiate refund: %v", err)
 			}
+
 			payment.Status = "Refunded"
 			if err := tx.Save(&payment).Error; err != nil {
 				return fmt.Errorf("failed to update payment status: %v", err)
@@ -310,111 +311,6 @@ func ReturnOrder(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"status": "ok", "message": "Return requested successfully"})
 }
 
-func ApproveReturn(c *gin.Context) {
-	orderID := c.Param("order_id")
-
-	err := database.DB.Transaction(func(tx *gorm.DB) error {
-		var order userModels.Orders
-		if err := tx.Where("order_id_unique = ?", orderID).Preload("OrderItems").First(&order).Error; err != nil {
-			return err
-		}
-		if order.Status != "Return Requested" {
-			return gin.Error{Meta: gin.H{"error": "Only return requested orders can be approved"}}
-		}
-
-		for _, item := range order.OrderItems {
-			if item.Status == "Active" {
-				if err := incrementStock(tx, item.VariantsID, item.Quantity); err != nil {
-					return err
-				}
-				item.Status = "Returned"
-				if err := tx.Save(&item).Error; err != nil {
-					return err
-				}
-			}
-		}
-
-		if order.PaymentMethod == "ONLINE" {
-			var payment adminModels.PaymentDetails
-			if err := tx.Where("order_id = ? AND status = ?", order.ID, "Success").First(&payment).Error; err != nil {
-				return fmt.Errorf("payment details not found: %v", err)
-			}
-
-			client := razorpay.NewClient(os.Getenv("RAZORPAY_KEY_ID"), os.Getenv("RAZORPAY_KEY_SECRET"))
-			data := map[string]interface{}{
-				"payment_id": payment.RazorpayPaymentID,
-				"amount":     int(payment.Amount * 100),
-				"speed":      "normal",
-			}
-			options := map[string]string{}
-			_, err := client.Refund.Create(data, options)
-			if err != nil {
-				return fmt.Errorf("failed to initiate refund: %v", err)
-			}
-			payment.Status = "Refunded"
-			if err := tx.Save(&payment).Error; err != nil {
-				return fmt.Errorf("failed to update payment status: %v", err)
-			}
-		}
-
-		order.Status = "Return Approved"
-		if err := tx.Save(&order).Error; err != nil {
-			return err
-		}
-
-		var returnReq userModels.Return
-		if err := tx.Where("order_id = ?", order.ID).First(&returnReq).Error; err != nil {
-			return err
-		}
-		returnReq.Status = "Approved"
-		return tx.Save(&returnReq).Error
-	})
-	if err != nil {
-		if ginErr, ok := err.(gin.Error); ok && ginErr.Meta != nil {
-			c.JSON(http.StatusBadRequest, ginErr.Meta)
-		} else {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to approve return: %v", err)})
-		}
-		return
-	}
-	c.JSON(http.StatusOK, gin.H{"status": "ok", "message": "Return approved successfully"})
-}
-
-func RejectReturn(c *gin.Context) {
-	orderID := c.Param("order_id")
-
-	err := database.DB.Transaction(func(tx *gorm.DB) error {
-		var order userModels.Orders
-		if err := tx.Where("order_id_unique = ?", orderID).First(&order).Error; err != nil {
-			return err
-		}
-		if order.Status != "Return Requested" {
-			return gin.Error{Meta: gin.H{"error": "Only return requested orders can be rejected"}}
-		}
-
-		order.Status = "Return Rejected"
-		if err := tx.Save(&order).Error; err != nil {
-			return err
-		}
-
-		var returnReq userModels.Return
-		if err := tx.Where("order_id = ?", order.ID).First(&returnReq).Error; err != nil {
-			return err
-		}
-		returnReq.Status = "Rejected"
-		return tx.Save(&returnReq).Error
-	})
-	if err != nil {
-		if ginErr, ok := err.(gin.Error); ok && ginErr.Meta != nil {
-			c.JSON(http.StatusBadRequest, ginErr.Meta)
-		} else {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to reject return: %v", err)})
-		}
-		return
-	}
-	c.JSON(http.StatusOK, gin.H{"status": "ok", "message": "Return rejected successfully"})
-}
-
 func ShowOrderDetails(c *gin.Context) {
 	userID, _ := c.Get("id")
 	orderID := c.Param("order_id")
@@ -427,10 +323,39 @@ func ShowOrderDetails(c *gin.Context) {
 	}
 	var address adminModels.ShippingAddress
 	database.DB.Where("user_id = ? AND order_id = ?", userID, orderID).First(&address)
+
+	user, exists := c.Get("user")
+	userName, nameExists := c.Get("user_name")
+	if !exists || !nameExists {
+		c.HTML(http.StatusOK, "orderDetail.html", gin.H{
+			"status":          "success",
+			"Order":           order,
+			"ShippingAddress": address,
+			"UserName":        "Guest",
+			"WishlistCount":   0,
+			"CartCount":       0,
+			"ProfileImage":    "",
+		})
+		return
+	}
+
+	userData := user.(userModels.Users)
+	userNameStr := userName.(string)
+
+	var wishlistCount, cartCount int64
+	if err := database.DB.Model(&userModels.Wishlist{}).Where("user_id = ?", userData.ID).Count(&wishlistCount).Error; err != nil {
+		wishlistCount = 0
+	}
+	if err := database.DB.Model(&userModels.CartItem{}).Joins("JOIN carts ON carts.id = cart_items.cart_id").Where("carts.user_id = ?", userData.ID).Count(&cartCount).Error; err != nil {
+		cartCount = 0
+	}
 	c.HTML(http.StatusOK, "orderDetail.html", gin.H{
 		"Order":           order,
 		"ShippingAddress": address,
-		"UserName":        c.GetString("user_name"),
+		"UserName":        userNameStr,
+		"ProfileImage":    userData.ProfileImage,
+		"WishlistCount":   wishlistCount,
+		"CartCount":       cartCount,
 	})
 }
 

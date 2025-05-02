@@ -82,7 +82,7 @@ func VerifyPayment(c *gin.Context) {
 					coupon.UsedCount < coupon.UsageLimit &&
 					cart.TotalPrice >= coupon.MinPurchaseAmount &&
 					(coupon.MaxPurchaseAmount == 0 || cart.TotalPrice <= coupon.MaxPurchaseAmount) {
-					discount = coupon.DiscountPercentage
+					discount = cart.TotalPrice * (coupon.DiscountPercentage / 100) // Fixed discount calculation
 					finalPrice -= discount
 				} else {
 					cart.CouponID = 0
@@ -98,7 +98,6 @@ func VerifyPayment(c *gin.Context) {
 			}
 		}
 
-		// Validate minimum order amount
 		if finalPrice < minimumOrderAmount {
 			return fmt.Errorf("order amount too low, must be at least ₹%.2f", minimumOrderAmount)
 		}
@@ -218,3 +217,4 @@ func VerifyPayment(c *gin.Context) {
 		"redirect": fmt.Sprintf("/order/success?order_id=%s", orderIdUnique),
 	})
 }
+
