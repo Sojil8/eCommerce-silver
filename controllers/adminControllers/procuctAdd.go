@@ -267,6 +267,7 @@ func EditProduct(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "At least one variant is required"})
 		return
 	}
+	product.InStock = true
 
 	if err := database.DB.Save(&product).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update product"})

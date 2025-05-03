@@ -93,22 +93,20 @@ func CancelOrder(c *gin.Context) {
 				return fmt.Errorf("payment details not found: %v", err)
 			}
 
-			client := razorpay.NewClient(os.Getenv("RAZORPAY_KEY_ID"), os.Getenv("RAZORPAY_KEY_SECRET"))
-			data := map[string]interface{}{
-				"payment_id": payment.RazorpayPaymentID,
-				"amount":     int(payment.Amount * 100),
-				"speed":      "normal",
+			wallet,err:=EnshureWallet(tx,uint(userID.(uint)))
+			if err!=nil{
+				return err
 			}
-			options := map[string]string{}
-			_, err := client.Refund.Create(data, options)
-			if err != nil {
-				return fmt.Errorf("failed to initiate refund: %v", err)
+			wallet.Balance+=payment.Amount
+			if err:=tx.Save(&wallet).Error;err!=nil{
+				return fmt.Errorf("failed to update wallet balance: %v", err)
 			}
 
-			payment.Status = "Refunded"
-			if err := tx.Save(&payment).Error; err != nil {
+			payment.Status = "RefundedToWallet"
+			if err:=tx.Save(&payment).Error;err!=nil{
 				return fmt.Errorf("failed to update payment status: %v", err)
 			}
+
 		}
 
 		for _, item := range order.OrderItems {
@@ -183,19 +181,24 @@ func CancelOrderItem(c *gin.Context) {
 						return fmt.Errorf("payment details not found: %v", err)
 					}
 
-					client := razorpay.NewClient(os.Getenv("RAZORPAY_KEY_ID"), os.Getenv("RAZORPAY_KEY_SECRET"))
-					data := map[string]interface{}{
-						"payment_id": payment.RazorpayPaymentID,
-						"amount":     int(item.Price * float64(item.Quantity) * 100),
-						"speed":      "normal",
-					}
-					options := map[string]string{}
-					_, err := client.Refund.Create(data, options)
-					if err != nil {
-						return fmt.Errorf("failed to initiate refund: %v", err)
+					refundAmount:=item.Price * float64(item.Quantity)
+
+					wallet,err:=EnshureWallet(tx,uint(userID.(uint)))
+					if err!=nil{
+						return err
 					}
 
-					payment.Amount -= item.Price * float64(item.Quantity)
+					wallet.Balance += refundAmount
+					if err:=tx.Save(&wallet).Error;err!=nil{
+						return fmt.Errorf("failed to update wallet balance: %v", err)
+					}
+
+					payment.Amount -= refundAmount	
+					if payment.Amount <=0{
+						payment.Status = "RefundedToWallet"
+					}else{
+						payment.Status = "PartiallyRefundedToWallet"
+					}
 					if err := tx.Save(&payment).Error; err != nil {
 						return fmt.Errorf("failed to update payment amount: %v", err)
 					}

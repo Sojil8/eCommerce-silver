@@ -20,14 +20,7 @@
     <div class="flex items-center justify-between mb-8">
       <h2 class="text-3xl font-bold text-gray-900 tracking-tight">My Wishlist</h2>
       <div class="flex space-x-4">
-        <button onclick="clearWishlist()" class="px-4 py-2 border border-red-500 text-red-500 rounded-md hover:bg-red-50 transition-colors duration-200 flex items-center">
-          <i class="fas fa-trash-alt mr-2"></i>
-          Clear Wishlist
-        </button>
-        <button onclick="addAllToCart()" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors duration-200 flex items-center">
-          <i class="fas fa-shopping-cart mr-2"></i>
-          Add All to Cart
-        </button>
+        
       </div>
     </div>
 
@@ -197,88 +190,9 @@ async function addToCart(wishlistId) {
       }
     }
 
-    async function clearWishlist() {
-      Swal.fire({
-        title: 'Are you sure?',
-        text: "This will remove all items from your wishlist.",
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonColor: '#3085d6',
-        cancelButtonColor: '#d33',
-        confirmButtonText: 'Yes, clear it!'
-      }).then(async (result) => {
-        if (result.isConfirmed) {
-          try {
-            const response = await fetch('/wishlist/clear', {
-              method: 'DELETE',
-              headers: { 'Content-Type': 'application/json' },
-              credentials: 'include'
-            });
-            
-            if (response.ok) {
-              Swal.fire(
-                'Cleared!',
-                'Your wishlist has been cleared.',
-                'success'
-              ).then(() => {
-                window.location.reload();
-              });
-            } else {
-              const data = await response.json();
-              Swal.fire('Error', data.error || 'Failed to clear wishlist', 'error');
-            }
-          } catch (error) {
-            Swal.fire('Error', 'Something went wrong', 'error');
-          }
-        }
-      });
-    }
+    
 
-    async function addAllToCart() {
-      try {
-        const items = [];
-        document.querySelectorAll('tbody tr').forEach(row => {
-          const wishlistId = row.querySelector('button[onclick^="addToCart"]').getAttribute('onclick').match(/'(\d+)'/)[1];
-          const variantSelect = row.querySelector(`#variant-${wishlistId}`);
-          if (variantSelect && variantSelect.value) {
-            items.push({
-              wishlist_id: parseInt(wishlistId),
-              variant_id: parseInt(variantSelect.value),
-              quantity: 1
-            });
-          }
-        });
-
-        if (items.length === 0) {
-          Swal.fire('Error', 'No items with selected variants to add', 'error');
-          return;
-        }
-
-        const response = await fetch('/wishlist/add-all-to-cart', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({ items })
-        });
-        
-        const data = await response.json();
-        if (response.ok) {
-          Swal.fire({
-            icon: 'success',
-            title: 'Added to Cart!',
-            text: `${data.count} items have been added to your cart.`,
-            timer: 2000,
-            showConfirmButton: false
-          }).then(() => {
-            window.location.href = '/cart';
-          });
-        } else {
-          Swal.fire('Error', data.error || 'Failed to add items to cart', 'error');
-        }
-      } catch (error) {
-        Swal.fire('Error', 'Something went wrong', 'error');
-      }
-    }
+    
   </script>
 </body>
 </html>

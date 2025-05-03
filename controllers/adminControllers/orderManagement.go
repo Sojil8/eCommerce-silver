@@ -1,10 +1,13 @@
 package controllers
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 
+	controllers "github.com/Sojil8/eCommerce-silver/controllers/userControllers"
 	"github.com/Sojil8/eCommerce-silver/database"
+	"github.com/Sojil8/eCommerce-silver/helper"
 	"github.com/Sojil8/eCommerce-silver/models/adminModels"
 	"github.com/Sojil8/eCommerce-silver/models/userModels"
 	"github.com/gin-gonic/gin"
@@ -113,7 +116,7 @@ func ViewOrdetailsAdmin(c *gin.Context) {
 		return
 	}
 	var address adminModels.ShippingAddress
-	database.DB.Where("order_id = ?",orderID).First(&address)
+	database.DB.Where("order_id = ?", orderID).First(&address)
 	c.HTML(http.StatusOK, "orderDetailsAdmin.html", gin.H{
 		"Order":   order,
 		"Address": address,
@@ -127,7 +130,7 @@ func ListReturnRequests(c *gin.Context) {
 	}
 
 	var ordersReturn userModels.Orders
-	database.DB.Where("status = ?","Returned").Find(&ordersReturn)
+	database.DB.Where("status = ?", "Returned").Find(&ordersReturn)
 
 	c.HTML(http.StatusOK, "adminReturn.html", gin.H{
 		"Returns": returns,
@@ -135,89 +138,98 @@ func ListReturnRequests(c *gin.Context) {
 }
 
 type ReturnRequest struct {
-    Approve bool `json:"approve"`  
+	Approve bool `json:"approve"`
 }
 
 func VerifyReturnRequest(c *gin.Context) {
-    returnID := c.Param("return_id")
-    var returnRequest ReturnRequest 
+	returnID := c.Param("return_id")
+	var returnRequest ReturnRequest
 
 	if err := c.ShouldBindJSON(&returnRequest); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "Invalid request",
-			"details": err.Error(),  
-		})
+		helper.ResponseWithErr(c, http.StatusBadRequest, "Invalid request", err.Error(), "")
 		return
 	}
 
-    err := database.DB.Transaction(func(tx *gorm.DB) error {
-        var returnReq userModels.Return
-        if err := tx.Preload("Order.OrderItems").Preload("Order.User").
-            First(&returnReq, returnID).Error; err != nil {
-            return err
-        }
+	err := database.DB.Transaction(func(tx *gorm.DB) error {
+		var returnReq userModels.Return
+		if err := tx.Preload("Order.OrderItems").Preload("Order.User").
+			First(&returnReq, returnID).Error; err != nil {
+			return fmt.Errorf("return request not found: %v", err)
+		}
 
-        if returnReq.Order.Status != "Returned" {
-            return gin.Error{Meta: gin.H{"error": "Return request already processed or invalid"}}
-        }
+		if returnReq.Order.Status != "Return Requested" {
+			return gin.Error{Meta: gin.H{"error": "Return request already processed or invalid"}}
+		}
 
-        if returnRequest.Approve {
-            if returnReq.Order.PaymentMethod != "Cash On Delivery" {
-                var wallet userModels.Wallet
-                upWallet := userModels.Wallet{UserID: returnReq.Order.UserID}
-                if err := tx.Where("user_id = ?", returnReq.Order.UserID).
-                    FirstOrCreate(&wallet, &upWallet).Error; err != nil {
-                    return err
-                }
-                wallet.Balance += returnReq.Order.TotalPrice
-                if err := tx.Save(&wallet).Error; err != nil {
-                    return err
-                }
-                
-                returnReq.Order.Status = "Refunded"
-            } else {
-				for _, item := range returnReq.Order.OrderItems {
-					if item.Status == "Returned" { 
-						item.Status = "Return Rejected"
-						if err := tx.Save(&item).Error; err != nil {
-							return err
-						}
+		if returnRequest.Approve {
+			if returnReq.Order.PaymentMethod != "Cash On Delivery" {
+				wallet, err := controllers.EnshureWallet(tx, returnReq.Order.UserID)
+				if err != nil {
+					return err
+				}
+				wallet.Balance += returnReq.Order.TotalPrice
+				if err := tx.Save(&wallet).Error; err != nil {
+					return fmt.Errorf("failed to update wallet balance: %v", err)
+				}
+
+				var payment adminModels.PaymentDetails
+				if err := tx.Where("order_id = ? AND status IN ?", returnReq.Order.ID, []string{"Success", "PartiallyRefundedToWallet"}).
+					First(&payment).Error; err != nil {
+					return fmt.Errorf("payment details not found: %v", err)
+				}
+				payment.Status = "RefundedToWallet"
+				payment.Amount = 0
+				if err := tx.Save(&payment).Error; err != nil {
+					return fmt.Errorf("failed to update payment status: %v", err)
+				}
+			}
+
+			for _, item := range returnReq.Order.OrderItems {
+				if item.Status == "Active" || item.Status == "Returned" {
+					if err := incrementStock(tx, item.VariantsID, item.Quantity); err != nil {
+						return fmt.Errorf("failed to restock item: %v", err)
+					}
+					item.Status = "Returned"
+					if err := tx.Save(&item).Error; err != nil {
+						return fmt.Errorf("failed to update item status: %v", err)
 					}
 				}
-            }
+			}
 
-            for _, item := range returnReq.Order.OrderItems {
-                if item.Status == "Returned" {
-                    if err := incrementStock(tx, item.VariantsID, item.Quantity); err != nil {
-                        return err
-                    }
-					
-                }
-            }
-        } else {
+			returnReq.Order.Status = "Returned"
+		} else {
+			for _, item := range returnReq.Order.OrderItems {
+				if item.Status == "Active" || item.Status == "Returned" {
+					item.Status = "Return Rejected"
+					if err := tx.Save(&item).Error; err != nil {
+						return fmt.Errorf("failed to update item status: %v", err)
+					}
+				}
+			}
+			returnReq.Order.Status = "Return Rejected"
+		}
 
-            returnReq.Order.Status = "Return Rejected"
+		if err := tx.Save(&returnReq.Order).Error; err != nil {
+			return fmt.Errorf("failed to update order status: %v", err)
+		}
 
-        }
-            
-        if err := tx.Save(&returnReq.Order).Error; err != nil {
-            return err
-        }
+		if err := tx.Delete(&returnReq).Error; err != nil {
+			return fmt.Errorf("failed to delete return request: %v", err)
+		}
 
+		return nil
+	})
 
-        return tx.Delete(&returnReq).Error
-    })
+	if err != nil {
+		if ginErr, ok := err.(gin.Error); ok && ginErr.Meta != nil {
+			c.JSON(http.StatusBadRequest, ginErr.Meta)
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to verify return: %v", err)})
+		}
+		return
+	}
 
-    if err != nil {
-        if ginErr, ok := err.(gin.Error); ok && ginErr.Meta != nil {
-            c.JSON(http.StatusBadRequest, ginErr.Meta)
-        } else {
-            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to verify return"})
-        }
-        return
-    }
-
-    c.JSON(http.StatusOK, gin.H{"status": "ok", "message": "Return request processed"})
+	c.JSON(http.StatusOK, gin.H{"status": "ok", "message": "Return request processed"})
 }
 
 func incrementStock(tx *gorm.DB, variantID, quantity uint) error {

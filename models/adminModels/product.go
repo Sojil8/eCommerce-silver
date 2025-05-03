@@ -16,7 +16,6 @@ type Product struct {
 	OriginalPrice float64    `json:"originalPrice"`
 	CategoryName  string     `gorm:"not null" json:"categoryName"`
 	Images        ImageURLs  `gorm:"type:text" json:"images"`
-	Specs         string     `gorm:"type:text" json:"specs"`
 	IsListed      bool       `gorm:"default:true"`
 	InStock        bool       `gorm:"default:true"`
 	Variants      []Variants `gorm:"foreignKey:ProductID" json:"variants,omitempty"`
