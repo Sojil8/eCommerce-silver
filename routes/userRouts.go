@@ -82,8 +82,6 @@ func UserRoutes(c *gin.Engine) {
 			protected.POST("/checkout/apply-coupon", controllers.ApplyCoupon)
 			protected.POST("/checkout/remove-coupon", controllers.RemoveCoupon)
 			protected.GET("/checkout/available-coupons",controllers.GetAvailableCoupons)
-
-			//wallet
 			
 
 

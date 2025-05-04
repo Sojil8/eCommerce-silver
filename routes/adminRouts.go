@@ -52,6 +52,20 @@ func AdminRoutes(c *gin.Engine) {
 			protected.POST("/coupons/edit/:id",controllers.EditCoupon)
 			protected.DELETE("/coupons/delete/:id",controllers.DeleteCoupon)
 
+			//offers
+			protected.GET("/offers", controllers.ShowOfferPage)
+			protected.POST("/product_offers/:product_id", controllers.AddProductOffer)
+			protected.GET("/product_offers/:id", controllers.GetProductOffer)
+			protected.PUT("/product_offers/:id", controllers.EditProductOffer)
+			protected.DELETE("/product_offers/:id", controllers.DeleteProductOffer)
+			protected.POST("/category_offers/:category_id", controllers.AddCategoryOffer)
+			protected.GET("/category_offers/:id", controllers.GetCategoryOffer)
+			protected.PUT("/category_offers/:id", controllers.EditCategoryOffer)
+			protected.DELETE("/category_offers/:id", controllers.DeleteCategoryOffer)
+			protected.GET("/apply_offer/:product_id", controllers.ApplyBestOffer)
+
+
+
 			protected.POST("/logout", controllers.AdminLogout)
 		}
 	}
