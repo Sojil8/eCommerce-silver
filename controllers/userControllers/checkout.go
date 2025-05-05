@@ -36,10 +36,22 @@ func ShowCheckout(c *gin.Context) {
 
 	var validCartItems []userModels.CartItem
 	var invalidProductFound bool
+	totalPrice := 0.0
+
 	for _, item := range cart.CartItems {
 		var category adminModels.Category
 		if item.Product.IsListed &&
 			database.DB.Where("category_name = ? AND status = ?", item.Product.CategoryName, true).First(&category).Error == nil {
+			// Apply the best offer for the product
+			offerDetails := helper.GetBestOfferForProduct(&item.Product)
+			item.Price = offerDetails.OriginalPrice
+			item.DiscountedPrice = offerDetails.DiscountedPrice
+			item.OriginalPrice = offerDetails.OriginalPrice
+			item.DiscountPercentage = offerDetails.DiscountPercentage
+			item.OfferName = offerDetails.OfferName
+			item.IsOfferApplied = offerDetails.IsOfferApplied
+			item.ItemTotal = offerDetails.DiscountedPrice * float64(item.Quantity)
+			totalPrice += item.ItemTotal
 			validCartItems = append(validCartItems, item)
 		} else {
 			invalidProductFound = true
@@ -54,14 +66,10 @@ func ShowCheckout(c *gin.Context) {
 	}
 
 	if invalidProductFound {
-		totalPrice := 0.0
-		for _, item := range validCartItems {
-			totalPrice += item.Price * float64(item.Quantity)
-		}
 		cart.TotalPrice = totalPrice
 		cart.CartItems = validCartItems
 		if err := database.DB.Save(&cart).Error; err != nil {
-			log.Printf("Failed to save updated cart for user %v: %v", userID, err)
+			log.Printf("Failed to save updated cart for user %v hunting error: %v", userID, err)
 			helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to update cart", err.Error(), "")
 			return
 		}
@@ -81,7 +89,7 @@ func ShowCheckout(c *gin.Context) {
 		return
 	}
 
-	finalPrice := cart.TotalPrice + shipping
+	finalPrice := totalPrice + shipping
 	var appliedCoupon adminModels.Coupons
 	var discount float64
 	var couponApplied bool
@@ -91,9 +99,9 @@ func ShowCheckout(c *gin.Context) {
 			if appliedCoupon.IsActive &&
 				appliedCoupon.ExpiryDate.After(time.Now()) &&
 				appliedCoupon.UsedCount < appliedCoupon.UsageLimit &&
-				cart.TotalPrice >= appliedCoupon.MinPurchaseAmount &&
-				(appliedCoupon.MaxPurchaseAmount == 0 || cart.TotalPrice <= appliedCoupon.MaxPurchaseAmount) {
-				discount = cart.TotalPrice * (appliedCoupon.DiscountPercentage / 100)
+				totalPrice >= appliedCoupon.MinPurchaseAmount &&
+				(appliedCoupon.MaxPurchaseAmount == 0 || totalPrice <= appliedCoupon.MaxPurchaseAmount) {
+				discount = totalPrice * (appliedCoupon.DiscountPercentage / 100)
 				finalPrice -= discount
 				couponApplied = true
 				log.Printf("Coupon %s applied: discount=%.2f, finalPrice=%.2f", appliedCoupon.CouponCode, discount, finalPrice)
@@ -101,7 +109,7 @@ func ShowCheckout(c *gin.Context) {
 				log.Printf("Coupon %s invalid: active=%v, expired=%v, used=%d/%d, min=%.2f, max=%.2f, cartTotal=%.2f",
 					appliedCoupon.CouponCode, appliedCoupon.IsActive, appliedCoupon.ExpiryDate.Before(time.Now()),
 					appliedCoupon.UsedCount, appliedCoupon.UsageLimit, appliedCoupon.MinPurchaseAmount,
-					appliedCoupon.MaxPurchaseAmount, cart.TotalPrice)
+					appliedCoupon.MaxPurchaseAmount, totalPrice)
 				cart.CouponID = 0
 				if err := database.DB.Save(&cart).Error; err != nil {
 					log.Printf("Failed to reset coupon for cart %v: %v", cart.ID, err)
@@ -136,7 +144,7 @@ func ShowCheckout(c *gin.Context) {
 			"Addresses":     addresses,
 			"Shipping":      shipping,
 			"FinalPrice":    finalPrice,
-			"Subtotal":      cart.TotalPrice,
+			"Subtotal":      totalPrice,
 			"Discount":      discount,
 			"CouponApplied": couponApplied,
 			"AppliedCoupon": appliedCoupon,
@@ -169,7 +177,7 @@ func ShowCheckout(c *gin.Context) {
 		"Addresses":     addresses,
 		"Shipping":      shipping,
 		"FinalPrice":    finalPrice,
-		"Subtotal":      cart.TotalPrice,
+		"Subtotal":      totalPrice,
 		"Discount":      discount,
 		"CouponApplied": couponApplied,
 		"AppliedCoupon": appliedCoupon,
@@ -315,7 +323,7 @@ func PlaceOrder(c *gin.Context) {
 		amount := int(finalPrice * 100)
 		data := map[string]interface{}{
 			"amount":   amount,
-			"currency": "INR", 
+			"currency": "INR",
 			"receipt":  fmt.Sprintf("receipt_%d_%d", userID, time.Now().Unix()),
 		}
 

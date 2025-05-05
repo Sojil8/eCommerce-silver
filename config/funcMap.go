@@ -1,8 +1,8 @@
 package config
 
 import (
+	"html/template"
 	"strings"
-	"text/template"
 
 	"github.com/Sojil8/eCommerce-silver/models/adminModels" // Adjust import based on your project structure
 )
@@ -15,10 +15,10 @@ func SetupTemplateFunctions() template.FuncMap {
 			}
 			return strings.ToUpper(string(s[0])) + s[1:]
 		},
-		"sub": func(a, b int) int {
+		"sub": func(a, b float64) float64 {
 			return a - b
 		},
-		"add": func(a, b int) int {
+		"add": func(a, b float64) float64 {
 			return a + b
 		},
 		"until": func(count int) []int {
@@ -28,8 +28,35 @@ func SetupTemplateFunctions() template.FuncMap {
 			}
 			return result
 		},
-		"mul": func(a float64, b uint) float64 {
-			return a * float64(b)
+		"mul": func(a float64, b interface{}) float64 {
+			// Handle different numeric types for the second parameter
+			switch v := b.(type) {
+			case int:
+				return a * float64(v)
+			case int64:
+				return a * float64(v)
+			case uint:
+				return a * float64(v)
+			case float64:
+				return a * v
+			default:
+				return 0 // Default case, could log an error here
+			}
+		},
+		"float64": func(n interface{}) float64 {
+			// Convert various numeric types to float64
+			switch v := n.(type) {
+			case int:
+				return float64(v)
+			case int64:
+				return float64(v)
+			case uint:
+				return float64(v)
+			case float64:
+				return v
+			default:
+				return 0 // Default case, could log an error here
+			}
 		},
 		"anyVariantInStock": func(variants []adminModels.Variants) bool {
 			for _, v := range variants {

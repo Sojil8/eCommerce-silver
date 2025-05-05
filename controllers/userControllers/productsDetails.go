@@ -27,21 +27,16 @@ func GetProductDetails(c *gin.Context) {
 		return
 	}
 
+	// Calculate offer details
+	offerDetails := helper.GetBestOfferForProduct(&product)
+	discountPercentage := int(offerDetails.DiscountPercentage)
+
 	var hasStock bool
 	for _, variant := range product.Variants {
 		if variant.Stock > 0 {
 			hasStock = true
 			break
 		}
-	}
-
-	if product.OriginalPrice <= product.Price {
-		product.OriginalPrice = product.Price
-	}
-
-	discountPercentage := 0
-	if product.OriginalPrice > product.Price {
-		discountPercentage = int(((product.OriginalPrice - product.Price) / product.OriginalPrice) * 100)
 	}
 
 	var relatedProducts []adminModels.Product
@@ -69,14 +64,14 @@ func GetProductDetails(c *gin.Context) {
 	user, exists := c.Get("user")
 	userName, nameExists := c.Get("user_name")
 	if !exists || !nameExists {
-		c.HTML(http.StatusOK, "home.html", gin.H{
+		c.HTML(http.StatusOK, "productDetails.html", gin.H{
 			"Product":            product,
-			"OriginalPrice":      product.OriginalPrice,
+			"OfferDetails":       offerDetails,
 			"DiscountPercentage": discountPercentage,
 			"RelatedProducts":    availableRelatedProducts,
 			"Category":           product.CategoryName,
-			"Breadcrumbs":        breadcrumbs,
 			"HasStock":           hasStock,
+			"Breadcrumbs":        breadcrumbs,
 			"status":             "success",
 			"UserName":           "Guest",
 			"WishlistCount":      0,
@@ -99,7 +94,7 @@ func GetProductDetails(c *gin.Context) {
 
 	c.HTML(http.StatusOK, "productDetails.html", gin.H{
 		"Product":            product,
-		"OriginalPrice":      product.OriginalPrice,
+		"OfferDetails":       offerDetails,
 		"DiscountPercentage": discountPercentage,
 		"RelatedProducts":    availableRelatedProducts,
 		"Category":           product.CategoryName,

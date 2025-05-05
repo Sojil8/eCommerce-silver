@@ -35,20 +35,30 @@
         {{range .Products}}
           <div class="product-card relative bg-white rounded-xl shadow-md overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
             <div class="relative">
-              <img src="{{index .Images 0}}" alt="{{.ProductName}}" class="product-image w-full h-64 object-cover transition-transform duration-500">
+              <img src="{{index .Product.Images 0}}" alt="{{.Product.ProductName}}" class="product-image w-full h-64 object-cover transition-transform duration-500">
               <div class="absolute inset-0 flex items-center justify-center bg-black bg-opacity-0 hover:bg-opacity-30 transition-all duration-300">
-                <a href="/product/details/{{.ID}}" class="bg-gradient-to-r from-yellow-400 to-yellow-500 text-gray-900 px-6 py-2 rounded-full font-medium opacity-0 hover:opacity-100 transition-opacity duration-300 transform hover:scale-105">View Product</a>
+                <a href="/product/details/{{.Product.ID}}" class="bg-gradient-to-r from-yellow-400 to-yellow-500 text-gray-900 px-6 py-2 rounded-full font-medium opacity-0 hover:opacity-100 transition-opacity duration-300 transform hover:scale-105">View Product</a>
               </div>
-              {{if not (anyVariantInStock .Variants)}}
+              {{if not (anyVariantInStock .Product.Variants)}}
                 <div class="out-of-stock-badge absolute top-3 right-3 bg-gradient-to-r from-red-500 to-red-600 text-white text-xs font-semibold px-3 py-1 rounded-full shadow-sm">Out of Stock</div>
+              {{end}}
+              {{if .OfferDetails.IsOfferApplied}}
+                <div class="absolute top-3 left-3 bg-gradient-to-r from-green-500 to-green-600 text-white text-xs font-semibold px-3 py-1 rounded-full shadow-sm">{{.DiscountPercentage}}% OFF</div>
               {{end}}
             </div>
             <div class="p-5">
-              <h3 class="text-lg font-semibold text-gray-800 truncate">{{.ProductName}}</h3>
-              <p class="text-sm text-gray-500">{{.CategoryName}}</p>
+              <h3 class="text-lg font-semibold text-gray-800 truncate">{{.Product.ProductName}}</h3>
+              <p class="text-sm text-gray-500">{{.Product.CategoryName}}</p>
               <div class="flex justify-between items-center mt-4">
-                <p class="text-indigo-600 font-bold text-xl">${{printf "%.2f" .Price}}</p>
-                <button onclick="addToCart('{{.ID}}')" class="text-indigo-600 hover:text-indigo-800 transition-colors duration-200 transform hover:scale-110">
+                <div>
+                  {{if .OfferDetails.IsOfferApplied}}
+                    <p class="text-indigo-600 font-bold text-xl">${{printf "%.2f" .OfferDetails.DiscountedPrice}}</p>
+                    <p class="text-gray-500 line-through text-sm">${{printf "%.2f" .OfferDetails.OriginalPrice}}</p>
+                  {{else}}
+                    <p class="text-indigo-600 font-bold text-xl">${{printf "%.2f" .Product.Price}}</p>
+                  {{end}}
+                </div>
+                <button onclick="addToCart('{{.Product.ID}}')" class="text-indigo-600 hover:text-indigo-800 transition-colors duration-200 transform hover:scale-110">
                   <i class="fas fa-cart-plus text-2xl"></i>
                 </button>
               </div>

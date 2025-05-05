@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/Sojil8/eCommerce-silver/database"
+	"github.com/Sojil8/eCommerce-silver/helper"
 	"github.com/Sojil8/eCommerce-silver/models/adminModels"
 	"github.com/Sojil8/eCommerce-silver/models/userModels"
 	"github.com/gin-gonic/gin"
@@ -14,6 +15,12 @@ type productQuery struct {
 	Search   string `form:"search"`
 	Sort     string `form:"sort"`
 	Category string `form:"category"`
+}
+
+type ProductWithOffer struct {
+	Product            adminModels.Product
+	OfferDetails       helper.OfferDetails
+	DiscountPercentage int
 }
 
 func GetUserProducts(c *gin.Context) {
@@ -40,16 +47,27 @@ func GetUserProducts(c *gin.Context) {
 		return
 	}
 
+	var productsWithOffers []ProductWithOffer
+	for _, product := range products {
+		offerDetails := helper.GetBestOfferForProduct(&product)
+		discountPercentage := int(offerDetails.DiscountPercentage)
+		productsWithOffers = append(productsWithOffers, ProductWithOffer{
+			Product:            product,
+			OfferDetails:       offerDetails,
+			DiscountPercentage: discountPercentage,
+		})
+	}
+
 	user, exists := c.Get("user")
 	userName, nameExists := c.Get("user_name")
 	if !exists || !nameExists {
 		c.HTML(http.StatusOK, "home.html", gin.H{
 			"status":        "success",
-			"Products":      products,
+			"Products":      productsWithOffers,
 			"UserName":      "Guest",
 			"WishlistCount": 0,
 			"CartCount":     0,
-			"ProfileImage":"",
+			"ProfileImage":  "",
 		})
 		return
 	}
@@ -65,29 +83,13 @@ func GetUserProducts(c *gin.Context) {
 		cartCount = 0
 	}
 
-
 	c.HTML(http.StatusOK, "home.html", gin.H{
 		"status":        "success",
-		"Products":      products,
+		"Products":      productsWithOffers,
 		"UserName":      userNameStr,
 		"ProfileImage":  userData.ProfileImage,
 		"WishlistCount": wishlistCount,
 		"CartCount":     cartCount,
 	})
 }
-func Home(c *gin.Context) {
-	var featuredProducts []adminModels.Product
-	if err := database.DB.Joins("JOIN categories ON categories.category_name = products.category_name").
-		Where("products.is_listed = ? AND products.is_featured = ? AND categories.status = ?", true, true, true).
-		Order("products.id DESC").Limit(8).Preload("Variants").Find(&featuredProducts).Error; err != nil {
-		c.HTML(http.StatusInternalServerError, "error.html", gin.H{
-			"error": "Failed to fetch featured products",
-		})
-		return
-	}
 
-	c.HTML(http.StatusOK, "home.html", gin.H{
-		"Title":            "STORENAME - Quality Products for Everyday Life",
-		"FeaturedProducts": featuredProducts,
-	})
-}

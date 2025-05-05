@@ -2,8 +2,8 @@ package controllers
 
 import (
 	"net/http"
-
 	"github.com/Sojil8/eCommerce-silver/database"
+	"github.com/Sojil8/eCommerce-silver/helper"
 	"github.com/Sojil8/eCommerce-silver/models/adminModels"
 	"github.com/Sojil8/eCommerce-silver/models/userModels"
 	"github.com/gin-gonic/gin"
@@ -35,13 +35,33 @@ func GetCart(c *gin.Context) {
 		var category adminModels.Category
 		if item.Product.IsListed &&
 			database.DB.Where("category_name = ? AND status = ?", item.Product.CategoryName, true).First(&category).Error == nil {
+			// Ensure offer details are up-to-date
+			offer := helper.GetBestOfferForProduct(&item.Product)
+			item.DiscountedPrice = offer.DiscountedPrice + item.Variants.ExtraPrice
+			item.OriginalPrice = offer.OriginalPrice + item.Variants.ExtraPrice
+			item.DiscountPercentage = offer.DiscountPercentage
+			item.OfferName = offer.OfferName
+			item.IsOfferApplied = offer.IsOfferApplied
+			item.Price = offer.OriginalPrice + item.Variants.ExtraPrice // Base price without discount
+			
+			// Calculate item total based on whether an offer is applied
+			if item.IsOfferApplied {
+				item.ItemTotal = item.DiscountedPrice * float64(item.Quantity)
+			} else {
+				item.ItemTotal = item.Price * float64(item.Quantity)
+			}
+			
 			filteredCartItems = append(filteredCartItems, item)
 		}
 	}
 
 	totalPrice := 0.0
 	for _, item := range filteredCartItems {
-		totalPrice += item.Price * float64(item.Quantity)
+		if item.IsOfferApplied {
+			totalPrice += item.DiscountedPrice * float64(item.Quantity)
+		} else {
+			totalPrice += item.Price * float64(item.Quantity)
+		}
 	}
 
 	userr, exists := c.Get("user")
@@ -81,7 +101,6 @@ func GetCart(c *gin.Context) {
 		"CartCount":     cartCount,
 	})
 }
-
 type RequestCartItem struct {
 	ProductID uint `json:"product_id"`
 	VariantID uint `json:"variant_id"`
@@ -120,7 +139,6 @@ func AddToCart(c *gin.Context) {
 				return gin.Error{Meta: gin.H{"error": "Unauthorized access to wishlist item"}}
 			}
 			productID = wishlist.ProductID
-			// Delete wishlist item early, regardless of cart item creation or update
 			if err := tx.Where("user_id = ? AND id = ?", userID, *req.WishlistID).
 				Delete(&userModels.Wishlist{}).Error; err != nil {
 				return err
@@ -164,6 +182,9 @@ func AddToCart(c *gin.Context) {
 			return err
 		}
 
+		// Get best offer for the product
+		offer := helper.GetBestOfferForProduct(&product)
+
 		for i, item := range cart.CartItems {
 			if item.ProductID == productID && item.VariantsID == req.VariantID {
 				newQnty := item.Quantity + req.Quantity
@@ -171,6 +192,12 @@ func AddToCart(c *gin.Context) {
 					return gin.Error{Meta: gin.H{"error": "Quantity limit exceeded"}}
 				}
 				cart.CartItems[i].Quantity = newQnty
+				cart.CartItems[i].Price = offer.OriginalPrice + variant.ExtraPrice
+				cart.CartItems[i].DiscountedPrice = offer.DiscountedPrice + variant.ExtraPrice
+				cart.CartItems[i].OriginalPrice = offer.OriginalPrice + variant.ExtraPrice
+				cart.CartItems[i].DiscountPercentage = offer.DiscountPercentage
+				cart.CartItems[i].OfferName = offer.OfferName
+				cart.CartItems[i].IsOfferApplied = offer.IsOfferApplied
 				if err := tx.Save(&cart.CartItems[i]).Error; err != nil {
 					return err
 				}
@@ -179,11 +206,16 @@ func AddToCart(c *gin.Context) {
 		}
 
 		item := userModels.CartItem{
-			CartID:     cart.ID,
-			ProductID:  productID,
-			VariantsID: req.VariantID,
-			Quantity:   req.Quantity,
-			Price:      product.Price + variant.ExtraPrice,
+			CartID:            cart.ID,
+			ProductID:         productID,
+			VariantsID:        req.VariantID,
+			Quantity:          req.Quantity,
+			Price:             offer.OriginalPrice + variant.ExtraPrice,
+			DiscountedPrice:   offer.DiscountedPrice + variant.ExtraPrice,
+			OriginalPrice:     offer.OriginalPrice + variant.ExtraPrice,
+			DiscountPercentage: offer.DiscountPercentage,
+			OfferName:         offer.OfferName,
+			IsOfferApplied:    offer.IsOfferApplied,
 		}
 		if err := tx.Create(&item).Error; err != nil {
 			return err
@@ -231,6 +263,13 @@ func UpdateQuantity(c *gin.Context) {
 			return err
 		}
 
+		var product adminModels.Product
+		if err := tx.First(&product, req.ProductID).Error; err != nil {
+			return err
+		}
+
+		offer := helper.GetBestOfferForProduct(&product)
+
 		for i, item := range cart.CartItems {
 			if item.ProductID == req.ProductID && item.VariantsID == req.VariantID {
 				if req.Quantity > variants.Stock {
@@ -251,12 +290,17 @@ func UpdateQuantity(c *gin.Context) {
 					}
 				} else {
 					cart.CartItems[i].Quantity = req.Quantity
+					cart.CartItems[i].Price = offer.OriginalPrice + variants.ExtraPrice
+					cart.CartItems[i].DiscountedPrice = offer.DiscountedPrice + variants.ExtraPrice
+					cart.CartItems[i].OriginalPrice = offer.OriginalPrice + variants.ExtraPrice
+					cart.CartItems[i].DiscountPercentage = offer.DiscountPercentage
+					cart.CartItems[i].OfferName = offer.OfferName
+					cart.CartItems[i].IsOfferApplied = offer.IsOfferApplied
 					if err := tx.Save(&cart.CartItems[i]).Error; err != nil {
 						return err
 					}
 				}
-				updateCartTotal(&cart, tx)
-				return nil
+				return updateCartTotal(&cart, tx)
 			}
 		}
 		return gin.Error{Meta: gin.H{"error": "Item not found in cart"}}
@@ -300,8 +344,7 @@ func RemoveFromCart(c *gin.Context) {
 				if err := tx.Delete(&cart.CartItems[i]).Error; err != nil {
 					return err
 				}
-				updateCartTotal(&cart, tx)
-				return nil
+				return updateCartTotal(&cart, tx)
 			}
 		}
 		return gin.Error{Meta: gin.H{"error": "Item not found in cart"}}
@@ -317,7 +360,6 @@ func RemoveFromCart(c *gin.Context) {
 	var cart userModels.Cart
 	database.DB.Where("user_id = ?", userID).Preload("CartItems").First(&cart)
 	c.JSON(http.StatusOK, cart)
-
 }
 
 func updateCartTotal(cart *userModels.Cart, tx *gorm.DB) error {
@@ -328,7 +370,7 @@ func updateCartTotal(cart *userModels.Cart, tx *gorm.DB) error {
 			return err
 		}
 		if product.IsListed {
-			total += item.Price * float64(item.Quantity)
+			total += item.DiscountedPrice * float64(item.Quantity)
 		}
 	}
 	cart.TotalPrice = total

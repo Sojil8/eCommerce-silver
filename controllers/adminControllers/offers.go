@@ -19,35 +19,7 @@ type OfferRequest struct {
 	IsActive  bool      `json:"is_active"`
 }
 
-// GetAllCategories returns a list of all categories in JSON format
-// func GetAllCategories(c *gin.Context) {
-// 	var categories []adminModels.Category
-// 	if err := database.DB.Find(&categories).Error; err != nil {
-// 		helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to fetch categories", err.Error(), "")
-// 		return
-// 	}
 
-// 	c.JSON(http.StatusOK, gin.H{
-// 		"status":     "ok",
-// 		"categories": categories,
-// 	})
-// }
-
-// GetAllProducts returns a list of all products in JSON format
-// func GetAllProducts(c *gin.Context) {
-// 	var products []adminModels.Product
-// 	if err := database.DB.Find(&products).Error; err != nil {
-// 		helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to fetch products", err.Error(), "")
-// 		return
-// 	}
-
-// 	c.JSON(http.StatusOK, gin.H{
-// 		"status":   "ok",
-// 		"products": products,
-// 	})
-// }
-
-// ShowOfferPage displays the unified page with products and offers
 func ShowOfferPage(c *gin.Context) {
 	var products []adminModels.Product
 	var productOffers []struct {
@@ -424,66 +396,3 @@ func DeleteCategoryOffer(c *gin.Context) {
 	})
 }
 
-// ApplyBestOffer applies the largest valid offer (product or category) to a product
-// func ApplyBestOffer(c *gin.Context) {
-// 	productIDStr := c.Param("product_id")
-// 	productID, err := strconv.Atoi(productIDStr)
-// 	if err != nil {
-// 		helper.ResponseWithErr(c, http.StatusBadRequest, "Invalid product ID", err.Error(), "")
-// 		return
-// 	}
-
-// 	var product adminModels.Product
-// 	if err := database.DB.First(&product, productID).Error; err != nil {
-// 		helper.ResponseWithErr(c, http.StatusNotFound, "Product not found", err.Error(), "")
-// 		return
-// 	}
-
-// 	var productOffer adminModels.ProductOffer
-// 	var categoryOffer adminModels.CategoryOffer
-// 	var category adminModels.Category
-
-// 	// Fetch product offer
-// 	productOfferDiscount := 0.0
-// 	if err := database.DB.Where("product_id = ? AND is_active = ? AND start_date <= ? AND end_date >= ?",
-// 		productID, true, time.Now(), time.Now()).First(&productOffer).Error; err == nil {
-// 		productOfferDiscount = productOffer.Discount
-// 	}
-
-// 	// Fetch category offer
-// 	categoryOfferDiscount := 0.0
-// 	if err := database.DB.Where("category_name = ?", product.CategoryName).First(&category).Error; err == nil {
-// 		if err := database.DB.Where("category_id = ? AND is_active = ? AND start_date <= ? AND end_date >= ?",
-// 			category.ID, true, time.Now(), time.Now()).First(&categoryOffer).Error; err == nil {
-// 			categoryOfferDiscount = categoryOffer.Discount
-// 		}
-// 	}
-
-// 	// Determine the best offer
-// 	bestDiscount := 0.0
-// 	offerType := "none"
-// 	if productOfferDiscount > categoryOfferDiscount {
-// 		bestDiscount = productOfferDiscount
-// 		offerType = "product"
-// 	} else if categoryOfferDiscount > 0 {
-// 		bestDiscount = categoryOfferDiscount
-// 		offerType = "category"
-// 	}
-
-// 	discountedPrice := product.Price
-// 	if bestDiscount > 0 {
-// 		discountedPrice = product.Price * (1 - bestDiscount/100)
-// 	}
-
-// 	c.JSON(http.StatusOK, gin.H{
-// 		"status": "ok",
-// 		"product": gin.H{
-// 			"product_id":       product.ID,
-// 			"product_name":     product.ProductName,
-// 			"original_price":   product.Price,
-// 			"discounted_price": discountedPrice,
-// 			"applied_discount": bestDiscount,
-// 			"offer_type":       offerType,
-// 		},
-// 	})
-// }
