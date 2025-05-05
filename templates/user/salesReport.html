@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sales Report</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 font-sans">
+    <div class="container mx-auto p-6">
+        <h1 class="text-3xl font-bold mb-6">Sales Report</h1>
+        
+        <!-- Filter Section -->
+        <div class="bg-white p-6 rounded-lg shadow-md mb-6">
+            <div class="flex flex-wrap gap-4 mb-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Report Type</label>
+                    <select id="reportType" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
+                        <option value="daily">Daily</option>
+                        <option value="weekly">Weekly</option>
+                        <option value="monthly">Monthly</option>
+                        <option value="yearly">Yearly</option>
+                        <option value="custom">Custom Range</option>
+                    </select>
+                </div>
+                <div id="customDateRange" class="hidden">
+                    <div class="flex gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Start Date</label>
+                            <input type="date" id="startDate" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">End Date</label>
+                            <input type="date" id="endDate" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
+                        </div>
+                    </div>
+                </div>
+                <div class="flex items-end">
+                    <button id="generateReport" class="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600">Generate Report</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Summary Section -->
+        <div id="summary" class="bg-white p-6 rounded-lg shadow-md mb-6 hidden">
+            <h2 class="text-xl font-semibold mb-4">Summary</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="p-4 bg-gray-50 rounded-md">
+                    <p class="text-sm text-gray-600">Total Orders</p>
+                    <p id="totalOrders" class="text-lg font-bold">0</p>
+                </div>
+                <div class="p-4 bg-gray-50 rounded-md">
+                    <p class="text-sm text-gray-600">Total Amount</p>
+                    <p id="totalAmount" class="text-lg font-bold">$0.00</p>
+                </div>
+                <div class="p-4 bg-gray-50 rounded-md">
+                    <p class="text-sm text-gray-600">Total Discount</p>
+                    <p id="totalDiscount" class="text-lg font-bold">$0.00</p>
+                </div>
+                <div class="p-4 bg-gray-50 rounded-md">
+                    <p class="text-sm text-gray-600">Coupons Used</p>
+                    <p id="totalCoupons" class="text-lg font-bold">0</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Orders Table -->
+        <div id="ordersTable" class="bg-white p-6 rounded-lg shadow-md hidden">
+            <h2 class="text-xl font-semibold mb-4">Order Details</h2>
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Order ID</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Discount</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Coupon</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ordersTableBody" class="bg-white divide-y divide-gray-200">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('reportType').addEventListener('change', function() {
+            const customDateRange = document.getElementById('customDateRange');
+            customDateRange.classList.toggle('hidden', this.value !== 'custom');
+        });
+
+        document.getElementById('generateReport').addEventListener('click', async () => {
+            const reportType = document.getElementById('reportType').value;
+            let url = '/admin/sales-report?type=' + reportType;
+
+            if (reportType === 'custom') {
+                const startDate = document.getElementById('startDate').value;
+                const endDate = document.getElementById('endDate').value;
+                if (!startDate || !endDate) {
+                    alert('Please select both start and end dates');
+                    return;
+                }
+                url += `&start_date=${startDate}&end_date=${endDate}`;
+            }
+
+            try {
+                const response = await fetch(url, {
+                    headers: {
+                        'Authorization': 'Bearer ' + localStorage.getItem('jwtTokensAdmin')
+                    }
+                });
+                const data = await response.json();
+
+                if (response.ok) {
+                    // Update Summary
+                    document.getElementById('totalOrders').textContent = data.total_orders;
+                    document.getElementById('totalAmount').textContent = `$${data.total_amount.toFixed(2)}`;
+                    document.getElementById('totalDiscount').textContent = `$${data.total_discount.toFixed(2)}`;
+                    document.getElementById('totalCoupons').textContent = data.total_coupons;
+                    document.getElementById('summary').classList.remove('hidden');
+
+                    // Update Orders Table
+                    const tbody = document.getElementById('ordersTableBody');
+                    tbody.innerHTML = '';
+                    data.orders.forEach(order => {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td class="px-6 py-4 whitespace-nowrap">${order.order_id}</td>
+                            <td class="px-6 py-4 whitespace-nowrap">${order.user_name}</td>
+                            <td class="px-6 py-4 whitespace-nowrap">${new Date(order.order_date).toLocaleDateString()}</td>
+                            <td class="px-6 py-4 whitespace-nowrap">$${order.total_price.toFixed(2)}</td>
+                            <td class="px-6 py-4 whitespace-nowrap">$${order.discount.toFixed(2)}</td>
+                            <td class="px-6 py-4 whitespace-nowrap">${order.coupon_code || 'N/A'}</td>
+                            <td class="px-6 py-4 whitespace-nowrap">${order.payment_method}</td>
+                            <td class="px-6 py-4 whitespace-nowrap">${order.status}</td>
+                        `;
+                        tbody.appendChild(row);
+                    });
+                    document.getElementById('ordersTable').classList.remove('hidden');
+                } else {
+                    alert(data.error || 'Failed to generate report');
+                }
+            } catch (error) {
+                alert('Error fetching report: ' + error.message);
+            }
+        });
+    </script>
+</body>
+</html>

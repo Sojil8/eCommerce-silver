@@ -5,146 +5,210 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Offer Management</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .sidebar { min-height: calc(100vh - 56px); }
+        .shadow-glow { box-shadow: 0 4px 15px rgba(0, 123, 255, 0.2); }
+        .hover-scale:hover {
+            transform: scale(1.05);
+            transition: transform 0.2s ease-in-out;
+        }
+    </style>
 </head>
-<body class="bg-gray-100">
-    <div class="container mx-auto p-6">
-        <h1 class="text-3xl font-bold mb-6 text-center">Offer Management</h1>
-
-        <!-- Product Offers Section -->
-        <div class="mb-8">
-            <h2 class="text-2xl font-semibold mb-4">Product Offers</h2>
-            <div class="overflow-x-auto">
-                <table class="w-full bg-white shadow-md rounded-lg">
-                    <thead>
-                        <tr class="bg-gray-200 text-gray-700">
-                            <th class="py-3 px-4 text-left">ID</th>
-                            <th class="py-3 px-4 text-left">Product Name</th>
-                            <th class="py-3 px-4 text-left">Discount (%)</th>
-                            <th class="py-3 px-4 text-left">Start Date</th>
-                            <th class="py-3 px-4 text-left">End Date</th>
-                            <th class="py-3 px-4 text-left">Active</th>
-                            <th class="py-3 px-4 text-left">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {{range .ProductOffers}}
-                        <tr class="border-b">
-                            <td class="py-3 px-4">{{.ID}}</td>
-                            <td class="py-3 px-4">{{.ProductName}}</td>
-                            <td class="py-3 px-4">{{.Discount}}</td>
-                            <td class="py-3 px-4">{{.StartDate.Format "2006-01-02"}}</td>
-                            <td class="py-3 px-4">{{.EndDate.Format "2006-01-02"}}</td>
-                            <td class="py-3 px-4">{{if .IsActive}}Yes{{else}}No{{end}}</td>
-                            <td class="py-3 px-4">
-                                <button onclick="showEditOfferModal('product', {{.ID}})" class="bg-yellow-500 text-white px-3 py-1 rounded hover:bg-yellow-600">Edit</button>
-                                <button onclick="deleteProductOffer({{.ID}})" class="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600">Delete</button>
-                            </td>
-                        </tr>
-                        {{end}}
-                    </tbody>
-                </table>
+<body class="bg-gray-100 font-sans min-h-screen">
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg bg-gray-800 text-white shadow-md">
+        <div class="container-fluid px-4">
+            <a class="navbar-brand text-xl font-bold text-white hover:text-blue-300 transition-colors" href="/admin/dashboard">Admin Dashboard</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto space-x-4">
+                    <li class="nav-item">
+                        <a class="nav-link text-gray-200 hover:text-blue-300 transition-colors" href="/admin/profile">Profile</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link text-gray-200 hover:text-blue-300 transition-colors" href="#" onclick="logout(event)">Logout</a>
+                    </li>
+                </ul>
             </div>
         </div>
+    </nav>
 
-        <!-- Category Offers Section -->
-        <div class="mb-8">
-            <h2 class="text-2xl font-semibold mb-4">Category Offers</h2>
-            <div class="overflow-x-auto">
-                <table class="w-full bg-white shadow-md rounded-lg">
-                    <thead>
-                        <tr class="bg-gray-200 text-gray-700">
-                            <th class="py-3 px-4 text-left">ID</th>
-                            <th class="py-3 px-4 text-left">Category Name</th>
-                            <th class="py-3 px-4 text-left">Discount (%)</th>
-                            <th class="py-3 px-4 text-left">Start Date</th>
-                            <th class="py-3 px-4 text-left">End Date</th>
-                            <th class="py-3 px-4 text-left">Active</th>
-                            <th class="py-3 px-4 text-left">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {{range .CategoryOffers}}
-                        <tr class="border-b">
-                            <td class="py-3 px-4">{{.ID}}</td>
-                            <td class="py-3 px-4">{{.CategoryName}}</td>
-                            <td class="py-3 px-4">{{.Discount}}</td>
-                            <td class="py-3 px-4">{{.StartDate.Format "2006-01-02"}}</td>
-                            <td class="py-3 px-4">{{.EndDate.Format "2006-01-02"}}</td>
-                            <td class="py-3 px-4">{{if .IsActive}}Yes{{else}}No{{end}}</td>
-                            <td class="py-3 px-4">
-                                <button onclick="showEditOfferModal('category', {{.ID}})" class="bg-yellow-500 text-white px-3 py-1 rounded hover:bg-yellow-600">Edit</button>
-                                <button onclick="deleteCategoryOffer({{.ID}})" class="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600">Delete</button>
-                            </td>
-                        </tr>
-                        {{end}}
-                    </tbody>
-                </table>
+    <!-- Main Container -->
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Sidebar -->
+            <div class="col-md-2 sidebar bg-gray-900 text-white p-4">
+                <a href="/admin/user-management" class="block py-2 px-3 rounded hover:bg-gray-700 hover:text-white transition-colors">Customers</a>
+                <a href="/admin/category" class="block py-2 px-3 rounded hover:bg-gray-700 hover:text-white transition-colors">Categories</a>
+                <a href="/admin/products" class="block py-2 px-3 rounded hover:bg-gray-700 hover:text-white transition-colors">Products</a>
+                <a href="/admin/orders" class="block py-2 px-3 rounded hover:bg-gray-700 hover:text-white transition-colors">Orders</a>
+                <a href="/admin/returns" class="block py-2 px-3 rounded hover:bg-gray-700 hover:text-white transition-colors">Returns</a>
+                <a href="/admin/coupons" class="block py-2 px-3 rounded hover:bg-gray-700 hover:text-white transition-colors">Coupons</a>
+                <a href="/admin/offers" class="block py-2 px-3 rounded bg-blue-600 text-white hover:bg-blue-700 transition-colors">Offers</a>
+                <a href="#" class="block py-2 px-3 rounded hover:bg-gray-700 hover:text-white transition-colors" onclick="logout(event)">Logout</a>
             </div>
-        </div>
 
-        <!-- Add Offer Button -->
-        <div class="mt-4">
-            <button onclick="showAddOfferModal()" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">Add New Offer</button>
-        </div>
+            <!-- Main Content -->
+            <div class="col-md-10 main-content p-6">
+                <div class="bg-white rounded-lg shadow-md p-6">
+                    <h1 class="text-3xl font-bold text-gray-900 mb-6">Offer Management</h1>
 
-        <!-- Add Offer Modal -->
-        <div id="addOfferModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden flex items-center justify-center">
-            <div class="bg-white p-6 rounded-lg shadow-md w-full max-w-md">
-                <h3 class="text-xl font-semibold mb-4">Add Offer</h3>
-                <div class="grid grid-cols-1 gap-4">
-                    <!-- Offer Type Selection -->
-                    <div class="flex items-center space-x-4">
-                        <label class="flex items-center">
-                            <input type="radio" name="offer_type" value="product" class="mr-2" checked onchange="updateSelection()">
-                            <span>Product Offer</span>
-                        </label>
-                        <label class="flex items-center">
-                            <input type="radio" name="offer_type" value="category" class="mr-2" onchange="updateSelection()">
-                            <span>Category Offer</span>
-                        </label>
+                    <!-- Product Offers Section -->
+                    <div class="mb-8">
+                        <h2 class="text-2xl font-semibold mb-4">Product Offers</h2>
+                        <div class="overflow-x-auto">
+                            <table class="w-full bg-white shadow-md rounded-lg">
+                                <thead>
+                                    <tr class="bg-gray-200 text-gray-700">
+                                        <th class="py-3 px-4 text-left">ID</th>
+                                        <th class="py-3 px-4 text-left">Offer Name</th>
+                                        <th class="py-3 px-4 text-left">Product Name</th>
+                                        <th class="py-3 px-4 text-left">Discount (%)</th>
+                                        <th class="py-3 px-4 text-left">Start Date</th>
+                                        <th class="py-3 px-4 text-left">End Date</th>
+                                        <th class="py-3 px-4 text-left">Active</th>
+                                        <th class="py-3 px-4 text-left">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {{range .ProductOffers}}
+                                    <tr class="border-b">
+                                        <td class="py-3 px-4">{{.ID}}</td>
+                                        <td class="py-3 px-4">{{.OfferName}}</td>
+                                        <td class="py-3 px-4">{{.ProductName}}</td>
+                                        <td class="py-3 px-4">{{.Discount}}</td>
+                                        <td class="py-3 px-4">{{.StartDate.Format "2006-01-02"}}</td>
+                                        <td class="py-3 px-4">{{.EndDate.Format "2006-01-02"}}</td>
+                                        <td class="py-3 px-4">{{if .IsActive}}Yes{{else}}No{{end}}</td>
+                                        <td class="py-3 px-4">
+                                            <button onclick="showEditOfferModal('product', {{.ID}})" class="bg-yellow-500 text-white px-3 py-1 rounded hover:bg-yellow-600 hover-scale">Edit</button>
+                                            <button onclick="deleteProductOffer({{.ID}})" class="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 hover-scale">Delete</button>
+                                        </td>
+                                    </tr>
+                                    {{end}}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
-                    <!-- Dynamic Dropdown -->
-                    <select id="item_select" class="border p-2 rounded">
-                        <!-- Options populated by JavaScript -->
-                    </select>
-                    <input type="number" id="discount" placeholder="Discount (%)" step="0.01" class="border p-2 rounded">
-                    <input type="date" id="start_date" class="border p-2 rounded">
-                    <input type="date" id="end_date" class="border p-2 rounded">
-                    <label class="flex items-center">
-                        <input type="checkbox" id="is_active" class="mr-2">
-                        <span>Is Active</span>
-                    </label>
-                    <div class="flex justify-end space-x-2">
-                        <button onclick="hideAddOfferModal()" class="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">Cancel</button>
-                        <button onclick="addOffer()" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">Add Offer</button>
-                    </div>
-                </div>
-            </div>
-        </div>
 
-        <!-- Edit Offer Modal -->
-        <div id="editOfferModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden flex items-center justify-center">
-            <div class="bg-white p-6 rounded-lg shadow-md w-full max-w-md">
-                <h3 class="text-xl font-semibold mb-4">Edit Offer</h3>
-                <div class="grid grid-cols-1 gap-4">
-                    <input type="hidden" id="edit_offer_id">
-                    <input type="hidden" id="edit_offer_type">
-                    <input type="number" id="edit_discount" placeholder="Discount (%)" step="0.01" class="border p-2 rounded">
-                    <input type="date" id="edit_start_date" class="border p-2 rounded">
-                    <input type="date" id="edit_end_date" class="border p-2 rounded">
-                    <label class="flex items-center">
-                        <input type="checkbox" id="edit_is_active" class="mr-2">
-                        <span>Is Active</span>
-                    </label>
-                    <div class="flex justify-end space-x-2">
-                        <button onclick="hideEditOfferModal()" class="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">Cancel</button>
-                        <button onclick="updateOffer()" class="bg-yellow-500 text-white px-4 py-2 rounded hover:bg-yellow-600">Update Offer</button>
+                    <!-- Category Offers Section -->
+                    <div class="mb-8">
+                        <h2 class="text-2xl font-semibold mb-4">Category Offers</h2>
+                        <div class="overflow-x-auto">
+                            <table class="w-full bg-white shadow-md rounded-lg">
+                                <thead>
+                                    <tr class="bg-gray-200 text-gray-700">
+                                        <th class="py-3 px-4 text-left">ID</th>
+                                        <th class="py-3 px-4 text-left">Offer Name</th>
+                                        <th class="py-3 px-4 text-left">Category Name</th>
+                                        <th class="py-3 px-4 text-left">Discount (%)</th>
+                                        <th class="py-3 px-4 text-left">Start Date</th>
+                                        <th class="py-3 px-4 text-left">End Date</th>
+                                        <th class="py-3 px-4 text-left">Active</th>
+                                        <th class="py-3 px-4 text-left">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {{range .CategoryOffers}}
+                                    <tr class="border-b">
+                                        <td class="py-3 px-4">{{.ID}}</td>
+                                        <td class="py-3 px-4">{{.OfferName}}</td>
+                                        <td class="py-3 px-4">{{.CategoryName}}</td>
+                                        <td class="py-3 px-4">{{.Discount}}</td>
+                                        <td class="py-3 px-4">{{.StartDate.Format "2006-01-02"}}</td>
+                                        <td class="py-3 px-4">{{.EndDate.Format "2006-01-02"}}</td>
+                                        <td class="py-3 px-4">{{if .IsActive}}Yes{{else}}No{{end}}</td>
+                                        <td class="py-3 px-4">
+                                            <button onclick="showEditOfferModal('category', {{.ID}})" class="bg-yellow-500 text-white px-3 py-1 rounded hover:bg-yellow-600 hover-scale">Edit</button>
+                                            <button onclick="deleteCategoryOffer({{.ID}})" class="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 hover-scale">Delete</button>
+                                        </td>
+                                    </tr>
+                                    {{end}}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Add Offer Button -->
+                    <div class="mt-4">
+                        <button onclick="showAddOfferModal()" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 hover-scale">Add New Offer</button>
+                    </div>
+
+                    <!-- Add Offer Modal -->
+                    <div id="addOfferModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden flex items-center justify-center">
+                        <div class="bg-white p-6 rounded-lg shadow-md w-full max-w-md">
+                            <h3 class="text-xl font-semibold mb-4">Add Offer</h3>
+                            <div class="grid grid-cols-1 gap-4">
+                                <!-- Offer Type Selection -->
+                                <div class="flex items-center space-x-4">
+                                    <label class="flex items-center">
+                                        <input type="radio" name="offer_type" value="product" class="mr-2" checked onchange="updateSelection()">
+                                        <span>Product Offer</span>
+                                    </label>
+                                    <label class="flex items-center">
+                                        <input type="radio" name="offer_type" value="category" class="mr-2" onchange="updateSelection()">
+                                        <span>Category Offer</span>
+                                    </label>
+                                </div>
+                                <!-- Dynamic Dropdown -->
+                                <select id="item_select" class="border p-2 rounded">
+                                    <!-- Options populated by JavaScript -->
+                                </select>
+                                <input type="text" id="offer_name" placeholder="Offer Name" class="border p-2 rounded">
+                                <input type="number" id="discount" placeholder="Discount (%)" step="0.01" class="border p-2 rounded">
+                                <input type="date" id="start_date" class="border p-2 rounded">
+                                <input type="date" id="end_date" class="border p-2 rounded">
+                                <label class="flex items-center">
+                                    <input type="checkbox" id="is_active" class="mr-2">
+                                    <span>Is Active</span>
+                                </label>
+                                <div class="flex justify-end space-x-2">
+                                    <button onclick="hideAddOfferModal()" class="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600 hover-scale">Cancel</button>
+                                    <button onclick="addOffer()" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 hover-scale">Add Offer</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Edit Offer Modal -->
+                    <div id="editOfferModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden flex items-center justify-center">
+                        <div class="bg-white p-6 rounded-lg shadow-md w-full max-w-md">
+                            <h3 class="text-xl font-semibold mb-4">Edit Offer</h3>
+                            <div class="grid grid-cols-1 gap-4">
+                                <input type="hidden" id="edit_offer_id">
+                                <input type="hidden" id="edit_offer_type">
+                                <input type="text" id="edit_offer_name" placeholder="Offer Name" class="border p-2 rounded">
+                                <input type="number" id="edit_discount" placeholder="Discount (%)" step="0.01" class="border p-2 rounded">
+                                <input type="date" id="edit_start_date" class="border p-2 rounded">
+                                <input type="date" id="edit_end_date" class="border p-2 rounded">
+                                <label class="flex items-center">
+                                    <input type="checkbox" id="edit_is_active" class="mr-2">
+                                    <span>Is Active</span>
+                                </label>
+                                <div class="flex justify-end space-x-2">
+                                    <button onclick="hideEditOfferModal()" class="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600 hover-scale">Cancel</button>
+                                    <button onclick="updateOffer()" class="bg-yellow-500 text-white px-4 py-2 rounded hover:bg-yellow-600 hover-scale">Update Offer</button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
+    <!-- Footer -->
+    <div class="footer bg-gray-800 text-white text-center py-4 mt-6">
+        <p>© 2025 Admin Dashboard. All rights reserved.</p>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         // Store products and categories from Go template
         const products = [
@@ -169,6 +233,7 @@
             document.getElementById('addOfferModal').classList.add('hidden');
             // Clear form inputs
             document.getElementById('item_select').value = '';
+            document.getElementById('offer_name').value = '';
             document.getElementById('discount').value = '';
             document.getElementById('start_date').value = '';
             document.getElementById('end_date').value = '';
@@ -197,13 +262,18 @@
         async function addOffer() {
             const offerType = document.querySelector('input[name="offer_type"]:checked').value;
             const itemId = document.getElementById('item_select').value;
+            const offerName = document.getElementById('offer_name').value;
             const discount = document.getElementById('discount').value;
             const startDate = document.getElementById('start_date').value;
             const endDate = document.getElementById('end_date').value;
             const isActive = document.getElementById('is_active').checked;
 
             if (!itemId) {
-                alert('Please select a product or category');
+                Swal.fire('Error', 'Please select a product or category', 'error');
+                return;
+            }
+            if (!offerName) {
+                Swal.fire('Error', 'Please enter an offer name', 'error');
                 return;
             }
 
@@ -212,34 +282,40 @@
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
+                    offer_name: offerName,
                     discount: parseFloat(discount),
                     start_date: new Date(startDate).toISOString(),
                     end_date: new Date(endDate).toISOString(),
                     is_active: isActive
-                })
+                }),
+                credentials: 'include'
             });
 
             const result = await response.json();
-            alert(result.message || result.error);
             if (response.ok) {
-                hideAddOfferModal();
-                location.reload();
+                Swal.fire('Success', result.message || 'Offer added successfully', 'success').then(() => {
+                    hideAddOfferModal();
+                    location.reload();
+                });
+            } else {
+                Swal.fire('Error', result.error || 'Failed to add offer', 'error');
             }
         }
 
         // Show edit offer modal
         async function showEditOfferModal(type, id) {
             const endpoint = type === 'product' ? `/admin/product_offers/${id}` : `/admin/category_offers/${id}`;
-            const response = await fetch(endpoint);
+            const response = await fetch(endpoint, { credentials: 'include' });
             const data = await response.json();
             if (!response.ok) {
-                alert(data.error);
+                Swal.fire('Error', data.error || 'Failed to fetch offer details', 'error');
                 return;
             }
 
             // Populate modal fields
             document.getElementById('edit_offer_id').value = id;
             document.getElementById('edit_offer_type').value = type;
+            document.getElementById('edit_offer_name').value = data.offer.offer_name;
             document.getElementById('edit_discount').value = data.offer.discount;
             document.getElementById('edit_start_date').value = data.offer.start_date.split('T')[0];
             document.getElementById('edit_end_date').value = data.offer.end_date.split('T')[0];
@@ -255,6 +331,7 @@
             // Clear form inputs
             document.getElementById('edit_offer_id').value = '';
             document.getElementById('edit_offer_type').value = '';
+            document.getElementById('edit_offer_name').value = '';
             document.getElementById('edit_discount').value = '';
             document.getElementById('edit_start_date').value = '';
             document.getElementById('edit_end_date').value = '';
@@ -265,64 +342,123 @@
         async function updateOffer() {
             const id = document.getElementById('edit_offer_id').value;
             const type = document.getElementById('edit_offer_type').value;
+            const offerName = document.getElementById('edit_offer_name').value;
             const discount = document.getElementById('edit_discount').value;
             const startDate = document.getElementById('edit_start_date').value;
             const endDate = document.getElementById('edit_end_date').value;
             const isActive = document.getElementById('edit_is_active').checked;
+
+            if (!offerName) {
+                Swal.fire('Error', 'Please enter an offer name', 'error');
+                return;
+            }
 
             const endpoint = type === 'product' ? `/admin/product_offers/${id}` : `/admin/category_offers/${id}`;
             const response = await fetch(endpoint, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
+                    offer_name: offerName,
                     discount: parseFloat(discount),
                     start_date: new Date(startDate).toISOString(),
                     end_date: new Date(endDate).toISOString(),
                     is_active: isActive
-                })
+                }),
+                credentials: 'include'
             });
 
             const result = await response.json();
-            alert(result.message || result.error);
             if (response.ok) {
-                hideEditOfferModal();
-                location.reload();
+                Swal.fire('Success', result.message || 'Offer updated successfully', 'success').then(() => {
+                    hideEditOfferModal();
+                    location.reload();
+                });
+            } else {
+                Swal.fire('Error', result.error || 'Failed to update offer', 'error');
             }
         }
 
         // Delete product offer
         async function deleteProductOffer(id) {
-            if (confirm('Are you sure you want to delete this offer?')) {
+            const result = await Swal.fire({
+                title: 'Delete Offer?',
+                text: 'Are you sure you want to delete this product offer?',
+                showCancelButton: true,
+                confirmButtonText: 'Yes',
+                confirmButtonColor: '#4f46e5',
+            });
+
+            if (result.isConfirmed) {
                 const response = await fetch(`/admin/product_offers/${id}`, {
-                    method: 'DELETE'
+                    method: 'DELETE',
+                    credentials: 'include'
                 });
-                const result = await response.json();
-                alert(result.message || result.error);
-                if (response.ok) location.reload();
+                const data = await response.json();
+                if (response.ok) {
+                    Swal.fire('Success', data.message || 'Offer deleted successfully', 'success').then(() => location.reload());
+                } else {
+                    Swal.fire('Error', data.error || 'Failed to delete offer', 'error');
+                }
             }
         }
 
         // Delete category offer
         async function deleteCategoryOffer(id) {
-            if (confirm('Are you sure you want to delete this offer?')) {
+            const result = await Swal.fire({
+                title: 'Delete Offer?',
+                text: 'Are you sure you want to delete this category offer?',
+                showCancelButton: true,
+                confirmButtonText: 'Yes',
+                confirmButtonColor: '#4f46e5',
+            });
+
+            if (result.isConfirmed) {
                 const response = await fetch(`/admin/category_offers/${id}`, {
-                    method: 'DELETE'
+                    method: 'DELETE',
+                    credentials: 'include'
                 });
-                const result = await response.json();
-                alert(result.message || result.error);
-                if (response.ok) location.reload();
+                const data = await response.json();
+                if (response.ok) {
+                    Swal.fire('Success', data.message || 'Offer deleted successfully', 'success').then(() => location.reload());
+                } else {
+                    Swal.fire('Error', data.error || 'Failed to delete offer', 'error');
+                }
             }
         }
 
         // Apply best offer
         async function applyBestOffer(productId) {
-            const response = await fetch(`/admin/apply_offer/${productId}`);
+            const response = await fetch(`/admin/apply_offer/${productId}`, { credentials: 'include' });
             const result = await response.json();
             if (response.ok) {
                 const product = result.product;
-                alert(`Product: ${product.product_name}\nOriginal Price: $${product.original_price}\nDiscounted Price: $${product.discounted_price}\nDiscount Applied: ${product.applied_discount}% (${product.offer_type} offer)`);
+                Swal.fire({
+                    title: 'Offer Applied',
+                    html: `Product: ${product.product_name}<br>Original Price: $${product.original_price}<br>Discounted Price: $${product.discounted_price}<br>Discount Applied: ${product.applied_discount}% (${product.offer_type} offer)`,
+                    icon: 'success'
+                });
             } else {
-                alert(result.error);
+                Swal.fire('Error', result.error || 'Failed to apply offer', 'error');
+            }
+        }
+
+        // Logout function
+        async function logout(event) {
+            event.preventDefault();
+            try {
+                const response = await fetch('/admin/logout', {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+
+                if (response.ok) {
+                    window.location.replace("/admin/login");
+                } else {
+                    const errorData = await response.json();
+                    Swal.fire("Error", errorData.message || "Logout failed", "error");
+                }
+            } catch (error) {
+                Swal.fire("Error", "An error occurred while logging out", "error");
             }
         }
     </script>

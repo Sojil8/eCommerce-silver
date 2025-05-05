@@ -110,6 +110,7 @@ func AddToCart(c *gin.Context) {
 	err := database.DB.Transaction(func(tx *gorm.DB) error {
 		var productID uint
 
+		// Handle wishlist item
 		if req.WishlistID != nil {
 			var wishlist userModels.Wishlist
 			if err := tx.First(&wishlist, *req.WishlistID).Error; err != nil {
@@ -119,6 +120,11 @@ func AddToCart(c *gin.Context) {
 				return gin.Error{Meta: gin.H{"error": "Unauthorized access to wishlist item"}}
 			}
 			productID = wishlist.ProductID
+			// Delete wishlist item early, regardless of cart item creation or update
+			if err := tx.Where("user_id = ? AND id = ?", userID, *req.WishlistID).
+				Delete(&userModels.Wishlist{}).Error; err != nil {
+				return err
+			}
 		} else if req.ProductID != nil {
 			productID = *req.ProductID
 		} else {
@@ -181,13 +187,6 @@ func AddToCart(c *gin.Context) {
 		}
 		if err := tx.Create(&item).Error; err != nil {
 			return err
-		}
-
-		if req.WishlistID != nil {
-			if err := tx.Where("user_id = ? AND id = ?", userID, *req.WishlistID).
-				Delete(&userModels.Wishlist{}).Error; err != nil {
-				return err
-			}
 		}
 
 		if err := tx.Preload("CartItems").First(&cart, cart.ID).Error; err != nil {

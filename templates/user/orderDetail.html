@@ -3,168 +3,541 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Order Details - Silver</title>
+    <title>Order Details</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .order-status-badge {
+            @apply px-3 py-1 text-xs font-medium rounded-full;
+        }
+        .status-delivered {
+            @apply bg-green-100 text-green-800;
+        }
+        .status-processing {
+            @apply bg-blue-100 text-blue-800;
+        }
+        .status-pending {
+            @apply bg-yellow-100 text-yellow-800;
+        }
+        .status-cancelled {
+            @apply bg-red-100 text-red-800;
+        }
+        .status-confirmed {
+            @apply bg-blue-200 text-blue-900;
+        }
+        .status-return-requested {
+            @apply bg-purple-100 text-purple-800;
+        }
+    </style>
 </head>
-<body class="bg-gray-100 flex flex-col min-h-screen">
-    {{template "navbar.html" .}}
-    </header>
-
-    <div class="container mx-auto p-6 flex-grow">
-        <h2 class="text-4xl font-bold text-gray-900 mb-8 tracking-tight">Order #{{.Order.OrderIdUnique}}</h2>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div class="bg-white rounded-xl shadow-md p-6">
-                <h3 class="text-xl font-semibold text-gray-900 mb-4">Order Details</h3>
-                <p class="text-gray-600">Date: {{.Order.OrderDate.Format "2006-01-02"}}</p>
-                <p class="text-gray-600">Status: <span class="font-medium {{if eq .Order.Status "Cancelled"}}text-red-600{{else if eq .Order.Status "Delivered"}}text-green-600{{else if eq .Order.Status "Return Requested"}}text-orange-600{{else if eq .Order.Status "Return Approved"}}text-green-600{{else if eq .Order.Status "Return Rejected"}}text-red-600{{else}}text-indigo-600{{end}}">{{.Order.Status}}</span></p>
-                <p class="text-gray-600">Total: ${{printf "%.2f" .Order.TotalPrice}}</p>
-                <div class="mt-4">
-                    <a href="/orders/invoice/{{.Order.OrderIdUnique}}" class="text-green-600 hover:text-green-800">Download Invoice</a>
-                    {{if or (eq .Order.Status "Pending") (eq .Order.Status "Confirmed")}}
-                        <button onclick="cancelOrder('{{.Order.OrderIdUnique}}')" class="ml-4 text-red-600 hover:text-red-800">Cancel Order</button>
-                    {{end}}
-                    {{if eq .Order.Status "Delivered"}}
-                        <button onclick="returnOrder('{{.Order.OrderIdUnique}}')" class="ml-4 text-orange-600 hover:text-orange-800">Request Return</button>
-                    {{end}}
+<body class="bg-gray-50">
+    <!-- Navigation -->
+    <nav class="bg-white shadow-md">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex">
+                    <div class="flex-shrink-0 flex items-center">
+                        <!-- <img class="h-8 w-auto" src="/api/placeholder/150/50" alt="E-Commerce Logo"> -->
+                    </div>
+                    <div class="hidden sm:ml-6 sm:flex sm:space-x-8">
+                        <a href="/" class="border-indigo-500 text-gray-900 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                            Home
+                        </a>
+                        <a href="/shop" class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                            Shop
+                        </a>
+                        <!-- <a href="/categories" class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"> -->
+                            <!-- Categories -->
+                        </a>
+                        <!-- <a href="/orders" class="border-indigo-500 text-gray-900 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                            Orders -->
+                        </a>
+                    </div>
                 </div>
-            </div>
-            <div class="bg-white rounded-xl shadow-md p-6">
-                <h3 class="text-xl font-semibold text-gray-900 mb-4">Shipping Address</h3>
-                <p class="text-gray-600">{{.ShippingAddress.Name}} ({{.ShippingAddress.AddressType}})</p>
-                <p class="text-gray-600">{{.ShippingAddress.City}}, {{.ShippingAddress.State}} - {{.ShippingAddress.Pincode}}</p>
-                <p class="text-gray-600">Phone: {{.ShippingAddress.Phone}}</p>
+                <div class="flex items-center">
+                    <div class="flex-shrink-0 relative">
+                        <div class="flex space-x-4">
+                            <a href="/wishlist" class="relative text-gray-600 hover:text-gray-900">
+                                <i class="fas fa-heart"></i>
+                                <span id="wishlistCount" class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-xs">0</span>
+                            </a>
+                            <a href="/cart" class="relative text-gray-600 hover:text-gray-900">
+                                <i class="fas fa-shopping-cart"></i>
+                                <span id="cartCount" class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-xs">0</span>
+                            </a>
+                        </div>
+                    </div>
+                    <div class="ml-4 flex items-center md:ml-6">
+                        <div class="ml-3 relative">
+                            <div class="flex items-center space-x-3">
+                                <span id="userName" class="text-sm font-medium text-gray-700">User Name</span>
+                                <img id="profileImage" class="h-8 w-8 rounded-full" src="/api/placeholder/40/40" alt="Profile">
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
-        <div class="bg-white rounded-xl shadow-md p-6 mt-6">
-            <h3 class="text-xl font-semibold text-gray-900 mb-4">Items</h3>
-            {{range .Order.OrderItems}}
-                <div class="flex items-center border-b py-4">
-                    <img src="{{index .Product.Images 0}}" alt="{{.Product.ProductName}}" class="w-24 h-24 object-cover rounded-lg mr-4 border">
-                    <div class="flex-1">
-                        <p class="text-gray-800 font-medium text-lg">{{.Product.ProductName}} <span class="text-gray-500">({{.Variants.Color}})</span></p>
-                        <p class="text-gray-600">Quantity: {{.Quantity}}</p>
-                        <p class="text-gray-600">Status: <span class="font-medium {{if eq .Status "Cancelled"}}text-red-600{{else if eq .Status "Returned"}}text-orange-600{{else}}text-green-600{{end}}">{{.Status}}</span></p>
-                        <p class="text-indigo-600 font-bold">${{printf "%.2f" (mul .Price .Quantity)}}</p>
+    </nav>
+
+    <!-- Content -->
+    <div class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+        <!-- Breadcrumb -->
+        <nav class="flex mb-5" aria-label="Breadcrumb">
+            <ol class="inline-flex items-center space-x-1 md:space-x-3">
+                <li class="inline-flex items-center">
+                    <a href="/" class="inline-flex items-center text-sm font-medium text-gray-700 hover:text-indigo-600">
+                        <i class="fas fa-home mr-2"></i>
+                        Home
+                    </a>
+                </li>
+                <li>
+                    <div class="flex items-center">
+                        <i class="fas fa-chevron-right text-gray-400 mx-2"></i>
+                        <a href="/orders" class="text-sm font-medium text-gray-700 hover:text-indigo-600">Orders</a>
                     </div>
-                    {{if and (or (eq $.Order.Status "Pending") (eq $.Order.Status "Confirmed")) (ne $.Order.Status "Cancelled") (gt (len $.Order.OrderItems) 1)}}
-                        <button onclick="cancelItem('{{$.Order.OrderIdUnique}}', '{{.ID}}')" class="text-red-600 hover:text-red-800">Cancel Item</button>
-                    {{end}}
+                </li>
+                <li aria-current="page">
+                    <div class="flex items-center">
+                        <i class="fas fa-chevron-right text-gray-400 mx-2"></i>
+                        <span class="text-sm font-medium text-gray-500" id="orderIdBreadcrumb">Order #123456</span>
+                    </div>
+                </li>
+            </ol>
+        </nav>
+
+        <!-- Order Header -->
+        <div class="bg-white shadow overflow-hidden sm:rounded-lg mb-6">
+            <div class="px-4 py-5 sm:px-6 flex justify-between items-center">
+                <div>
+                    <h3 class="text-lg leading-6 font-medium text-gray-900">Order Details</h3>
+                    <p class="mt-1 max-w-2xl text-sm text-gray-500">Order ID: <span id="orderId">ORD-123456</span></p>
                 </div>
-            {{end}}
+                <div class="flex space-x-3">
+                    <button id="downloadInvoice" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700">
+                        <i class="fas fa-download mr-2"></i> Download Invoice
+                    </button>
+                </div>
+            </div>
+            <div class="border-t border-gray-200 px-4 py-5 sm:px-6">
+                <dl class="grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-3">
+                    <div class="sm:col-span-1">
+                        <dt class="text-sm font-medium text-gray-500">Order Date</dt>
+                        <dd class="mt-1 text-sm text-gray-900" id="orderDate"></dd>
+                    </div>
+                    <div class="sm:col-span-1">
+                        <dt class="text-sm font-medium text-gray-500">Payment Method</dt>
+                        <dd class="mt-1 text-sm text-gray-900" id="paymentMethod"></dd>
+                    </div>
+                    <div class="sm:col-span-1">
+                        <dt class="text-sm font-medium text-gray-500">Status</dt>
+                        <dd class="mt-1">
+                            <span id="orderStatus" class="order-status-badge"></span>
+                        </dd>
+                    </div>
+                </dl>
+            </div>
+        </div>
+
+        <div class="flex flex-col md:flex-row gap-6">
+            <!-- Order Items -->
+            <div class="md:w-2/3">
+                <div class="bg-white shadow overflow-hidden sm:rounded-lg">
+                    <div class="px-4 py-5 sm:px-6">
+                        <h3 class="text-lg leading-6 font-medium text-gray-900">Order Items</h3>
+                    </div>
+                    <div class="border-t border-gray-200">
+                        <div id="orderItems" class="divide-y divide-gray-200">
+                            <!-- Order items will be populated here -->
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Action Buttons -->
+                <div class="mt-6 flex justify-end space-x-3" id="orderActions">
+                    <button id="cancelOrder" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700">
+                        <i class="fas fa-times-circle mr-2"></i> Cancel Order
+                    </button>
+                    <button id="returnOrder" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-yellow-600 hover:bg-yellow-700">
+                        <i class="fas fa-undo mr-2"></i> Return Order
+                    </button>
+                </div>
+            </div>
+
+            <!-- Order Summary and Shipping Address -->
+            <div class="md:w-1/3 space-y-6">
+                <!-- Order Summary -->
+                <div class="bg-white shadow overflow-hidden sm:rounded-lg">
+                    <div class="px-4 py-5 sm:px-6">
+                        <h3 class="text-lg leading-6 font-medium text-gray-900">Order Summary</h3>
+                    </div>
+                    <div class="border-t border-gray-200 px-4 py-5 sm:px-6">
+                        <dl class="space-y-3">
+                            <div class="flex justify-between">
+                                <dt class="text-sm text-gray-500">Subtotal</dt>
+                                <dd class="text-sm text-gray-900" id="subtotal"></dd>
+                            </div>
+                            <div class="flex justify-between">
+                                <dt class="text-sm text-gray-500">Shipping</dt>
+                                <dd class="text-sm text-gray-900" id="shipping">$10.00</dd>
+                            </div>
+                            <div class="flex justify-between">
+                                <dt class="text-sm text-gray-500">Tax</dt>
+                                <dd class="text-sm text-gray-900" id="tax"></dd>
+                            </div>
+                            <div class="flex justify-between">
+                                <dt class="text-sm text-gray-500">Discount</dt>
+                                <dd class="text-sm text-green-600" id="discount"></dd>
+                            </div>
+                            <div class="pt-3 border-t border-gray-200 flex justify-between">
+                                <dt class="text-base font-medium text-gray-900">Total</dt>
+                                <dd class="text-base font-medium text-gray-900" id="total"></dd>
+                            </div>
+                        </dl>
+                    </div>
+                </div>
+
+                <!-- Shipping Address -->
+                <div class="bg-white shadow overflow-hidden sm:rounded-lg">
+                    <div class="px-4 py-5 sm:px-6">
+                        <h3 class="text-lg leading-6 font-medium text-gray-900">Shipping Address</h3>
+                    </div>
+                    <div class="border-t border-gray-200 px-4 py-5 sm:px-6">
+                        <address class="not-italic">
+                            <p id="shippingName" class="text-sm font-medium text-gray-900"></p>
+                            <p id="shippingAddress1" class="text-sm text-gray-500"></p>
+                            <p id="shippingAddress2" class="text-sm text-gray-500"></p>
+                            <p class="text-sm text-gray-500">
+                                <span id="shippingCity"></span>,
+                                <span id="shippingState"></span>
+                                <span id="shippingZip"></span>
+                            </p>
+                            <p id="shippingCountry" class="text-sm text-gray-500"></p>
+                            <p class="text-sm text-gray-500 mt-2">
+                                <span class="font-medium">Phone:</span>
+                                <span id="shippingPhone"></span>
+                            </p>
+                            <p class="text-sm text-gray-500">
+                                <span class="font-medium">Alternate Phone:</span>
+                                <span id="shippingAlternatePhone"></span>
+                            </p>
+                        </address>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
-    <footer class="bg-gray-900 text-white p-6 mt-auto">
-        <div class="container mx-auto flex justify-between items-center">
-            <p class="text-sm">© 2025 Silver. All rights reserved.</p>
+    <!-- Cancel Modal -->
+    <div id="cancelModal" class="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center hidden z-50">
+        <div class="bg-white rounded-lg overflow-hidden shadow-xl transform transition-all sm:max-w-lg sm:w-full">
+            <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <div class="sm:flex sm:items-start">
+                    <div class="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
+                        <i class="fas fa-exclamation-triangle text-red-600"></i>
+                    </div>
+                    <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+                        <h3 class="text-lg leading-6 font-medium text-gray-900" id="cancelModalTitle">Cancel Order</h3>
+                        <div class="mt-2">
+                            <p class="text-sm text-gray-500">Are you sure you want to cancel this order? This action cannot be undone.</p>
+                            <div class="mt-4">
+                                <label for="cancelReason" class="block text-sm font-medium text-gray-700">Reason for cancellation</label>
+                                <textarea id="cancelReason" name="cancelReason" rows="3" class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 mt-1 block w-full sm:text-sm border border-gray-300 rounded-md" placeholder="Please provide a reason for cancellation"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                <button id="confirmCancel" type="button" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:ml-3 sm:w-auto sm:text-sm">
+                    Confirm Cancel
+                </button>
+                <button id="cancelModalClose" type="button" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
+                    Go Back
+                </button>
+            </div>
         </div>
-    </footer>
+    </div>
 
+    <!-- Return Modal -->
+    <div id="returnModal" class="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center hidden z-50">
+        <div class="bg-white rounded-lg overflow-hidden shadow-xl transform transition-all sm:max-w-lg sm:w-full">
+            <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <div class="sm:flex sm:items-start">
+                    <div class="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-yellow-100 sm:mx-0 sm:h-10 sm:w-10">
+                        <i class="fas fa-undo text-yellow-600"></i>
+                    </div>
+                    <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+                        <h3 class="text-lg leading-6 font-medium text-gray-900">Return Order</h3>
+                        <div class="mt-2">
+                            <p class="text-sm text-gray-500">Please provide a reason for returning this order. Our team will review your request.</p>
+                            <div class="mt-4">
+                                <label for="returnReason" class="block text-sm font-medium text-gray-700">Reason for return</label>
+                                <textarea id="returnReason" name="returnReason" rows="3" class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 mt-1 block w-full sm:text-sm border border-gray-300 rounded-md" placeholder="Please provide a reason for the return"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                <button id="confirmReturn" type="button" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-yellow-600 text-base font-medium text-white hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 sm:ml-3 sm:w-auto sm:text-sm">
+                    Submit Return Request
+                </button>
+                <button id="returnModalClose" type="button" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
+                    Cancel
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript -->
     <script>
-        function cancelOrder(orderId) {
-            Swal.fire({
-                title: 'Cancel Order?',
-                text: 'Are you sure you want to cancel this order?',
-                input: 'text',
-                inputPlaceholder: 'Reason (optional)',
-                showCancelButton: true,
-                confirmButtonText: 'Yes, cancel it!',
-                confirmButtonColor: '#ef4444',
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    fetch(`/orders/cancel/${orderId}`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ reason: result.value }),
-                        credentials: 'include'
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.status === 'ok') {
-                            Swal.fire('Cancelled!', 'Your order has been cancelled.', 'success').then(() => location.reload());
-                        } else {
-                            Swal.fire('Error', data.error || 'Failed to cancel order', 'error');
-                        }
-                    })
-                    .catch(error => {
-                        console.error('CancelOrder Error:', error);
-                        Swal.fire('Error', 'Could not connect to the server.', 'error');
-                    });
-                }
-            });
-        }
+        // DOM Elements
+        document.addEventListener('DOMContentLoaded', function() {
+            // Get the order ID from the URL path
+            const pathParts = window.location.pathname.split('/');
+            const orderId = pathParts[pathParts.length - 1];
+            
+            // Directly use the data provided by the Gin backend
+            // Since we're using server-side rendering with Gin templates
+            const data = {{.}};
 
-        function cancelItem(orderId, itemId) {
-            Swal.fire({
-                title: 'Cancel Item?',
-                text: 'Are you sure you want to cancel this item?',
-                input: 'text',
-                inputPlaceholder: 'Reason (optional)',
-                showCancelButton: true,
-                confirmButtonText: 'Yes, cancel it!',
-                confirmButtonColor: '#ef4444',
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    fetch(`/orders/cancel-item/${orderId}/${itemId}`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ reason: result.value }),
-                        credentials: 'include'
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.status === 'ok') {
-                            Swal.fire('Cancelled!', 'Item has been cancelled.', 'success').then(() => location.reload());
-                        } else {
-                            Swal.fire('Error', data.error || 'Failed to cancel item', 'error');
-                        }
-                    })
-                    .catch(error => {
-                        console.error('CancelItem Error:', error);
-                        Swal.fire('Error', 'Could not connect to the server.', 'error');
-                    });
+            // Check if we have order data
+            if (data && data.Order) {
+                const order = data.Order;
+                const address = data.ShippingAddress;
+                
+                // Set user info
+                document.getElementById('userName').textContent = data.UserName || 'Guest';
+                if (data.ProfileImage) {
+                    document.getElementById('profileImage').src = data.ProfileImage;
                 }
-            });
-        }
+                document.getElementById('wishlistCount').textContent = data.WishlistCount || 0;
+                document.getElementById('cartCount').textContent = data.CartCount || 0;
 
-        function returnOrder(orderId) {
-            Swal.fire({
-                title: 'Request Return?',
-                text: 'Please provide a reason for returning this order.',
-                input: 'text',
-                inputPlaceholder: 'Reason (required)',
-                showCancelButton: true,
-                confirmButtonText: 'Yes, request return!',
-                confirmButtonColor: '#f97316',
-                preConfirm: (reason) => {
-                    if (!reason) {
-                        Swal.showValidationMessage('Reason is required');
+                // Set order details
+                document.getElementById('orderId').textContent = order.order_id;
+                document.getElementById('orderIdBreadcrumb').textContent = `Order ${order.order_id}`;
+                document.getElementById('orderDate').textContent = formatDate(order.order_date);
+                document.getElementById('paymentMethod').textContent = order.payment_method;
+
+                // Set order status with appropriate class
+                const orderStatus = document.getElementById('orderStatus');
+                orderStatus.textContent = order.status;
+                const statusClasses = {
+                    'Delivered': 'status-delivered',
+                    'Processing': 'status-processing',
+                    'Pending': 'status-pending',
+                    'Cancelled': 'status-cancelled',
+                    'Confirmed': 'status-confirmed',
+                    'Return Requested': 'status-return-requested'
+                };
+                orderStatus.className = `order-status-badge ${statusClasses[order.status] || ''}`;
+
+                // Populate order items
+                const orderItemsContainer = document.getElementById('orderItems');
+                orderItemsContainer.innerHTML = '';
+                order.order_items.forEach(item => {
+                    const itemDiv = document.createElement('div');
+                    itemDiv.className = 'p-4 flex items-center';
+                    
+                    // Get image from product (using first image if it's an array)
+                    let productImage = '/api/placeholder/100/100';
+                    if (item.product && item.product.images && item.product.images.length > 0) {
+                        productImage = item.product.images[0];
                     }
-                    return reason;
+                    
+                    let variantInfo = '';
+                    if (item.variants) {
+                        // Display available variant information
+                        const variantDetails = [];
+                        if (item.variants.color) variantDetails.push(`Color: ${item.variants.color}`);
+                        if (item.variants.size) variantDetails.push(`Size: ${item.variants.size}`);
+                        variantInfo = variantDetails.join(', ');
+                    }
+                    
+                    itemDiv.innerHTML = `
+                        <img src="${productImage}" alt="${item.product.product_name}" class="h-16 w-16 object-cover rounded">
+                        <div class="ml-4 flex-1">
+                            <h4 class="text-sm font-medium text-gray-900">${item.product.product_name}</h4>
+                            ${variantInfo ? `<p class="text-sm text-gray-500">${variantInfo}</p>` : ''}
+                            <p class="text-sm text-gray-500">Quantity: ${item.quantity}</p>
+                            <p class="text-sm text-gray-500">Status: ${item.status || 'Active'}</p>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-sm font-medium text-gray-900">$${item.price.toFixed(2)}</p>
+                            ${(!item.status || item.status === 'Active') && (order.status === 'Pending' || order.status === 'Confirmed') ? 
+                            `<button class="mt-1 text-xs text-red-600 hover:text-red-800 cancel-item" data-item-id="${item.ID}">Cancel Item</button>` : ''}
+                        </div>
+                    `;
+                    orderItemsContainer.appendChild(itemDiv);
+                });
+
+                // Set order summary
+                const tax = (order.total_price - order.subtotal - order.discount).toFixed(2);
+                document.getElementById('subtotal').textContent = `$${order.subtotal.toFixed(2)}`;
+                document.getElementById('shipping').textContent = '$10.00'; // Assuming fixed shipping
+                document.getElementById('tax').textContent = `$${tax}`;
+                document.getElementById('discount').textContent = `-$${order.discount.toFixed(2)}`;
+                document.getElementById('total').textContent = `$${order.total_price.toFixed(2)}`;
+
+                // Set shipping address
+                if (address) {
+                    document.getElementById('shippingName').textContent = address.name;
+                    document.getElementById('shippingAddress1').textContent = address.landmark;
+                    document.getElementById('shippingAddress2').textContent = address.address_type;
+                    document.getElementById('shippingCity').textContent = address.city;
+                    document.getElementById('shippingState').textContent = address.state;
+                    document.getElementById('shippingZip').textContent = address.pincode;
+                    document.getElementById('shippingPhone').textContent = address.phone;
+                    document.getElementById('shippingAlternatePhone').textContent = address.alternate_phone || 'N/A';
                 }
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    fetch(`/orders/return/${orderId}`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ reason: result.value }),
-                        credentials: 'include'
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.status === 'ok') {
-                            Swal.fire('Return Requested!', 'Your return request has been submitted.', 'success').then(() => location.reload());
-                        } else {
-                            Swal.fire('Error', data.error || 'Failed to request return', 'error');
+
+                // Show/hide action buttons based on order status
+                if (order.status === 'Delivered') {
+                    document.getElementById('cancelOrder').style.display = 'none';
+                    document.getElementById('returnOrder').style.display = 'block';
+                } else if (order.status === 'Cancelled' || order.status === 'Return Requested') {
+                    document.getElementById('orderActions').style.display = 'none';
+                } else {
+                    document.getElementById('returnOrder').style.display = 'none';
+                    document.getElementById('cancelOrder').style.display = 'block';
+                }
+
+                // Add event listeners for modals and buttons
+                setupEventListeners(orderId);
+            } else {
+                // Handle error case
+                alert('Failed to load order details');
+            }
+        });
+
+        // Helper function to format date
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+        }
+
+        // Helper function to make API calls
+        async function apiCall(method, url, data = null) {
+            const options = {
+                method,
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            };
+            if (data) {
+                options.body = JSON.stringify(data);
+            }
+            const response = await fetch(url, options);
+            return response.json();
+        }
+
+        // Setup event listeners for modals and buttons
+        function setupEventListeners(orderId) {
+            // Event listeners for modals
+            document.getElementById('cancelOrder')?.addEventListener('click', function() {
+                document.getElementById('cancelModal').classList.remove('hidden');
+            });
+
+            document.getElementById('cancelModalClose')?.addEventListener('click', function() {
+                document.getElementById('cancelModal').classList.add('hidden');
+            });
+
+            document.getElementById('returnOrder')?.addEventListener('click', function() {
+                document.getElementById('returnModal').classList.remove('hidden');
+            });
+
+            document.getElementById('returnModalClose')?.addEventListener('click', function() {
+                document.getElementById('returnModal').classList.add('hidden');
+            });
+
+            // Cancel order
+            document.getElementById('confirmCancel')?.addEventListener('click', async function() {
+                const reason = document.getElementById('cancelReason').value;
+                if (!reason.trim()) {
+                    alert('Please provide a reason for cancellation');
+                    return;
+                }
+
+                try {
+                    const response = await apiCall('POST', `/orders/${orderId}/cancel`, { reason });
+                    if (response.error) {
+                        alert(response.error);
+                        return;
+                    }
+
+                    alert(response.message || 'Order cancelled successfully');
+                    document.getElementById('cancelModal').classList.add('hidden');
+                    // Reload page to reflect changes
+                    window.location.reload();
+                } catch (error) {
+                    alert('Error cancelling order');
+                    console.error(error);
+                }
+            });
+
+            // Return order
+            document.getElementById('confirmReturn')?.addEventListener('click', async function() {
+                const reason = document.getElementById('returnReason').value;
+                if (!reason.trim()) {
+                    alert('Please provide a reason for return');
+                    return;
+                }
+
+                try {
+                    const response = await apiCall('POST', `/orders/${orderId}/return`, { reason });
+                    if (response.error) {
+                        alert(response.error);
+                        return;
+                    }
+
+                    alert(response.message || 'Return request submitted successfully');
+                    document.getElementById('returnModal').classList.add('hidden');
+                    // Reload page to reflect changes
+                    window.location.reload();
+                } catch (error) {
+                    alert('Error submitting return request');
+                    console.error(error);
+                }
+            });
+
+            // Download invoice
+            document.getElementById('downloadInvoice')?.addEventListener('click', function() {
+                window.location.href = `/orders/${orderId}/invoice`;
+            });
+
+            // Cancel item buttons
+            document.querySelectorAll('.cancel-item').forEach(button => {
+                button.addEventListener('click', function() {
+                    const itemId = this.getAttribute('data-item-id');
+                    document.getElementById('cancelModalTitle').textContent = 'Cancel Item';
+                    document.getElementById('cancelModal').classList.remove('hidden');
+
+                    document.getElementById('confirmCancel').onclick = async function() {
+                        const reason = document.getElementById('cancelReason').value;
+                        if (!reason.trim()) {
+                            alert('Please provide a reason for cancellation');
+                            return;
                         }
-                    })
-                    .catch(error => {
-                        console.error('ReturnOrder Error:', error);
-                        Swal.fire('Error', 'Could not connect to the server.', 'error');
-                    });
-                }
+
+                        try {
+                            const response = await apiCall('POST', `/orders/${orderId}/items/${itemId}/cancel`, { reason });
+                            if (response.error) {
+                                alert(response.error);
+                                return;
+                            }
+
+                            alert(response.message || 'Item cancelled successfully');
+                            document.getElementById('cancelModal').classList.add('hidden');
+                            // Reload page to reflect changes
+                            window.location.reload();
+                        } catch (error) {
+                            alert('Error cancelling item');
+                            console.error(error);
+                        }
+                    };
+                });
             });
         }
     </script>

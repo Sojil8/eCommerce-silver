@@ -12,39 +12,40 @@ import (
 )
 
 type OfferRequest struct {
-	Discount   float64   `json:"discount" binding:"required,gt=0,lte=100"`
-	StartDate  time.Time `json:"start_date" binding:"required"`
-	EndDate    time.Time `json:"end_date" binding:"required"`
-	IsActive   bool      `json:"is_active"`
+	OfferName string    `json:"offer_name" binding:"required,max=100"`
+	Discount  float64   `json:"discount" binding:"required,gt=0,lte=100"`
+	StartDate time.Time `json:"start_date" binding:"required"`
+	EndDate   time.Time `json:"end_date" binding:"required"`
+	IsActive  bool      `json:"is_active"`
 }
 
 // GetAllCategories returns a list of all categories in JSON format
-func GetAllCategories(c *gin.Context) {
-	var categories []adminModels.Category
-	if err := database.DB.Find(&categories).Error; err != nil {
-		helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to fetch categories", err.Error(), "")
-		return
-	}
+// func GetAllCategories(c *gin.Context) {
+// 	var categories []adminModels.Category
+// 	if err := database.DB.Find(&categories).Error; err != nil {
+// 		helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to fetch categories", err.Error(), "")
+// 		return
+// 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"status":     "ok",
-		"categories": categories,
-	})
-}
+// 	c.JSON(http.StatusOK, gin.H{
+// 		"status":     "ok",
+// 		"categories": categories,
+// 	})
+// }
 
 // GetAllProducts returns a list of all products in JSON format
-func GetAllProducts(c *gin.Context) {
-	var products []adminModels.Product
-	if err := database.DB.Find(&products).Error; err != nil {
-		helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to fetch products", err.Error(), "")
-		return
-	}
+// func GetAllProducts(c *gin.Context) {
+// 	var products []adminModels.Product
+// 	if err := database.DB.Find(&products).Error; err != nil {
+// 		helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to fetch products", err.Error(), "")
+// 		return
+// 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"status":   "ok",
-		"products": products,
-	})
-}
+// 	c.JSON(http.StatusOK, gin.H{
+// 		"status":   "ok",
+// 		"products": products,
+// 	})
+// }
 
 // ShowOfferPage displays the unified page with products and offers
 func ShowOfferPage(c *gin.Context) {
@@ -134,11 +135,12 @@ func AddProductOffer(c *gin.Context) {
 	}
 
 	offer := adminModels.ProductOffer{
-		ProductID:  uint(productID),
-		Discount:   req.Discount,
-		StartDate:  req.StartDate,
-		EndDate:    req.EndDate,
-		IsActive:   req.IsActive,
+		ProductID: uint(productID),
+		OfferName: req.OfferName,
+		Discount:  req.Discount,
+		StartDate: req.StartDate,
+		EndDate:   req.EndDate,
+		IsActive:  req.IsActive,
 	}
 
 	if err := database.DB.Create(&offer).Error; err != nil {
@@ -151,6 +153,7 @@ func AddProductOffer(c *gin.Context) {
 		"message": "Product offer added successfully",
 		"offer": gin.H{
 			"product_id": offer.ProductID,
+			"offer_name": offer.OfferName,
 			"discount":   offer.Discount,
 			"start_date": offer.StartDate,
 			"end_date":   offer.EndDate,
@@ -176,11 +179,12 @@ func GetProductOffer(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"status": "ok",
 		"offer": gin.H{
-			"product_id": offer.ProductID,
-			"discount":   offer.Discount,
-			"start_date": offer.StartDate,
-			"end_date":   offer.EndDate,
-			"is_active":  offer.IsActive,
+			"product_id":  offer.ProductID,
+			"offer_name":  offer.OfferName,
+			"discount":    offer.Discount,
+			"start_date":  offer.StartDate,
+			"end_date":    offer.EndDate,
+			"is_active":   offer.IsActive,
 		},
 	})
 }
@@ -210,6 +214,7 @@ func EditProductOffer(c *gin.Context) {
 		return
 	}
 
+	offer.OfferName = req.OfferName
 	offer.Discount = req.Discount
 	offer.StartDate = req.StartDate
 	offer.EndDate = req.EndDate
@@ -225,6 +230,7 @@ func EditProductOffer(c *gin.Context) {
 		"message": "Product offer updated successfully",
 		"offer": gin.H{
 			"product_id": offer.ProductID,
+			"offer_name": offer.OfferName,
 			"discount":   offer.Discount,
 			"start_date": offer.StartDate,
 			"end_date":   offer.EndDate,
@@ -290,6 +296,7 @@ func AddCategoryOffer(c *gin.Context) {
 
 	offer := adminModels.CategoryOffer{
 		CategoryID: uint(categoryID),
+		OfferName:  req.OfferName,
 		Discount:   req.Discount,
 		StartDate:  req.StartDate,
 		EndDate:    req.EndDate,
@@ -306,6 +313,7 @@ func AddCategoryOffer(c *gin.Context) {
 		"message": "Category offer added successfully",
 		"offer": gin.H{
 			"category_id": offer.CategoryID,
+			"offer_name":  offer.OfferName,
 			"discount":    offer.Discount,
 			"start_date":  offer.StartDate,
 			"end_date":    offer.EndDate,
@@ -332,6 +340,7 @@ func GetCategoryOffer(c *gin.Context) {
 		"status": "ok",
 		"offer": gin.H{
 			"category_id": offer.CategoryID,
+			"offer_name":  offer.OfferName,
 			"discount":    offer.Discount,
 			"start_date":  offer.StartDate,
 			"end_date":    offer.EndDate,
@@ -365,6 +374,7 @@ func EditCategoryOffer(c *gin.Context) {
 		return
 	}
 
+	offer.OfferName = req.OfferName
 	offer.Discount = req.Discount
 	offer.StartDate = req.StartDate
 	offer.EndDate = req.EndDate
@@ -380,6 +390,7 @@ func EditCategoryOffer(c *gin.Context) {
 		"message": "Category offer updated successfully",
 		"offer": gin.H{
 			"category_id": offer.CategoryID,
+			"offer_name":  offer.OfferName,
 			"discount":    offer.Discount,
 			"start_date":  offer.StartDate,
 			"end_date":    offer.EndDate,
@@ -414,65 +425,65 @@ func DeleteCategoryOffer(c *gin.Context) {
 }
 
 // ApplyBestOffer applies the largest valid offer (product or category) to a product
-func ApplyBestOffer(c *gin.Context) {
-	productIDStr := c.Param("product_id")
-	productID, err := strconv.Atoi(productIDStr)
-	if err != nil {
-		helper.ResponseWithErr(c, http.StatusBadRequest, "Invalid product ID", err.Error(), "")
-		return
-	}
+// func ApplyBestOffer(c *gin.Context) {
+// 	productIDStr := c.Param("product_id")
+// 	productID, err := strconv.Atoi(productIDStr)
+// 	if err != nil {
+// 		helper.ResponseWithErr(c, http.StatusBadRequest, "Invalid product ID", err.Error(), "")
+// 		return
+// 	}
 
-	var product adminModels.Product
-	if err := database.DB.First(&product, productID).Error; err != nil {
-		helper.ResponseWithErr(c, http.StatusNotFound, "Product not found", err.Error(), "")
-		return
-	}
+// 	var product adminModels.Product
+// 	if err := database.DB.First(&product, productID).Error; err != nil {
+// 		helper.ResponseWithErr(c, http.StatusNotFound, "Product not found", err.Error(), "")
+// 		return
+// 	}
 
-	var productOffer adminModels.ProductOffer
-	var categoryOffer adminModels.CategoryOffer
-	var category adminModels.Category
+// 	var productOffer adminModels.ProductOffer
+// 	var categoryOffer adminModels.CategoryOffer
+// 	var category adminModels.Category
 
-	// Fetch product offer
-	productOfferDiscount := 0.0
-	if err := database.DB.Where("product_id = ? AND is_active = ? AND start_date <= ? AND end_date >= ?",
-		productID, true, time.Now(), time.Now()).First(&productOffer).Error; err == nil {
-		productOfferDiscount = productOffer.Discount
-	}
+// 	// Fetch product offer
+// 	productOfferDiscount := 0.0
+// 	if err := database.DB.Where("product_id = ? AND is_active = ? AND start_date <= ? AND end_date >= ?",
+// 		productID, true, time.Now(), time.Now()).First(&productOffer).Error; err == nil {
+// 		productOfferDiscount = productOffer.Discount
+// 	}
 
-	// Fetch category offer
-	categoryOfferDiscount := 0.0
-	if err := database.DB.Where("category_name = ?", product.CategoryName).First(&category).Error; err == nil {
-		if err := database.DB.Where("category_id = ? AND is_active = ? AND start_date <= ? AND end_date >= ?",
-			category.ID, true, time.Now(), time.Now()).First(&categoryOffer).Error; err == nil {
-			categoryOfferDiscount = categoryOffer.Discount
-		}
-	}
+// 	// Fetch category offer
+// 	categoryOfferDiscount := 0.0
+// 	if err := database.DB.Where("category_name = ?", product.CategoryName).First(&category).Error; err == nil {
+// 		if err := database.DB.Where("category_id = ? AND is_active = ? AND start_date <= ? AND end_date >= ?",
+// 			category.ID, true, time.Now(), time.Now()).First(&categoryOffer).Error; err == nil {
+// 			categoryOfferDiscount = categoryOffer.Discount
+// 		}
+// 	}
 
-	// Determine the best offer
-	bestDiscount := 0.0
-	offerType := "none"
-	if productOfferDiscount > categoryOfferDiscount {
-		bestDiscount = productOfferDiscount
-		offerType = "product"
-	} else if categoryOfferDiscount > 0 {
-		bestDiscount = categoryOfferDiscount
-		offerType = "category"
-	}
+// 	// Determine the best offer
+// 	bestDiscount := 0.0
+// 	offerType := "none"
+// 	if productOfferDiscount > categoryOfferDiscount {
+// 		bestDiscount = productOfferDiscount
+// 		offerType = "product"
+// 	} else if categoryOfferDiscount > 0 {
+// 		bestDiscount = categoryOfferDiscount
+// 		offerType = "category"
+// 	}
 
-	discountedPrice := product.Price
-	if bestDiscount > 0 {
-		discountedPrice = product.Price * (1 - bestDiscount/100)
-	}
+// 	discountedPrice := product.Price
+// 	if bestDiscount > 0 {
+// 		discountedPrice = product.Price * (1 - bestDiscount/100)
+// 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"status": "ok",
-		"product": gin.H{
-			"product_id":        product.ID,
-			"product_name":      product.ProductName,
-			"original_price":    product.Price,
-			"discounted_price":  discountedPrice,
-			"applied_discount":  bestDiscount,
-			"offer_type":        offerType,
-		},
-	})
-}
+// 	c.JSON(http.StatusOK, gin.H{
+// 		"status": "ok",
+// 		"product": gin.H{
+// 			"product_id":       product.ID,
+// 			"product_name":     product.ProductName,
+// 			"original_price":   product.Price,
+// 			"discounted_price": discountedPrice,
+// 			"applied_discount": bestDiscount,
+// 			"offer_type":       offerType,
+// 		},
+// 	})
+// }
