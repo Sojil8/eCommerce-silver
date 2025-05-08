@@ -49,7 +49,18 @@ func GetUserProducts(c *gin.Context) {
 
 	var productsWithOffers []ProductWithOffer
 	for _, product := range products {
-		offerDetails := helper.GetBestOfferForProduct(&product)
+		// In GetProductDetails
+		var variantExtraPrice float64
+		if len(product.Variants) > 0 {
+			// Assume the first variant with stock is selected by default
+			for _, variant := range product.Variants {
+				if variant.Stock > 0 {
+					variantExtraPrice = variant.ExtraPrice
+					break
+				}
+			}
+		}
+		offerDetails := helper.GetBestOfferForProduct(&product, variantExtraPrice)
 		discountPercentage := int(offerDetails.DiscountPercentage)
 		productsWithOffers = append(productsWithOffers, ProductWithOffer{
 			Product:            product,
@@ -92,4 +103,3 @@ func GetUserProducts(c *gin.Context) {
 		"CartCount":     cartCount,
 	})
 }
-

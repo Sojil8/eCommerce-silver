@@ -38,52 +38,53 @@
                         No Offer
                     </div>
                     {{ end }}
-                    <div class="flex items-center space-x-4">
-                        <img src="{{(index .Product.Images 0)}}" alt="{{.Product.ProductName}}"
-                            class="w-20 h-20 object-cover rounded-md">
-                        <div class="flex-grow">
-                            <h3 class="text-lg font-semibold text-gray-900">{{.Product.ProductName}}</h3>
-                            <p class="text-sm text-gray-500">{{.Product.CategoryName}} - <span
-                                    class="text-indigo-500">{{.Variants.Color}}</span></p>
-                            <div class="flex items-center space-x-2">
-                                {{ if .IsOfferApplied }}
-                                <p class="text-indigo-600 font-bold">${{printf "%.2f" .DiscountedPrice}}</p>
-                                <p class="text-sm text-gray-500 line-through">${{printf "%.2f" .OriginalPrice}}</p>
-                                <span class="bg-green-100 text-green-800 text-xs font-medium px-2 py-1 rounded-full">
-                                    {{ printf "%.0f" .DiscountPercentage }}% Off
-                                </span>
-                                {{ else }}
-                                <p class="text-indigo-600 font-bold">${{printf "%.2f" .Price}}</p>
-                                {{ end }}
-                            </div>
-                        </div>
-                        <div class="flex items-center space-x-2">
-                            <button onclick="updateQuantity('{{.ProductID}}', '{{.VariantsID}}', {{.Quantity}} - 1)"
-                                class="text-gray-600 hover:text-indigo-600 p-2 rounded-full hover:bg-indigo-50 transition-colors {{if eq .Quantity 1}}opacity-50 cursor-not-allowed{{end}}"
-                                {{if eq .Quantity 1}}disabled{{end}}>
-                                <i class="fas fa-minus"></i>
-                            </button>
-                            <input type="number" value="{{.Quantity}}" min="1" max="{{.Variants.Stock}}"
-                                class="w-12 text-center border border-gray-300 rounded py-1 bg-gray-50" readonly>
-                            <button onclick="updateQuantity('{{.ProductID}}', '{{.VariantsID}}', {{.Quantity}} + 1)"
-                                class="text-gray-600 hover:text-indigo-600 p-2 rounded-full hover:bg-indigo-50 transition-colors {{if eq .Quantity .Variants.Stock}}opacity-50 cursor-not-allowed{{end}}"
-                                {{if eq .Quantity .Variants.Stock}}disabled{{end}}>
-                                <i class="fas fa-plus"></i>
-                            </button>
-                        </div>
-                        <div class="flex items-center space-x-4">
-                            <!-- FIXED LINE: Calculate item total based on discounted price -->
-                            {{ if .IsOfferApplied }}
-                            <p class="font-bold text-indigo-600">${{printf "%.2f" (mul .DiscountedPrice (float64 .Quantity))}}</p>
-                            {{ else }}
-                            <p class="font-bold text-indigo-600">${{printf "%.2f" (mul .Price (float64 .Quantity))}}</p>
-                            {{ end }}
-                            <button onclick="removeItem('{{.ProductID}}', '{{.VariantsID}}')"
-                                class="text-red-500 hover:text-red-600 p-2 rounded-full hover:bg-red-50 transition-colors">
-                                <i class="fas fa-trash"></i>
-                            </button>
-                        </div>
-                    </div>
+                    <!-- Fixed section for product pricing in cart item display -->
+<div class="flex items-center space-x-4">
+    <img src="{{(index .Product.Images 0)}}" alt="{{.Product.ProductName}}"
+        class="w-20 h-20 object-cover rounded-md">
+    <div class="flex-grow">
+        <h3 class="text-lg font-semibold text-gray-900">{{.Product.ProductName}}</h3>
+        <p class="text-sm text-gray-500">{{.Product.CategoryName}} - <span
+                class="text-indigo-500">{{.Variants.Color}}</span></p>
+        <div class="flex items-center space-x-2">
+            {{ if .IsOfferApplied }}
+            <p class="text-indigo-600 font-bold">${{printf "%.2f" .DiscountedPrice}}</p>
+            <p class="text-sm text-gray-500 line-through">${{printf "%.2f" .OriginalPrice}}</p>
+            <span class="bg-green-100 text-green-800 text-xs font-medium px-2 py-1 rounded-full">
+                {{ printf "%.0f" .DiscountPercentage }}% Off
+            </span>
+            {{ else }}
+            <p class="text-indigo-600 font-bold">${{printf "%.2f" .Price}}</p>
+            {{ end }}
+        </div>
+    </div>
+    <div class="flex items-center space-x-2">
+        <button onclick="updateQuantity('{{.ProductID}}', '{{.VariantsID}}', {{.Quantity}} - 1)"
+            class="text-gray-600 hover:text-indigo-600 p-2 rounded-full hover:bg-indigo-50 transition-colors {{if eq .Quantity 1}}opacity-50 cursor-not-allowed{{end}}"
+            {{if eq .Quantity 1}}disabled{{end}}>
+            <i class="fas fa-minus"></i>
+        </button>
+        <input type="number" value="{{.Quantity}}" min="1" max="{{.Variants.Stock}}"
+            class="w-12 text-center border border-gray-300 rounded py-1 bg-gray-50" readonly>
+        <button onclick="updateQuantity('{{.ProductID}}', '{{.VariantsID}}', {{.Quantity}} + 1)"
+            class="text-gray-600 hover:text-indigo-600 p-2 rounded-full hover:bg-indigo-50 transition-colors {{if eq .Quantity .Variants.Stock}}opacity-50 cursor-not-allowed{{end}}"
+            {{if eq .Quantity .Variants.Stock}}disabled{{end}}>
+            <i class="fas fa-plus"></i>
+        </button>
+    </div>
+    <div class="flex items-center space-x-4">
+        <!-- Fixed line: Calculate item total based on the appropriate price -->
+        {{ if .IsOfferApplied }}
+        <p class="font-bold text-indigo-600">${{printf "%.2f" .ItemTotal}}</p>
+        {{ else }}
+        <p class="font-bold text-indigo-600">${{printf "%.2f" .ItemTotal}}</p>
+        {{ end }}
+        <button onclick="removeItem('{{.ProductID}}', '{{.VariantsID}}')"
+            class="text-red-500 hover:text-red-600 p-2 rounded-full hover:bg-red-50 transition-colors">
+            <i class="fas fa-trash"></i>
+        </button>
+    </div>
+</div>
                 </div>
                 {{end}}
                 {{else}}

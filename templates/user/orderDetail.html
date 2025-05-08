@@ -40,7 +40,7 @@
                         <!-- <img class="h-8 w-auto" src="/api/placeholder/150/50" alt="E-Commerce Logo"> -->
                     </div>
                     <div class="hidden sm:ml-6 sm:flex sm:space-x-8">
-                        <a href="/" class="border-indigo-500 text-gray-900 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                        <a href="/home" class="border-indigo-500 text-gray-900 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
                             Home
                         </a>
                         <a href="/shop" class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
@@ -357,9 +357,9 @@
                     }
                     
                     itemDiv.innerHTML = `
-                        <img src="${productImage}" alt="${item.product.product_name}" class="h-16 w-16 object-cover rounded">
+                        <img src="${productImage}" alt="${item.product.productName}" class="h-16 w-16 object-cover rounded">
                         <div class="ml-4 flex-1">
-                            <h4 class="text-sm font-medium text-gray-900">${item.product.product_name}</h4>
+                            <h4 class="text-sm font-medium text-gray-900">${item.product.productName}</h4>
                             ${variantInfo ? `<p class="text-sm text-gray-500">${variantInfo}</p>` : ''}
                             <p class="text-sm text-gray-500">Quantity: ${item.quantity}</p>
                             <p class="text-sm text-gray-500">Status: ${item.status || 'Active'}</p>

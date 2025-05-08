@@ -55,7 +55,6 @@ func GetCategories(c *gin.Context) {
 }
 
 func AddCategory(c *gin.Context) {
-	middleware.ClearCache()
 	var category adminModels.Category
 	if err := c.ShouldBindJSON(&category); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -123,7 +122,6 @@ func EditCategory(c *gin.Context) {
 }
 
 func ListCategory(c *gin.Context) {
-	middleware.ClearCache()
 	idStr := c.Param("id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
@@ -149,7 +147,6 @@ func ListCategory(c *gin.Context) {
 }
 
 func UnlistCategory(c *gin.Context) {
-	middleware.ClearCache()
 	idStr := c.Param("id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {

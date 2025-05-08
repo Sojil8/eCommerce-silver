@@ -17,17 +17,21 @@ type OfferDetails struct {
 	IsOfferApplied    bool
 }
 
-func GetBestOfferForProduct(product *adminModels.Product) OfferDetails {
+// GetBestOfferForProduct calculates the best offer for a product based on its base price plus the variant's extra price
+func GetBestOfferForProduct(product *adminModels.Product, variantExtraPrice float64) OfferDetails {
 	var productOffer adminModels.ProductOffer
 	var categoryOffer adminModels.CategoryOffer
 	var result OfferDetails
 
-	result.OriginalPrice = product.Price
-	result.DiscountedPrice = product.Price
+	// Calculate total price (base price + variant extra price)
+	totalPrice := product.Price + variantExtraPrice
+	result.OriginalPrice = totalPrice
+	result.DiscountedPrice = totalPrice
 	result.IsOfferApplied = false
 
 	currentTime := time.Now()
 
+	// Check for active product offer
 	err := database.DB.Where("product_id = ? AND is_active = ? AND start_date <= ? AND end_date >= ?",
 		product.ID, true, currentTime, currentTime).First(&productOffer).Error
 	productDiscount := 0.0
@@ -40,6 +44,7 @@ func GetBestOfferForProduct(product *adminModels.Product) OfferDetails {
 		log.Printf("Error fetching product offer for product_id=%d: %v", product.ID, err)
 	}
 
+	// Check for active category offer
 	var category adminModels.Category
 	err = database.DB.Where("category_name = ?", product.CategoryName).First(&category).Error
 	if err == nil {
@@ -78,9 +83,10 @@ func GetBestOfferForProduct(product *adminModels.Product) OfferDetails {
 		log.Printf("Error fetching category for category_name=%s: %v", product.CategoryName, err)
 	}
 
+	// Apply the discount to the total price if an offer is found
 	if result.IsOfferApplied {
-		result.DiscountedPrice = product.Price * (1 - result.DiscountPercentage/100)
-		result.OriginalPrice = product.Price
+		result.DiscountedPrice = totalPrice * (1 - result.DiscountPercentage/100)
+		result.OriginalPrice = totalPrice
 		log.Printf("Applied offer for product_id=%d: %s, original_price=%.2f, discounted_price=%.2f, discount=%.2f%%",
 			product.ID, result.OfferName, result.OriginalPrice, result.DiscountedPrice, result.DiscountPercentage)
 	}

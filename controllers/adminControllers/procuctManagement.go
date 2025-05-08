@@ -13,7 +13,7 @@ import (
 
 func ShowAddProductForm(c *gin.Context) {
 	var categories []adminModels.Category
-	if err := database.DB.Where("status = ?", true).Find(&categories).Error; err != nil {
+	if err := database.DB.Find(&categories).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch categories"})
 		return
 	}
@@ -39,7 +39,7 @@ func ShowEditProductForm(c *gin.Context) {
 	}
 
 	var categories []adminModels.Category
-	if err := database.DB.Where("status = ?", true).Find(&categories).Error; err != nil {
+	if err := database.DB.Find(&categories).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch categories"})
 		return
 	}
@@ -81,11 +81,7 @@ func AddProduct(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid category name"})
 		return
 	}
-	if !category.Status {
-		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Category '%s' is unlisted", requiredFields["categoryName"])})
-		return
-	}
-
+	
 	files := form.File["images"]
 	if len(files) < 3 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "At least 3 images are required"})
@@ -199,10 +195,10 @@ func EditProduct(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid category name"})
 			return
 		}
-		if !category.Status {
-			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Category '%s' is unlisted", categoryName)})
-			return
-		}
+		// if !category.Status {
+		// 	c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Category '%s' is unlisted", categoryName)})
+		// 	return
+		// }
 		product.CategoryName = categoryName
 	}
 

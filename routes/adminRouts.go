@@ -35,7 +35,7 @@ func AdminRoutes(c *gin.Engine) {
 			protected.POST("/products/add", controllers.AddProduct)
 			protected.GET("/products/edit/:id", controllers.ShowEditProductForm)
 			protected.PATCH("/products/edit/:id", controllers.EditProduct)
-			// protected.GET("/products/details/:id",controllers.ProductDetailsHandler)
+			protected.GET("/products/details/:id",controllers.ProductDetailsHandler)//product detals admin
 			protected.PATCH("/products/toggle/:id", controllers.ToggleProductStatus)
 
 			//order
@@ -65,7 +65,7 @@ func AdminRoutes(c *gin.Engine) {
 			// protected.GET("/apply_offer/:product_id", controllers.ApplyBestOffer)
 
 			//sales report
-			protected.GET("/sales-report", controllers.GetSalesReport)
+			protected.GET("/dash-board", controllers.GetSalesReport)
 
 
 

@@ -659,29 +659,32 @@
         }
 
         async function verifyPayment(response) {
-            console.log('Verifying payment:', response);
-            try {
-                showLoading();
-                const data = await apiCall('/checkout/verify-payment', 'POST', {
-                    razorpay_order_id: response.razorpay_order_id,
-                    razorpay_payment_id: response.razorpay_payment_id,
-                    razorpay_signature: response.razorpay_signature
-                });
-                closeLoading();
-                showAlert(
-                    data.status === 'ok' ? 'success' : 'error',
-                    data.status === 'ok' ? 'Payment Successful!' : 'Payment Failed',
-                    data.status === 'ok' ? 'Your order has been placed.' : data.message || 'Payment verification failed',
-                    1500
-                );
-                if (data.redirect) window.location.href = data.redirect;
-            } catch (error) {
-                console.error('VerifyPayment Error:', error);
-                closeLoading();
-                showAlert('error', 'Connection Error', 'Could not verify payment. Please contact support.', 2000);
-                window.location.href = `/order/failure?error=${encodeURIComponent('Could not connect to the server')}`;
-            }
+    console.log('Payment response:', response);
+    try {
+        showLoading();
+        const data = await apiCall('/checkout/verify-payment', 'POST', {
+            razorpay_order_id: response.razorpay_order_id,
+            razorpay_payment_id: response.razorpay_payment_id,
+            razorpay_signature: response.razorpay_signature
+        });
+        
+        console.log('Verification response:', data);
+        
+        if (data.status === 'ok') {
+            // Redirect to success page with order ID
+            window.location.href = data.redirect || `/order/success?order_id=${data.order_id}`;
+        } else {
+            closeLoading();
+            showAlert('error', 'Payment Failed', data.message || 'Payment verification failed', 2000);
+            window.location.href = `/order/failure?order_id=${data.order_id}&error=${encodeURIComponent(data.message || 'Payment verification failed')}`;
         }
+    } catch (error) {
+        console.error('VerifyPayment Error:', error);
+        closeLoading();
+        showAlert('error', 'Error', error.message || 'Payment verification failed', 2000);
+        window.location.href = `/order/failure?error=${encodeURIComponent(error.message || 'Payment verification failed')}`;
+    }
+}
     </script>
 </body>
 </html>

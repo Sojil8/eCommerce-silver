@@ -40,10 +40,12 @@ func ShowCheckout(c *gin.Context) {
 
 	for _, item := range cart.CartItems {
 		var category adminModels.Category
+		var variant adminModels.Variants
+		// Check if product is listed, category is active, and variant exists
 		if item.Product.IsListed &&
-			database.DB.Where("category_name = ? AND status = ?", item.Product.CategoryName, true).First(&category).Error == nil {
-			// Apply the best offer for the product
-			offerDetails := helper.GetBestOfferForProduct(&item.Product)
+			database.DB.Where("category_name = ? AND status = ?", item.Product.CategoryName, true).First(&category).Error == nil &&
+			database.DB.Where("id = ? AND deleted_at IS NULL", item.VariantsID).First(&variant).Error == nil {
+			offerDetails := helper.GetBestOfferForProduct(&item.Product, item.Variants.ExtraPrice)
 			item.Price = offerDetails.OriginalPrice
 			item.DiscountedPrice = offerDetails.DiscountedPrice
 			item.OriginalPrice = offerDetails.OriginalPrice
@@ -55,6 +57,10 @@ func ShowCheckout(c *gin.Context) {
 			validCartItems = append(validCartItems, item)
 		} else {
 			invalidProductFound = true
+			log.Printf("Invalid cart item for user %v: product_id=%d, variant_id=%d, product_listed=%v, category_error=%v, variant_error=%v",
+				userID, item.ProductID, item.VariantsID, item.Product.IsListed,
+				database.DB.Where("category_name = ? AND status = ?", item.Product.CategoryName, true).First(&category).Error,
+				database.DB.Where("id = ? AND deleted_at IS NULL", item.VariantsID).First(&variant).Error)
 		}
 	}
 
@@ -65,14 +71,40 @@ func ShowCheckout(c *gin.Context) {
 		return
 	}
 
-	if invalidProductFound {
+	if invalidProductFound || totalPrice != cart.TotalPrice {
 		cart.TotalPrice = totalPrice
-		cart.CartItems = validCartItems
-		if err := database.DB.Save(&cart).Error; err != nil {
-			log.Printf("Failed to save updated cart for user %v hunting error: %v", userID, err)
+		if err := database.DB.Transaction(func(tx *gorm.DB) error {
+			if err := tx.Where("cart_id = ?", cart.ID).Delete(&userModels.CartItem{}).Error; err != nil {
+				return err
+			}
+			if err := tx.Save(&cart).Error; err != nil {
+				return err
+			}
+			for _, item := range validCartItems {
+				newItem := userModels.CartItem{
+					CartID:             cart.ID,
+					ProductID:          item.ProductID,
+					VariantsID:         item.VariantsID,
+					Quantity:           item.Quantity,
+					Price:              item.Price,
+					DiscountedPrice:    item.DiscountedPrice,
+					OriginalPrice:      item.OriginalPrice,
+					DiscountPercentage: item.DiscountPercentage,
+					OfferName:          item.OfferName,
+					IsOfferApplied:     item.IsOfferApplied,
+					ItemTotal:          item.ItemTotal,
+				}
+				if err := tx.Create(&newItem).Error; err != nil {
+					return err
+				}
+			}
+			return nil
+		}); err != nil {
+			log.Printf("Failed to save updated cart for user %v: %v", userID, err)
 			helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to update cart", err.Error(), "")
 			return
 		}
+		cart.CartItems = validCartItems
 	}
 
 	var addresses []userModels.Address
@@ -191,38 +223,6 @@ func ShowCheckout(c *gin.Context) {
 	})
 }
 
-func SetDefaultAddress(c *gin.Context) {
-	userID, _ := c.Get("id")
-	addressID := c.Param("address_id")
-
-	err := database.DB.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Model(&userModels.Address{}).
-			Where("user_id = ?", userID).
-			Update("is_default", false).Error; err != nil {
-			return err
-		}
-		var address userModels.Address
-		if err := tx.Where("id = ? AND user_id = ?", addressID, userID).First(&address).Error; err != nil {
-			return err
-		}
-		address.IsDefault = true
-		return tx.Save(&address).Error
-	})
-
-	if err != nil {
-		log.Printf("Failed to set default address for user %v: %v", userID, err)
-		helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to set default address", err.Error(), "")
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"status": "ok", "message": "Default address updated"})
-}
-
-type PaymentRequest struct {
-	AddressID     uint   `json:"address_id" binding:"required"`
-	PaymentMethod string `json:"payment_method" binding:"required"`
-}
-
 func PlaceOrder(c *gin.Context) {
 	userID, _ := c.Get("id")
 
@@ -247,6 +247,7 @@ func PlaceOrder(c *gin.Context) {
 	var discount float64
 	var coupon adminModels.Coupons
 	orderID := generateOrderID()
+	totalPrice := 0.0
 
 	err := database.DB.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Where("user_id = ?", userID).
@@ -260,12 +261,47 @@ func PlaceOrder(c *gin.Context) {
 			var category adminModels.Category
 			if item.Product.IsListed &&
 				tx.Where("category_name = ? AND status = ?", item.Product.CategoryName, true).First(&category).Error == nil {
+				offerDetails := helper.GetBestOfferForProduct(&item.Product, item.Variants.ExtraPrice)
+				item.Price = offerDetails.OriginalPrice
+				item.DiscountedPrice = offerDetails.DiscountedPrice
+				item.OriginalPrice = offerDetails.OriginalPrice
+				item.DiscountPercentage = offerDetails.DiscountPercentage
+				item.OfferName = offerDetails.OfferName
+				item.IsOfferApplied = offerDetails.IsOfferApplied
+				item.ItemTotal = offerDetails.DiscountedPrice * float64(item.Quantity)
+				totalPrice += item.ItemTotal
 				validCartItems = append(validCartItems, item)
 			}
 		}
 
 		if len(validCartItems) == 0 {
 			return fmt.Errorf("no valid items in cart")
+		}
+
+		cart.TotalPrice = totalPrice
+		if err := tx.Where("cart_id = ?", cart.ID).Delete(&userModels.CartItem{}).Error; err != nil {
+			return fmt.Errorf("failed to delete cart items: %v", err)
+		}
+		if err := tx.Save(&cart).Error; err != nil {
+			return fmt.Errorf("failed to save cart: %v", err)
+		}
+		for _, item := range validCartItems {
+			newItem := userModels.CartItem{
+				CartID:             cart.ID,
+				ProductID:          item.ProductID,
+				VariantsID:         item.VariantsID,
+				Quantity:           item.Quantity,
+				Price:              item.Price,
+				DiscountedPrice:    item.DiscountedPrice,
+				OriginalPrice:      item.OriginalPrice,
+				DiscountPercentage: item.DiscountPercentage,
+				OfferName:          item.OfferName,
+				IsOfferApplied:     item.IsOfferApplied,
+				ItemTotal:          item.ItemTotal,
+			}
+			if err := tx.Create(&newItem).Error; err != nil {
+				return fmt.Errorf("failed to create cart item: %v", err)
+			}
 		}
 
 		if err := tx.Where("id = ? AND user_id = ?", req.AddressID, userID).First(&address).Error; err != nil {
@@ -336,7 +372,7 @@ func PlaceOrder(c *gin.Context) {
 		razorpayOrderID := razorpayOrder["id"].(string)
 
 		paymentDetails := adminModels.PaymentDetails{
-			UserID:          userID.(uint),
+			UserID:          userID.(uint), // Changed from ID to UserID
 			RazorpayOrderID: razorpayOrderID,
 			Amount:          finalPrice,
 			Status:          "Created",
@@ -400,7 +436,7 @@ func PlaceOrder(c *gin.Context) {
 				ProductID:  item.ProductID,
 				VariantsID: item.VariantsID,
 				Quantity:   item.Quantity,
-				Price:      item.Price,
+				Price:      item.DiscountedPrice,
 				Status:     "Active",
 			}
 			if err := tx.Create(&orderItem).Error; err != nil {
@@ -459,10 +495,36 @@ func PlaceOrder(c *gin.Context) {
 	})
 }
 
-func generateOrderID() string {
-	timestamp := time.Now().Format("20060102")
-	randomNum := rand.Intn(10000)
-	return fmt.Sprintf("ORD-%s-%04d", timestamp, randomNum)
+func SetDefaultAddress(c *gin.Context) {
+	userID, _ := c.Get("id")
+	addressID := c.Param("address_id")
+
+	err := database.DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Model(&userModels.Address{}).
+			Where("user_id = ?", userID).
+			Update("is_default", false).Error; err != nil {
+			return err
+		}
+		var address userModels.Address
+		if err := tx.Where("id = ? AND user_id = ?", addressID, userID).First(&address).Error; err != nil {
+			return err
+		}
+		address.IsDefault = true
+		return tx.Save(&address).Error
+	})
+
+	if err != nil {
+		log.Printf("Failed to set default address for user %v: %v", userID, err)
+		helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to set default address", err.Error(), "")
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"status": "ok", "message": "Default address updated"})
+}
+
+type PaymentRequest struct {
+	AddressID     uint   `json:"address_id" binding:"required"`
+	PaymentMethod string `json:"payment_method" binding:"required"`
 }
 
 func ShowOrderSuccess(c *gin.Context) {
@@ -474,10 +536,37 @@ func ShowOrderSuccess(c *gin.Context) {
 		helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to load order", err.Error(), "")
 		return
 	}
+	user, exists := c.Get("user")
+	userName, nameExists := c.Get("user_name")
+	if !exists || !nameExists {
+		c.HTML(http.StatusOK, "home.html", gin.H{
+			"status":        "success",
+			"UserName":      "Guest",
+			"WishlistCount": 0,
+			"CartCount":     0,
+			"ProfileImage":  "",
+		})
+		return
+	}
+	userData := user.(userModels.Users)
+	userNameStr := userName.(string)
+
+	var wishlistCount, cartCount int64
+	if err := database.DB.Model(&userModels.Wishlist{}).Where("user_id = ?", userData.ID).Count(&wishlistCount).Error; err != nil {
+		wishlistCount = 0
+	}
+	if err := database.DB.Model(&userModels.CartItem{}).Joins("JOIN carts ON carts.id = cart_items.cart_id").Where("carts.user_id = ?", userData.ID).Count(&cartCount).Error; err != nil {
+		cartCount = 0
+	}
 
 	c.HTML(http.StatusOK, "orderSuccess.html", gin.H{
 		"title":   "Order Successful",
 		"OrderID": order.OrderIdUnique,
+		"status":        "success",
+		"UserName":      userNameStr,
+		"ProfileImage":  userData.ProfileImage,
+		"WishlistCount": wishlistCount,
+		"CartCount":     cartCount,
 	})
 }
 
@@ -506,4 +595,10 @@ func ShowOrderFailure(c *gin.Context) {
 		"OrderID":     orderID,
 		"OrderExists": orderExists,
 	})
+}
+
+func generateOrderID() string {
+	timestamp := time.Now().Format("20060102")
+	randomNum := rand.Intn(10000)
+	return fmt.Sprintf("ORD-%s-%04d", timestamp, randomNum)
 }

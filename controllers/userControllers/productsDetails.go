@@ -27,8 +27,18 @@ func GetProductDetails(c *gin.Context) {
 		return
 	}
 
-	// Calculate offer details
-	offerDetails := helper.GetBestOfferForProduct(&product)
+	// In GetProductDetails
+	var variantExtraPrice float64
+	if len(product.Variants) > 0 {
+		// Assume the first variant with stock is selected by default
+		for _, variant := range product.Variants {
+			if variant.Stock > 0 {
+				variantExtraPrice = variant.ExtraPrice
+				break
+			}
+		}
+	}
+	offerDetails := helper.GetBestOfferForProduct(&product, variantExtraPrice)
 	discountPercentage := int(offerDetails.DiscountPercentage)
 
 	var hasStock bool

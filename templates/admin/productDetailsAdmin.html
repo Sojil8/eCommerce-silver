@@ -62,7 +62,7 @@
                             <p>₹{{ printf "%.2f" .Product.Price }}</p>
 
                             <h5 class="text-lg font-bold mt-4">Original Price:</h5>
-                            <p>{{ if gt .Product.OriginalPrice 0 }}₹{{ printf "%.2f" .Product.OriginalPrice }}{{ else }}N/A{{ end }}</p>
+                            <p>{{ if gt .Product.OriginalPrice 0.0 }}₹{{ printf "%.2f" .Product.OriginalPrice }}{{ else }}N/A{{ end }}</p>
 
                             <h5 class="text-lg font-bold mt-4">Discount:</h5>
                             <p>{{ if .DiscountPercentage }}{{ .DiscountPercentage }}%{{ else }}No discount{{ end }}</p>
@@ -76,8 +76,7 @@
                             <h5 class="text-lg font-bold">Description:</h5>
                             <p>{{ .Product.Description }}</p>
 
-                            <h5 class="text-lg font-bold mt-4">Specifications:</h5>
-                            <p>{{ if .Product.Specs }}{{ .Product.Specs }}{{ else }}No specifications{{ end }}</p>
+                           
 
                             <h5 class="text-lg font-bold mt-4">Images:</h5>
                             {{ if .Product.Images }}

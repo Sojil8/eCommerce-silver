@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"net/http"
+
 	"github.com/Sojil8/eCommerce-silver/database"
 	"github.com/Sojil8/eCommerce-silver/helper"
 	"github.com/Sojil8/eCommerce-silver/models/adminModels"
@@ -35,22 +36,20 @@ func GetCart(c *gin.Context) {
 		var category adminModels.Category
 		if item.Product.IsListed &&
 			database.DB.Where("category_name = ? AND status = ?", item.Product.CategoryName, true).First(&category).Error == nil {
-			// Ensure offer details are up-to-date
-			offer := helper.GetBestOfferForProduct(&item.Product)
+			offer := helper.GetBestOfferForProduct(&item.Product, item.Variants.ExtraPrice)
 			item.DiscountedPrice = offer.DiscountedPrice + item.Variants.ExtraPrice
 			item.OriginalPrice = offer.OriginalPrice + item.Variants.ExtraPrice
 			item.DiscountPercentage = offer.DiscountPercentage
 			item.OfferName = offer.OfferName
 			item.IsOfferApplied = offer.IsOfferApplied
-			item.Price = offer.OriginalPrice + item.Variants.ExtraPrice // Base price without discount
-			
-			// Calculate item total based on whether an offer is applied
+			item.Price = offer.OriginalPrice + item.Variants.ExtraPrice
+
 			if item.IsOfferApplied {
 				item.ItemTotal = item.DiscountedPrice * float64(item.Quantity)
 			} else {
 				item.ItemTotal = item.Price * float64(item.Quantity)
 			}
-			
+
 			filteredCartItems = append(filteredCartItems, item)
 		}
 	}
@@ -101,6 +100,7 @@ func GetCart(c *gin.Context) {
 		"CartCount":     cartCount,
 	})
 }
+
 type RequestCartItem struct {
 	ProductID uint `json:"product_id"`
 	VariantID uint `json:"variant_id"`
@@ -129,7 +129,6 @@ func AddToCart(c *gin.Context) {
 	err := database.DB.Transaction(func(tx *gorm.DB) error {
 		var productID uint
 
-		// Handle wishlist item
 		if req.WishlistID != nil {
 			var wishlist userModels.Wishlist
 			if err := tx.First(&wishlist, *req.WishlistID).Error; err != nil {
@@ -182,9 +181,18 @@ func AddToCart(c *gin.Context) {
 			return err
 		}
 
-		// Get best offer for the product
-		offer := helper.GetBestOfferForProduct(&product)
-
+		// In GetProductDetails
+		var variantExtraPrice float64
+		if len(product.Variants) > 0 {
+			// Assume the first variant with stock is selected by default
+			for _, variant := range product.Variants {
+				if variant.Stock > 0 {
+					variantExtraPrice = variant.ExtraPrice
+					break
+				}
+			}
+		}
+		offer := helper.GetBestOfferForProduct(&product, variantExtraPrice)
 		for i, item := range cart.CartItems {
 			if item.ProductID == productID && item.VariantsID == req.VariantID {
 				newQnty := item.Quantity + req.Quantity
@@ -206,16 +214,16 @@ func AddToCart(c *gin.Context) {
 		}
 
 		item := userModels.CartItem{
-			CartID:            cart.ID,
-			ProductID:         productID,
-			VariantsID:        req.VariantID,
-			Quantity:          req.Quantity,
-			Price:             offer.OriginalPrice + variant.ExtraPrice,
-			DiscountedPrice:   offer.DiscountedPrice + variant.ExtraPrice,
-			OriginalPrice:     offer.OriginalPrice + variant.ExtraPrice,
+			CartID:             cart.ID,
+			ProductID:          productID,
+			VariantsID:         req.VariantID,
+			Quantity:           req.Quantity,
+			Price:              offer.OriginalPrice + variant.ExtraPrice,
+			DiscountedPrice:    offer.DiscountedPrice + variant.ExtraPrice,
+			OriginalPrice:      offer.OriginalPrice + variant.ExtraPrice,
 			DiscountPercentage: offer.DiscountPercentage,
-			OfferName:         offer.OfferName,
-			IsOfferApplied:    offer.IsOfferApplied,
+			OfferName:          offer.OfferName,
+			IsOfferApplied:     offer.IsOfferApplied,
 		}
 		if err := tx.Create(&item).Error; err != nil {
 			return err
@@ -268,7 +276,18 @@ func UpdateQuantity(c *gin.Context) {
 			return err
 		}
 
-		offer := helper.GetBestOfferForProduct(&product)
+		// In GetProductDetails
+		var variantExtraPrice float64
+		if len(product.Variants) > 0 {
+			// Assume the first variant with stock is selected by default
+			for _, variant := range product.Variants {
+				if variant.Stock > 0 {
+					variantExtraPrice = variant.ExtraPrice
+					break
+				}
+			}
+		}
+		offer := helper.GetBestOfferForProduct(&product, variantExtraPrice)
 
 		for i, item := range cart.CartItems {
 			if item.ProductID == req.ProductID && item.VariantsID == req.VariantID {

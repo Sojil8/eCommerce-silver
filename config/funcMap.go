@@ -4,7 +4,7 @@ import (
 	"html/template"
 	"strings"
 
-	"github.com/Sojil8/eCommerce-silver/models/adminModels" // Adjust import based on your project structure
+	"github.com/Sojil8/eCommerce-silver/models/adminModels"
 )
 
 func SetupTemplateFunctions() template.FuncMap {
@@ -29,7 +29,6 @@ func SetupTemplateFunctions() template.FuncMap {
 			return result
 		},
 		"mul": func(a float64, b interface{}) float64 {
-			// Handle different numeric types for the second parameter
 			switch v := b.(type) {
 			case int:
 				return a * float64(v)
@@ -40,11 +39,10 @@ func SetupTemplateFunctions() template.FuncMap {
 			case float64:
 				return a * v
 			default:
-				return 0 // Default case, could log an error here
+				return 0 
 			}
 		},
 		"float64": func(n interface{}) float64 {
-			// Convert various numeric types to float64
 			switch v := n.(type) {
 			case int:
 				return float64(v)

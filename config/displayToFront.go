@@ -9,7 +9,6 @@ import (
 )
 
 func SetupRoutes(r *gin.Engine, db *gorm.DB) {
-	// Apply middleware to routes that need user data
 	authenticated := r.Group("/", middleware.Authenticate("jwt_token", "User", "/login"))
 	authenticated.GET("/home", func(c *gin.Context) {
 		user, exists := c.Get("user")
@@ -20,7 +19,6 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB) {
 
 		userData := user.(userModels.Users)
 
-		// Fetch Wishlist and Cart counts (assuming you have models for these)
 		var wishlistCount, cartCount int64
 		if err := database.DB.Model(&userModels.Wishlist{}).Where("user_id = ?", userData.ID).Count(&wishlistCount).
 			Error; err != nil {
