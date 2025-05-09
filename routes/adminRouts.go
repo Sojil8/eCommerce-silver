@@ -55,13 +55,13 @@ func AdminRoutes(c *gin.Engine) {
 			//offers
 			protected.GET("/offers", controllers.ShowOfferPage)
 			protected.POST("/product_offers/:product_id", controllers.AddProductOffer)
-			protected.GET("/product_offers/:id", controllers.GetProductOffer)
+			protected.GET("/product_offers/:id", controllers.ShowEditProductOffer)
 			protected.PUT("/product_offers/:id", controllers.EditProductOffer)
 			protected.DELETE("/product_offers/:id", controllers.DeleteProductOffer)
 			protected.POST("/category_offers/:category_id", controllers.AddCategoryOffer)
-			protected.GET("/category_offers/:id", controllers.GetCategoryOffer)
+			protected.GET("/category_offers/:id", controllers.ShowCategoryOfferEdit)
 			protected.PUT("/category_offers/:id", controllers.EditCategoryOffer)
-			protected.DELETE("/category_offers/:id", controllers.DeleteCategoryOffer)
+			// protected.DELETE("/category_offers/:id", controllers.DeleteCategoryOffer)
 			// protected.GET("/apply_offer/:product_id", controllers.ApplyBestOffer)
 
 			//sales report
