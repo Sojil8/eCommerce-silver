@@ -6,14 +6,12 @@ import (
 
 	"github.com/Sojil8/eCommerce-silver/database"
 	"github.com/Sojil8/eCommerce-silver/helper"
-	"github.com/Sojil8/eCommerce-silver/middleware"
 	"github.com/Sojil8/eCommerce-silver/models/userModels"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
 
 func GetUsers(c *gin.Context) {
-	middleware.ClearCache()
 	var users []userModels.Users
 	searchQuery := c.Query("search")
 	pageStr := c.DefaultQuery("page", "1")
@@ -31,10 +29,9 @@ func GetUsers(c *gin.Context) {
 	offset := (page - 1) * limit
 	dbQuery := database.DB.Unscoped().Order("id")
 
-
 	if searchQuery != "" {
 		searchPattern := "%" + searchQuery + "%"
-		dbQuery = dbQuery.Where("user_name ILIKE ?", searchPattern) 
+		dbQuery = dbQuery.Where("user_name ILIKE ?", searchPattern)
 	}
 
 	var totalUsers int64
@@ -66,7 +63,6 @@ func GetUsers(c *gin.Context) {
 }
 
 func BlockUser(c *gin.Context) {
-	middleware.ClearCache()
 	userID := c.Param("id")
 	var user userModels.Users
 
@@ -96,7 +92,6 @@ func BlockUser(c *gin.Context) {
 }
 
 func UnBlockUser(c *gin.Context) {
-	middleware.ClearCache()
 	userID := c.Param("id")
 	var user userModels.Users
 

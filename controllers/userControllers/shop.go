@@ -106,7 +106,7 @@ func GetUserShop(c *gin.Context) {
 	user, exists := c.Get("user")
 	userName, nameExists := c.Get("user_name")
 	if !exists || !nameExists {
-		c.HTML(http.StatusOK, "home.html", gin.H{
+		c.HTML(http.StatusOK, "shop.html", gin.H{
 			"Products":      availableProducts,
 			"Categories":    categories,
 			"Query":         query,

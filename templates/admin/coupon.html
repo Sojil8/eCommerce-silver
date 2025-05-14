@@ -92,7 +92,6 @@
                                     <th>Coupon Code</th>
                                     <th>Discount Percentage</th>
                                     <th>Min Purchase Amount</th>
-                                    <th>Max Purchase Amount</th>
                                     <th>Expiry Date</th>
                                     <th>Usage Limit</th>
                                     <th>Used Count</th>
@@ -107,7 +106,6 @@
                                     <td>{{.CouponCode}}</td>
                                     <td>{{printf "%.2f" .DiscountPercentage}}%</td>
                                     <td>${{printf "%.2f" .MinPurchaseAmount}}</td>
-                                    <td>${{printf "%.2f" .MaxPurchaseAmount}}</td>
                                     <td>{{.ExpiryDate.Format "2006-01-02"}}</td>
                                     <td>{{.UsageLimit}}</td>
                                     <td>{{.UsedCount}}</td>
@@ -168,10 +166,6 @@
                                 <input type="number" step="0.01" id="min_purchase_amount" name="min_purchase_amount" class="w-full p-2 border rounded-lg focus:ring-indigo-500 focus:border-indigo-500" required>
                             </div>
                             <div>
-                                <label for="max_purchase_amount" class="block text-sm font-medium text-gray-700 mb-1">Max Purchase Amount ($)</label>
-                                <input type="number" step="0.01" id="max_purchase_amount" name="max_purchase_amount" class="w-full p-2 border rounded-lg focus:ring-indigo-500 focus:border-indigo-500" required>
-                            </div>
-                            <div>
                                 <label for="expirydate" class="block text-sm font-medium text-gray-700 mb-1">Expiry Date</label>
                                 <input type="date" id="expirydate" name="expirydate" class="w-full p-2 border rounded-lg focus:ring-indigo-500 focus:border-indigo-500" required>
                             </div>
@@ -199,11 +193,10 @@
                     const formData = new FormData(form);
                     const discountPercentage = parseFloat(formData.get('discount_percentage'));
                     const minPurchaseAmount = parseFloat(formData.get('min_purchase_amount'));
-                    const maxPurchaseAmount = parseFloat(formData.get('max_purchase_amount'));
                     const usageLimit = parseInt(formData.get('usage_limit'));
                     const expiryDate = formData.get('expirydate');
 
-                    if (discountPercentage <= 0 || minPurchaseAmount < 0 || maxPurchaseAmount < 0 || usageLimit < 0) {
+                    if (discountPercentage <= 0 || minPurchaseAmount < 0 || usageLimit < 0) {
                         Swal.showValidationMessage('Values must be positive (Discount Percentage must be greater than 0)');
                         return false;
                     }
@@ -216,7 +209,6 @@
                         couponcode: formData.get('couponcode'),
                         discount_percentage: discountPercentage,
                         min_purchase_amount: minPurchaseAmount,
-                        max_purchase_amount: maxPurchaseAmount,
                         expirydate: new Date(expiryDate).toISOString(),
                         usage_limit: usageLimit,
                         is_active: formData.get('is_active') === 'true'
@@ -295,10 +287,6 @@
                                         <input type="number" step="0.01" id="min_purchase_amount" name="min_purchase_amount" value="${coupon.min_purchase_amount}" class="w-full p-2 border rounded-lg focus:ring-indigo-500 focus:border-indigo-500" required>
                                     </div>
                                     <div>
-                                        <label for="max_purchase_amount" class="block text-sm font-medium text-gray-700 mb-1">Max Purchase Amount ($)</label>
-                                        <input type="number" step="0.01" id="max_purchase_amount" name="max_purchase_amount" value="${coupon.max_purchase_amount}" class="w-full p-2 border rounded-lg focus:ring-indigo-500 focus:border-indigo-500" required>
-                                    </div>
-                                    <div>
                                         <label for="expirydate" class="block text-sm font-medium text-gray-700 mb-1">Expiry Date</label>
                                         <input type="date" id="expirydate" name="expirydate" value="${new Date(coupon.expirydate).toISOString().split('T')[0]}" class="w-full p-2 border rounded-lg focus:ring-indigo-500 focus:border-indigo-500" required>
                                     </div>
@@ -326,11 +314,10 @@
                             const formData = new FormData(form);
                             const discountPercentage = parseFloat(formData.get('discount_percentage'));
                             const minPurchaseAmount = parseFloat(formData.get('min_purchase_amount'));
-                            const maxPurchaseAmount = parseFloat(formData.get('max_purchase_amount'));
                             const usageLimit = parseInt(formData.get('usage_limit'));
                             const expiryDate = formData.get('expirydate');
 
-                            if (discountPercentage <= 0 || minPurchaseAmount < 0 || maxPurchaseAmount < 0 || usageLimit < 0) {
+                            if (discountPercentage <= 0 || minPurchaseAmount < 0  || usageLimit < 0) {
                                 Swal.showValidationMessage('Values must be positive (Discount Percentage must be greater than 0)');
                                 return false;
                             }
@@ -343,7 +330,6 @@
                                 couponcode: formData.get('couponcode'),
                                 discount_percentage: discountPercentage,
                                 min_purchase_amount: minPurchaseAmount,
-                                max_purchase_amount: maxPurchaseAmount,
                                 expirydate: new Date(expiryDate).toISOString(),
                                 usage_limit: usageLimit,
                                 is_active: formData.get('is_active') === 'true'

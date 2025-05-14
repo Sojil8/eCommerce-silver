@@ -125,8 +125,8 @@
                     <!-- Page Numbers -->
                     {{ $currentPage := .page }}
                     {{ $totalPages := .totalPages }}
-                    {{ range until $totalPages }}
-                        {{ $pageNum := add . 1 }}
+                    {{ range $i := until $totalPages }}
+                        {{ $pageNum := add (int $i) 1 }}
                         <a href="/admin/user-management?page={{ $pageNum }}&limit={{ $.limit }}{{ if $.searchQuery }}&search={{ $.searchQuery }}{{ end }}"
                            class="px-3 py-1 rounded {{ if eq $pageNum $currentPage }}bg-blue-600 text-white{{ else }}bg-gray-200 text-gray-700 hover:bg-gray-300{{ end }} transition-colors">
                             {{ $pageNum }}

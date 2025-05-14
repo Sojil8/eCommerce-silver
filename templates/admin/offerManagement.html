@@ -65,7 +65,6 @@
                             <table class="w-full bg-white shadow-md rounded-lg">
                                 <thead>
                                     <tr class="bg-gray-200 text-gray-700">
-                                        <th class="py-3 px-4 text-left">ID</th>
                                         <th class="py-3 px-4 text-left">Offer Name</th>
                                         <th class="py-3 px-4 text-left">Product Name</th>
                                         <th class="py-3 px-4 text-left">Discount (%)</th>
@@ -78,7 +77,6 @@
                                 <tbody>
                                     {{range .ProductOffers}}
                                     <tr class="border-b">
-                                        <td class="py-3 px-4">{{.ID}}</td>
                                         <td class="py-3 px-4">{{.OfferName}}</td>
                                         <td class="py-3 px-4">{{.Product.ProductName}}</td>
                                         <td class="py-3 px-4">{{.Discount}}</td>
@@ -103,7 +101,6 @@
                             <table class="w-full bg-white shadow-md rounded-lg">
                                 <thead>
                                     <tr class="bg-gray-200 text-gray-700">
-                                        <th class="py-3 px-4 text-left">ID</th>
                                         <th class="py-3 px-4 text-left">Offer Name</th>
                                         <th class="py-3 px-4 text-left">Category Name</th>
                                         <th class="py-3 px-4 text-left">Discount (%)</th>
@@ -116,7 +113,6 @@
                                 <tbody>
                                     {{range .CategoryOffers}}
                                     <tr class="border-b">
-                                        <td class="py-3 px-4">{{.ID}}</td>
                                         <td class="py-3 px-4">{{.OfferName}}</td>
                                         <td class="py-3 px-4">{{.Category.CategoryName}}</td>
                                         <td class="py-3 px-4">{{.Discount}}</td>

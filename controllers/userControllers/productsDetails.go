@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/Sojil8/eCommerce-silver/config"
 	"github.com/Sojil8/eCommerce-silver/database"
@@ -27,19 +28,11 @@ func GetProductDetails(c *gin.Context) {
 		return
 	}
 
-	// In GetProductDetails
-	var variantExtraPrice float64
-	if len(product.Variants) > 0 {
-		// Assume the first variant with stock is selected by default
-		for _, variant := range product.Variants {
-			if variant.Stock > 0 {
-				variantExtraPrice = variant.ExtraPrice
-				break
-			}
-		}
+	var variant adminModels.Variants
+	if err := database.DB.Where("product_id = ?", productID).First(&variant).Error; err != nil {
+		helper.ResponseWithErr(c, http.StatusNotFound, "Variant Not found", "Variant Not Found", "")
+		return
 	}
-	offerDetails := helper.GetBestOfferForProduct(&product, variantExtraPrice)
-	discountPercentage := int(offerDetails.DiscountPercentage)
 
 	var hasStock bool
 	for _, variant := range product.Variants {
@@ -47,6 +40,28 @@ func GetProductDetails(c *gin.Context) {
 			hasStock = true
 			break
 		}
+	}
+
+	type ProductWithOffer struct {
+		adminModels.Product
+		OfferPrice         float64
+		OriginalPrice      float64
+		DiscountPercentage float64
+		IsOffer            bool
+		OfferName          string
+		OfferEndTime       time.Time
+	}
+
+	offer := helper.GetBestOfferForProduct(&product, variant.ExtraPrice)
+
+	productWithOffers := ProductWithOffer{
+		Product:            product,
+		OfferPrice:         offer.DiscountedPrice,
+		OriginalPrice:      offer.OriginalPrice,
+		DiscountPercentage: offer.DiscountPercentage,
+		IsOffer:            offer.IsOfferApplied,
+		OfferName:          offer.OfferName,
+		OfferEndTime:       offer.EndTime,
 	}
 
 	var relatedProducts []adminModels.Product
@@ -75,18 +90,16 @@ func GetProductDetails(c *gin.Context) {
 	userName, nameExists := c.Get("user_name")
 	if !exists || !nameExists {
 		c.HTML(http.StatusOK, "productDetails.html", gin.H{
-			"Product":            product,
-			"OfferDetails":       offerDetails,
-			"DiscountPercentage": discountPercentage,
-			"RelatedProducts":    availableRelatedProducts,
-			"Category":           product.CategoryName,
-			"HasStock":           hasStock,
-			"Breadcrumbs":        breadcrumbs,
-			"status":             "success",
-			"UserName":           "Guest",
-			"WishlistCount":      0,
-			"CartCount":          0,
-			"ProfileImage":       "",
+			"Product":         productWithOffers,
+			"RelatedProducts": availableRelatedProducts,
+			"Category":        product.CategoryName,
+			"HasStock":        hasStock,
+			"Breadcrumbs":     breadcrumbs,
+			"status":          "success",
+			"UserName":        "Guest",
+			"WishlistCount":   0,
+			"CartCount":       0,
+			"ProfileImage":    "",
 		})
 		return
 	}
@@ -103,16 +116,14 @@ func GetProductDetails(c *gin.Context) {
 	}
 
 	c.HTML(http.StatusOK, "productDetails.html", gin.H{
-		"Product":            product,
-		"OfferDetails":       offerDetails,
-		"DiscountPercentage": discountPercentage,
-		"RelatedProducts":    availableRelatedProducts,
-		"Category":           product.CategoryName,
-		"Breadcrumbs":        breadcrumbs,
-		"HasStock":           hasStock,
-		"UserName":           userNameStr,
-		"ProfileImage":       userData.ProfileImage,
-		"WishlistCount":      wishlistCount,
-		"CartCount":          cartCount,
+		"Product":         productWithOffers,
+		"RelatedProducts": availableRelatedProducts,
+		"Category":        product.CategoryName,
+		"Breadcrumbs":     breadcrumbs,
+		"HasStock":        hasStock,
+		"UserName":        userNameStr,
+		"ProfileImage":    userData.ProfileImage,
+		"WishlistCount":   wishlistCount,
+		"CartCount":       cartCount,
 	})
 }

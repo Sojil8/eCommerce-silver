@@ -200,6 +200,7 @@ func EditProduct(c *gin.Context) {
 		// 	return
 		// }
 		product.CategoryName = categoryName
+		product.CategoryID = category.ID
 	}
 
 	files := form.File["images"]

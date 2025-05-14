@@ -80,8 +80,7 @@ func VerifyPayment(c *gin.Context) {
 			if err := tx.First(&coupon, cart.CouponID).Error; err == nil {
 				if coupon.IsActive && coupon.ExpiryDate.After(time.Now()) &&
 					coupon.UsedCount < coupon.UsageLimit &&
-					cart.TotalPrice >= coupon.MinPurchaseAmount &&
-					(coupon.MaxPurchaseAmount == 0 || cart.TotalPrice <= coupon.MaxPurchaseAmount) {
+					cart.TotalPrice >= coupon.MinPurchaseAmount  {
 					discount = cart.TotalPrice * (coupon.DiscountPercentage / 100) // Fixed discount calculation
 					finalPrice -= discount
 				} else {

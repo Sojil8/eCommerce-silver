@@ -20,23 +20,21 @@ type offerRequest struct {
 }
 
 func ShowOfferPage(c *gin.Context) {
-	
+
 	var categorys []adminModels.Category
-	if err:=database.DB.Find(&categorys).Error;err!=nil{
-		helper.ResponseWithErr(c,http.StatusNotFound,"faild to load categorys","faild to load categorys","")
+	if err := database.DB.Find(&categorys).Error; err != nil {
+		helper.ResponseWithErr(c, http.StatusNotFound, "faild to load categorys", "faild to load categorys", "")
 		return
 	}
-	if categorys == nil{
+	if categorys == nil {
 
 	}
 
 	var products []adminModels.Product
-	if err:=database.DB.Find(&products).Error;err!=nil{
-		helper.ResponseWithErr(c,http.StatusNotFound,"faild to load products","faild to load products","")
+	if err := database.DB.Find(&products).Error; err != nil {
+		helper.ResponseWithErr(c, http.StatusNotFound, "faild to load products", "faild to load products", "")
 		return
 	}
-
-
 
 	var categoryOffers []adminModels.CategoryOffer
 	if err := database.DB.Preload("Category").Find(&categoryOffers).Error; err != nil {
@@ -53,104 +51,102 @@ func ShowOfferPage(c *gin.Context) {
 	c.HTML(http.StatusOK, "offerManagement.html", gin.H{
 		"ProductOffers":  productOfffers,
 		"CategoryOffers": categoryOffers,
-		"products":products,
-		"categories":categorys,
+		"products":       products,
+		"categories":     categorys,
 	})
 }
 
-func AddProductOffer(c *gin.Context){
+func AddProductOffer(c *gin.Context) {
 	var productIDStr = c.Param("product_id")
-	productID,_:=strconv.Atoi(productIDStr)
+	productID, _ := strconv.Atoi(productIDStr)
 
 	var req offerRequest
-	if err:= c.ShouldBindJSON(&req);err!=nil{
-		helper.ResponseWithErr(c,http.StatusBadRequest,"faild to bind data","Faild to Bind Product offer","")
+	if err := c.ShouldBindJSON(&req); err != nil {
+		helper.ResponseWithErr(c, http.StatusBadRequest, "faild to bind data", "Faild to Bind Product offer", "")
 		return
 	}
 
-	// if req.OfferName != " "{
-	// 	helper.ResponseWithErr(c,http.StatusBadRequest,"Offer Name should Be charaters","Offer Name should Be charaters","")
-	// 	return
-	// }
-
-	if req.Discount >=60 {
-		helper.ResponseWithErr(c,http.StatusBadRequest,"Discount should be less than 60","Discount should be less than 60","")
-		return
-	}
-	if req.EndDate.Before(req.StartDate){
-		helper.ResponseWithErr(c,http.StatusBadRequest,"End date Should be Greater than Start date","End date Should be Greater than Start date","")
+	var productOffer adminModels.ProductOffer
+	if err:=database.DB.Where("product_id = ?",productID).First(&productOffer).Error;err == nil{
+		helper.ResponseWithErr(c,http.StatusFound,"Only One Offer For One Product","This Product Has already One Offer	","")
 		return
 	}
 
-	if req.StartDate.Before(time.Now()){
-		helper.ResponseWithErr(c,http.StatusBadRequest,"start date Should be in future","start date Should be in future","")
+	if req.Discount >= 60 {
+		helper.ResponseWithErr(c, http.StatusBadRequest, "Discount should be less than 60", "Discount should be less than 60", "")
+		return
+	}
+	if req.EndDate.Before(req.StartDate) {
+		helper.ResponseWithErr(c, http.StatusBadRequest, "End date Should be Greater than Start date", "End date Should be Greater than Start date", "")
+		return
+	}
+
+	today := time.Now().Truncate(24 * time.Hour) // Truncate time to start of day
+	if req.StartDate.Before(today) {
+		helper.ResponseWithErr(c, http.StatusBadRequest, "start date Should be today or in the future", "start date Should be today or in the future", "")
 		return
 	}
 
 	offer := adminModels.ProductOffer{
 		ProductID: uint(productID),
 		OfferName: req.OfferName,
-		Discount: req.Discount,
+		Discount:  req.Discount,
 		StartDate: req.StartDate,
-		EndDate: req.EndDate,
-		IsActive: req.IsActive,
+		EndDate:   req.EndDate,
+		IsActive:  req.IsActive,
 	}
-	if err:=database.DB.Create(&offer).Error;err!=nil{
-		helper.ResponseWithErr(c,http.StatusInternalServerError,"Error while saving Data","Error while saving Data","")
+	if err := database.DB.Create(&offer).Error; err != nil {
+		helper.ResponseWithErr(c, http.StatusInternalServerError, "Error while saving Data", "Error while saving Data", "")
 		return
 	}
-	
-	c.JSON(http.StatusOK,gin.H{
-		"status":"ok",
+
+	c.JSON(http.StatusOK, gin.H{
+		"status": "ok",
 	})
 }
 
-
-func AddCategoryOffer(c *gin.Context){
+func AddCategoryOffer(c *gin.Context) {
 	var categoryIDStr = c.Param("category_id")
-	categoryID,_:=strconv.Atoi(categoryIDStr)
+	categoryID, _ := strconv.Atoi(categoryIDStr)
 
 	var req offerRequest
-	if err:= c.ShouldBindJSON(&req);err!=nil{
-		helper.ResponseWithErr(c,http.StatusBadRequest,"faild to bind data","Faild to Bind Product offer","")
+	if err := c.ShouldBindJSON(&req); err != nil {
+		helper.ResponseWithErr(c, http.StatusBadRequest, "faild to bind data", "Faild to Bind Product offer", "")
 		return
 	}
 
-	if req.Discount >=60 {
-		helper.ResponseWithErr(c,http.StatusBadRequest,"Discount should be less than 60","Discount should be less than 60","")
+	if req.Discount >= 60 {
+		helper.ResponseWithErr(c, http.StatusBadRequest, "Discount should be less than 60", "Discount should be less than 60", "")
 		return
 	}
-	if req.EndDate.Before(req.StartDate){
-		helper.ResponseWithErr(c,http.StatusBadRequest,"End date Should be Greater than Start date","End date Should be Greater than Start date","")
+	if req.EndDate.Before(req.StartDate) {
+		helper.ResponseWithErr(c, http.StatusBadRequest, "End date Should be Greater than Start date", "End date Should be Greater than Start date", "")
 		return
 	}
 
-	if req.StartDate.Before(time.Now()){
-		helper.ResponseWithErr(c,http.StatusBadRequest,"start date Should be in future","start date Should be in future","")
+	today := time.Now().Truncate(24 * time.Hour) // Truncate time to start of day
+	if req.StartDate.Before(today) {
+		helper.ResponseWithErr(c, http.StatusBadRequest, "start date Should be today or in the future", "start date Should be today or in the future", "")
 		return
 	}
 
 	offer := adminModels.CategoryOffer{
 		CategoryID: uint(categoryID),
-		OfferName: req.OfferName,
-		Discount: req.Discount,
-		StartDate: req.StartDate,
-		EndDate: req.EndDate,
-		IsActive: req.IsActive,
+		OfferName:  req.OfferName,
+		Discount:   req.Discount,
+		StartDate:  req.StartDate,
+		EndDate:    req.EndDate,
+		IsActive:   req.IsActive,
 	}
-	if err:=database.DB.Create(&offer).Error;err!=nil{
-		helper.ResponseWithErr(c,http.StatusInternalServerError,"Error while saving Data","Error while saving Data","")
+	if err := database.DB.Create(&offer).Error; err != nil {
+		helper.ResponseWithErr(c, http.StatusInternalServerError, "Error while saving Data", "Error while saving Data", "")
 		return
 	}
-	
-	c.JSON(http.StatusOK,gin.H{
-		"status":"ok",
+
+	c.JSON(http.StatusOK, gin.H{
+		"status": "ok",
 	})
 }
-
-
-
-
 
 func ShowEditProductOffer(c *gin.Context) {
 	productIDStr := c.Param("id")
@@ -222,8 +218,9 @@ func EditProductOffer(c *gin.Context) {
 		return
 	}
 
-	if req.StartDate.Before(time.Now()) {
-		helper.ResponseWithErr(c, http.StatusBadRequest, "start date want to be in future", "start date want to be in future", "")
+	today := time.Now().Truncate(24 * time.Hour) // Truncate time to start of day
+	if req.StartDate.Before(today) {
+		helper.ResponseWithErr(c, http.StatusBadRequest, "start date Should be today or in the future", "start date Should be today or in the future", "")
 		return
 	}
 
@@ -245,18 +242,18 @@ func EditProductOffer(c *gin.Context) {
 
 }
 
-func DeleteProductOffer(c *gin.Context){
-	productIDStr:=c.Param("id")
-	productID,_:=strconv.Atoi(productIDStr)
+func DeleteProductOffer(c *gin.Context) {
+	productIDStr := c.Param("id")
+	productID, _ := strconv.Atoi(productIDStr)
 
 	var productOffer adminModels.ProductOffer
-	if err:=database.DB.Delete(&productOffer,productID).Error;err!=nil{
-		helper.ResponseWithErr(c,http.StatusNotFound,"Offer Not found","Offer Not found","")
+	if err := database.DB.Delete(&productOffer, productID).Error; err != nil {
+		helper.ResponseWithErr(c, http.StatusNotFound, "Offer Not found", "Offer Not found", "")
 		return
 	}
 
-	c.JSON(http.StatusOK,gin.H{
-		"status":"ok",
+	c.JSON(http.StatusOK, gin.H{
+		"status": "ok",
 	})
 
 }
@@ -282,7 +279,7 @@ func ShowCategoryOfferEdit(c *gin.Context) {
 	})
 }
 
-func EditCategoryOffer(c *gin.Context){
+func EditCategoryOffer(c *gin.Context) {
 	categoryIDStr := c.Param("id")
 	categoryID, err := strconv.Atoi(categoryIDStr)
 	if err != nil {
@@ -297,7 +294,7 @@ func EditCategoryOffer(c *gin.Context){
 
 	}
 
-	var CategoryOffer adminModels.ProductOffer
+	var CategoryOffer adminModels.CategoryOffer
 	if err := database.DB.First(&CategoryOffer, categoryID).Error; err != nil {
 		helper.ResponseWithErr(c, http.StatusNotFound, "Failed to list product offers", err.Error(), "")
 		return
@@ -329,8 +326,9 @@ func EditCategoryOffer(c *gin.Context){
 		return
 	}
 
-	if req.StartDate.Before(time.Now()) {
-		helper.ResponseWithErr(c, http.StatusBadRequest, "start date want to be in future", "start date want to be in future", "")
+	today := time.Now().Truncate(24 * time.Hour) // Truncate time to start of day
+	if req.StartDate.Before(today) {
+		helper.ResponseWithErr(c, http.StatusBadRequest, "start date Should be today or in the future", "start date Should be today or in the future", "")
 		return
 	}
 
@@ -351,18 +349,18 @@ func EditCategoryOffer(c *gin.Context){
 	})
 }
 
-func DeleteCategoryOffer(c *gin.Context){
-	categoryIDStr:=c.Param("id")
-	categoryID,_:=strconv.Atoi(categoryIDStr)
+func DeleteCategoryOffer(c *gin.Context) {
+	categoryIDStr := c.Param("id")
+	categoryID, _ := strconv.Atoi(categoryIDStr)
 
-	var categoryOffer adminModels.ProductOffer
-	if err:=database.DB.Delete(&categoryOffer,categoryID).Error;err!=nil{
-		helper.ResponseWithErr(c,http.StatusNotFound,"Offer Not found","Offer Not found","")
+	var categoryOffer adminModels.CategoryOffer
+	if err := database.DB.Delete(&categoryOffer, categoryID).Error; err != nil {
+		helper.ResponseWithErr(c, http.StatusNotFound, "Offer Not found", "Offer Not found", "")
 		return
 	}
 
-	c.JSON(http.StatusOK,gin.H{
-		"status":"ok",
+	c.JSON(http.StatusOK, gin.H{
+		"status": "ok",
 	})
 
 }

@@ -5,7 +5,6 @@ import (
 	"strconv"
 
 	"github.com/Sojil8/eCommerce-silver/database"
-	"github.com/Sojil8/eCommerce-silver/middleware"
 	"github.com/Sojil8/eCommerce-silver/models/adminModels"
 	"github.com/gin-gonic/gin"
 )
@@ -82,7 +81,6 @@ var intput struct {
 }
 
 func EditCategory(c *gin.Context) {
-	middleware.ClearCache()
 	idStr := c.Param("id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {

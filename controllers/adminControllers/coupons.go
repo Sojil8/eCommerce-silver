@@ -27,7 +27,6 @@ type CouponRequest struct {
 	CouponCode         string    `json:"couponcode" binding:"required"`
 	DiscountPercentage float64   `json:"discount_percentage" binding:"required,gt=0"`
 	MinPurchaseAmount  float64   `json:"min_purchase_amount" binding:"gte=0"`
-	MaxPurchaseAmount  float64   `json:"max_purchase_amount" binding:"gte=0"`
 	ExpiryDate         time.Time `json:"expirydate" binding:"required"`
 	UsageLimit         int       `json:"usage_limit" binding:"gte=0"`
 	IsActive           bool      `json:"is_active"`
@@ -50,11 +49,6 @@ func AddCoupon(c *gin.Context) {
 		return
 	}
 
-	if req.MinPurchaseAmount > req.MaxPurchaseAmount && req.MaxPurchaseAmount > 0 {
-		helper.ResponseWithErr(c, http.StatusBadRequest, "Invalid amounts", "Min purchase amount cannot exceed max purchase amount", "")
-		return
-	}
-
 	var existingCoupon adminModels.Coupons
 	if err := database.DB.Where("coupon_code = ?", req.CouponCode).First(&existingCoupon).Error; err == nil {
 		helper.ResponseWithErr(c, http.StatusBadRequest, "Coupon code exists", "Coupon code already exists", "")
@@ -66,7 +60,6 @@ func AddCoupon(c *gin.Context) {
 		CouponCode:         req.CouponCode,
 		DiscountPercentage: req.DiscountPercentage,
 		MinPurchaseAmount:  req.MinPurchaseAmount,
-		MaxPurchaseAmount:  req.MaxPurchaseAmount,
 		ExpiryDate:         req.ExpiryDate,
 		UsageLimit:         req.UsageLimit,
 		IsActive:           req.IsActive,
@@ -85,7 +78,6 @@ func AddCoupon(c *gin.Context) {
 			"couponcode":         coupon.CouponCode,
 			"discount_percentage": coupon.DiscountPercentage,
 			"min_purchase_amount": coupon.MinPurchaseAmount,
-			"max_purchase_amount": coupon.MaxPurchaseAmount,
 			"expirydate":         coupon.ExpiryDate,
 			"usage_limit":        coupon.UsageLimit,
 			"is_active":          coupon.IsActive,
@@ -113,7 +105,6 @@ func GetCoupon(c *gin.Context) {
 			"couponcode":         coupon.CouponCode,
 			"discount_percentage": coupon.DiscountPercentage,
 			"min_purchase_amount": coupon.MinPurchaseAmount,
-			"max_purchase_amount": coupon.MaxPurchaseAmount,
 			"expirydate":         coupon.ExpiryDate,
 			"usage_limit":        coupon.UsageLimit,
 			"used_count":         coupon.UsedCount,
@@ -156,11 +147,6 @@ func EditCoupon(c *gin.Context) {
 		return
 	}
 
-	if req.MinPurchaseAmount > req.MaxPurchaseAmount && req.MaxPurchaseAmount > 0 {
-		helper.ResponseWithErr(c, http.StatusBadRequest, "Invalid amounts", "Min purchase amount cannot exceed max purchase amount", "")
-		return
-	}
-
 	if req.DiscountPercentage >= 50{
 		helper.ResponseWithErr(c,http.StatusBadRequest,"discount percentage should be less than 50","discount percentage should be less than 50","")
 		return
@@ -169,7 +155,6 @@ func EditCoupon(c *gin.Context) {
 	coupon.CouponCode = req.CouponCode
 	coupon.DiscountPercentage = req.DiscountPercentage
 	coupon.MinPurchaseAmount = req.MinPurchaseAmount
-	coupon.MaxPurchaseAmount = req.MaxPurchaseAmount
 	coupon.ExpiryDate = req.ExpiryDate
 	coupon.UsageLimit = req.UsageLimit
 	coupon.IsActive = req.IsActive
@@ -186,7 +171,6 @@ func EditCoupon(c *gin.Context) {
 			"couponcode":         coupon.CouponCode,
 			"discount_percentage": coupon.DiscountPercentage,
 			"min_purchase_amount": coupon.MinPurchaseAmount,
-			"max_purchase_amount": coupon.MaxPurchaseAmount,
 			"expirydate":         coupon.ExpiryDate,
 			"usage_limit":        coupon.UsageLimit,
 			"is_active":          coupon.IsActive,

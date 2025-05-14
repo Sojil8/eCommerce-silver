@@ -461,7 +461,7 @@
                 }
 
                 try {
-                    const response = await apiCall('POST', `/orders/${orderId}/cancel`, { reason });
+                    const response = await apiCall('POST', `/orders/cancel/${orderId}`, { reason });
                     if (response.error) {
                         alert(response.error);
                         return;
@@ -486,7 +486,7 @@
                 }
 
                 try {
-                    const response = await apiCall('POST', `/orders/${orderId}/return`, { reason });
+                    const response = await apiCall('POST', `/orders/return/${orderId}`, { reason });
                     if (response.error) {
                         alert(response.error);
                         return;
@@ -504,7 +504,7 @@
 
             // Download invoice
             document.getElementById('downloadInvoice')?.addEventListener('click', function() {
-                window.location.href = `/orders/${orderId}/invoice`;
+                window.location.href = `/orders/invoice/${orderId}`;
             });
 
             // Cancel item buttons
@@ -522,7 +522,7 @@
                         }
 
                         try {
-                            const response = await apiCall('POST', `/orders/${orderId}/items/${itemId}/cancel`, { reason });
+                            const response = await apiCall('POST', `/orders/cancel-item/${orderId}/${itemId}`, { reason });
                             if (response.error) {
                                 alert(response.error);
                                 return;

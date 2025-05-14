@@ -22,7 +22,6 @@ const minimumOrderAmount = 1.0
 
 func ShowCheckout(c *gin.Context) {
 	userID, _ := c.Get("id")
-	userName, _ := c.Get("user_name")
 
 	var cart userModels.Cart
 	if err := database.DB.Where("user_id = ?", userID).
@@ -37,11 +36,11 @@ func ShowCheckout(c *gin.Context) {
 	var validCartItems []userModels.CartItem
 	var invalidProductFound bool
 	totalPrice := 0.0
+	originalTotalPrice := 0.0 // New variable for original total
 
 	for _, item := range cart.CartItems {
 		var category adminModels.Category
 		var variant adminModels.Variants
-		// Check if product is listed, category is active, and variant exists
 		if item.Product.IsListed &&
 			database.DB.Where("category_name = ? AND status = ?", item.Product.CategoryName, true).First(&category).Error == nil &&
 			database.DB.Where("id = ? AND deleted_at IS NULL", item.VariantsID).First(&variant).Error == nil {
@@ -54,6 +53,7 @@ func ShowCheckout(c *gin.Context) {
 			item.IsOfferApplied = offerDetails.IsOfferApplied
 			item.ItemTotal = offerDetails.DiscountedPrice * float64(item.Quantity)
 			totalPrice += item.ItemTotal
+			originalTotalPrice += offerDetails.OriginalPrice * float64(item.Quantity)
 			validCartItems = append(validCartItems, item)
 		} else {
 			invalidProductFound = true
@@ -131,17 +131,15 @@ func ShowCheckout(c *gin.Context) {
 			if appliedCoupon.IsActive &&
 				appliedCoupon.ExpiryDate.After(time.Now()) &&
 				appliedCoupon.UsedCount < appliedCoupon.UsageLimit &&
-				totalPrice >= appliedCoupon.MinPurchaseAmount &&
-				(appliedCoupon.MaxPurchaseAmount == 0 || totalPrice <= appliedCoupon.MaxPurchaseAmount) {
+				totalPrice >= appliedCoupon.MinPurchaseAmount  {
 				discount = totalPrice * (appliedCoupon.DiscountPercentage / 100)
 				finalPrice -= discount
 				couponApplied = true
 				log.Printf("Coupon %s applied: discount=%.2f, finalPrice=%.2f", appliedCoupon.CouponCode, discount, finalPrice)
 			} else {
-				log.Printf("Coupon %s invalid: active=%v, expired=%v, used=%d/%d, min=%.2f, max=%.2f, cartTotal=%.2f",
+				log.Printf("Coupon %s invalid: active=%v, expired=%v, used=%d/%d, min=%.2f, cartTotal=%.2f",
 					appliedCoupon.CouponCode, appliedCoupon.IsActive, appliedCoupon.ExpiryDate.Before(time.Now()),
-					appliedCoupon.UsedCount, appliedCoupon.UsageLimit, appliedCoupon.MinPurchaseAmount,
-					appliedCoupon.MaxPurchaseAmount, totalPrice)
+					appliedCoupon.UsedCount, appliedCoupon.UsageLimit, appliedCoupon.MinPurchaseAmount, totalPrice)
 				cart.CouponID = 0
 				if err := database.DB.Save(&cart).Error; err != nil {
 					log.Printf("Failed to reset coupon for cart %v: %v", cart.ID, err)
@@ -177,6 +175,7 @@ func ShowCheckout(c *gin.Context) {
 			"Shipping":      shipping,
 			"FinalPrice":    finalPrice,
 			"Subtotal":      totalPrice,
+			"OriginalTotalPrice": originalTotalPrice,
 			"Discount":      discount,
 			"CouponApplied": couponApplied,
 			"AppliedCoupon": appliedCoupon,
@@ -210,6 +209,7 @@ func ShowCheckout(c *gin.Context) {
 		"Shipping":      shipping,
 		"FinalPrice":    finalPrice,
 		"Subtotal":      totalPrice,
+		"OriginalTotalPrice": originalTotalPrice,
 		"Discount":      discount,
 		"CouponApplied": couponApplied,
 		"AppliedCoupon": appliedCoupon,
@@ -314,15 +314,13 @@ func PlaceOrder(c *gin.Context) {
 				if coupon.IsActive &&
 					coupon.ExpiryDate.After(time.Now()) &&
 					coupon.UsedCount < coupon.UsageLimit &&
-					cart.TotalPrice >= coupon.MinPurchaseAmount &&
-					(coupon.MaxPurchaseAmount == 0 || cart.TotalPrice <= coupon.MaxPurchaseAmount) {
+					cart.TotalPrice >= coupon.MinPurchaseAmount  {
 					discount = cart.TotalPrice * (coupon.DiscountPercentage / 100)
 					finalPrice -= discount
 				} else {
-					log.Printf("Coupon %s invalid in PlaceOrder: active=%v, expired=%v, used=%d/%d, min=%.2f, max=%.2f, cartTotal=%.2f",
+					log.Printf("Coupon %s invalid in PlaceOrder: active=%v, expired=%v, used=%d/%d, min=%.2f, cartTotal=%.2f",
 						coupon.CouponCode, coupon.IsActive, coupon.ExpiryDate.Before(time.Now()),
-						coupon.UsedCount, coupon.UsageLimit, coupon.MinPurchaseAmount,
-						coupon.MaxPurchaseAmount, cart.TotalPrice)
+						coupon.UsedCount, coupon.UsageLimit, coupon.MinPurchaseAmount, cart.TotalPrice)
 					cart.CouponID = 0
 					if err := tx.Save(&cart).Error; err != nil {
 						return fmt.Errorf("failed to reset coupon: %v", err)

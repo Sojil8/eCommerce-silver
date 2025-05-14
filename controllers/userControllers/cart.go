@@ -14,93 +14,99 @@ import (
 const MAX_QUANTITY_PER_PRODUCT = 5
 
 func GetCart(c *gin.Context) {
-	userID, _ := c.Get("id")
-	var cart userModels.Cart
+    userID, _ := c.Get("id")
+    var cart userModels.Cart
 
-	err := database.DB.Where("user_id = ?", userID).Preload("CartItems.Product").Preload("CartItems.Variants").First(&cart).Error
-	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			cart = userModels.Cart{UserID: userID.(uint)}
-			if err := database.DB.Create(&cart).Error; err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create cart"})
-				return
-			}
-		} else {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch cart"})
-			return
-		}
-	}
+    err := database.DB.Where("user_id = ?", userID).Preload("CartItems.Product").Preload("CartItems.Variants").First(&cart).Error
+    if err != nil {
+        if err == gorm.ErrRecordNotFound {
+            cart = userModels.Cart{UserID: userID.(uint)}
+            if err := database.DB.Create(&cart).Error; err != nil {
+                c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create cart"})
+                return
+            }
+        } else {
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch cart"})
+            return
+        }
+    }
 
-	var filteredCartItems []userModels.CartItem
-	for _, item := range cart.CartItems {
-		var category adminModels.Category
-		if item.Product.IsListed &&
-			database.DB.Where("category_name = ? AND status = ?", item.Product.CategoryName, true).First(&category).Error == nil {
-			offer := helper.GetBestOfferForProduct(&item.Product, item.Variants.ExtraPrice)
-			item.DiscountedPrice = offer.DiscountedPrice + item.Variants.ExtraPrice
-			item.OriginalPrice = offer.OriginalPrice + item.Variants.ExtraPrice
-			item.DiscountPercentage = offer.DiscountPercentage
-			item.OfferName = offer.OfferName
-			item.IsOfferApplied = offer.IsOfferApplied
-			item.Price = offer.OriginalPrice + item.Variants.ExtraPrice
+    var filteredCartItems []userModels.CartItem
+    totalPrice := 0.0
+    totalDiscount := 0.0 // New variable to track total discount
 
-			if item.IsOfferApplied {
-				item.ItemTotal = item.DiscountedPrice * float64(item.Quantity)
-			} else {
-				item.ItemTotal = item.Price * float64(item.Quantity)
-			}
+    for _, item := range cart.CartItems {
+        var category adminModels.Category
+        if item.Product.IsListed &&
+            database.DB.Where("category_name = ? AND status = ?", item.Product.CategoryName, true).First(&category).Error == nil {
+            offer := helper.GetBestOfferForProduct(&item.Product, item.Variants.ExtraPrice)
+            item.DiscountedPrice = offer.DiscountedPrice
+            item.OriginalPrice = offer.OriginalPrice 
+            item.DiscountPercentage = offer.DiscountPercentage
+            item.OfferName = offer.OfferName
+            item.IsOfferApplied = offer.IsOfferApplied
+            item.Price = offer.OriginalPrice + item.Variants.ExtraPrice
 
-			filteredCartItems = append(filteredCartItems, item)
-		}
-	}
+            if item.IsOfferApplied {
+                item.ItemTotal = item.DiscountedPrice * float64(item.Quantity)
+                // Calculate discount for this item
+                discountPerItem := (item.OriginalPrice - item.DiscountedPrice) * float64(item.Quantity)
+                totalDiscount += discountPerItem
+            } else {
+                item.ItemTotal = item.Price * float64(item.Quantity)
+            }
 
-	totalPrice := 0.0
-	for _, item := range filteredCartItems {
-		if item.IsOfferApplied {
-			totalPrice += item.DiscountedPrice * float64(item.Quantity)
-		} else {
-			totalPrice += item.Price * float64(item.Quantity)
-		}
-	}
+            filteredCartItems = append(filteredCartItems, item)
+        }
+    }
 
-	userr, exists := c.Get("user")
-	userName, nameExists := c.Get("user_name")
-	if !exists || !nameExists {
-		c.HTML(http.StatusOK, "cart.html", gin.H{
-			"CartItems":     filteredCartItems,
-			"TotalPrice":    totalPrice,
-			"CartItemCount": len(filteredCartItems),
-			"status":        "success",
-			"UserName":      "Guest",
-			"WishlistCount": 0,
-			"CartCount":     0,
-			"ProfileImage":  "",
-		})
-		return
-	}
+    for _, item := range filteredCartItems {
+        if item.IsOfferApplied {
+            totalPrice += item.DiscountedPrice * float64(item.Quantity)
+        } else {
+            totalPrice += item.Price * float64(item.Quantity)
+        }
+    }
 
-	userData := userr.(userModels.Users)
-	userNameStr := userName.(string)
+    userr, exists := c.Get("user")
+    userName, nameExists := c.Get("user_name")
+    if !exists || !nameExists {
+        c.HTML(http.StatusOK, "cart.html", gin.H{
+            "CartItems":     filteredCartItems,
+            "TotalPrice":    totalPrice,
+            "TotalDiscount": totalDiscount, 
+            "CartItemCount": len(filteredCartItems),
+            "status":        "success",
+            "UserName":      "Guest",
+            "WishlistCount": 0,
+            "CartCount":     0,
+            "ProfileImage":  "",
+        })
+        return
+    }
 
-	var wishlistCount, cartCount int64
-	if err := database.DB.Model(&userModels.Wishlist{}).Where("user_id = ?", userData.ID).Count(&wishlistCount).Error; err != nil {
-		wishlistCount = 0
-	}
-	if err := database.DB.Model(&userModels.CartItem{}).Joins("JOIN carts ON carts.id = cart_items.cart_id").Where("carts.user_id = ?", userData.ID).Count(&cartCount).Error; err != nil {
-		cartCount = 0
-	}
+    userData := userr.(userModels.Users)
+    userNameStr := userName.(string)
 
-	c.HTML(http.StatusOK, "cart.html", gin.H{
-		"CartItems":     filteredCartItems,
-		"TotalPrice":    totalPrice,
-		"CartItemCount": len(filteredCartItems),
-		"UserName":      userNameStr,
-		"ProfileImage":  userData.ProfileImage,
-		"WishlistCount": wishlistCount,
-		"CartCount":     cartCount,
-	})
+    var wishlistCount, cartCount int64
+    if err := database.DB.Model(&userModels.Wishlist{}).Where("user_id = ?", userData.ID).Count(&wishlistCount).Error; err != nil {
+        wishlistCount = 0
+    }
+    if err := database.DB.Model(&userModels.CartItem{}).Joins("JOIN carts ON carts.id = cart_items.cart_id").Where("carts.user_id = ?", userData.ID).Count(&cartCount).Error; err != nil {
+        cartCount = 0
+    }
+
+    c.HTML(http.StatusOK, "cart.html", gin.H{
+        "CartItems":     filteredCartItems,
+        "TotalPrice":    totalPrice,
+        "TotalDiscount": totalDiscount, // Pass total discount to template
+        "CartItemCount": len(filteredCartItems),
+        "UserName":      userNameStr,
+        "ProfileImage":  userData.ProfileImage,
+        "WishlistCount": wishlistCount,
+        "CartCount":     cartCount,
+    })
 }
-
 type RequestCartItem struct {
 	ProductID uint `json:"product_id"`
 	VariantID uint `json:"variant_id"`
@@ -181,18 +187,18 @@ func AddToCart(c *gin.Context) {
 			return err
 		}
 
-		// In GetProductDetails
 		var variantExtraPrice float64
 		if len(product.Variants) > 0 {
-			// Assume the first variant with stock is selected by default
-			for _, variant := range product.Variants {
-				if variant.Stock > 0 {
-					variantExtraPrice = variant.ExtraPrice
+			for _, v := range product.Variants {
+				if v.ID == req.VariantID && v.Stock > 0 {
+					variantExtraPrice = v.ExtraPrice
 					break
 				}
 			}
 		}
+		
 		offer := helper.GetBestOfferForProduct(&product, variantExtraPrice)
+		
 		for i, item := range cart.CartItems {
 			if item.ProductID == productID && item.VariantsID == req.VariantID {
 				newQnty := item.Quantity + req.Quantity
@@ -200,12 +206,13 @@ func AddToCart(c *gin.Context) {
 					return gin.Error{Meta: gin.H{"error": "Quantity limit exceeded"}}
 				}
 				cart.CartItems[i].Quantity = newQnty
-				cart.CartItems[i].Price = offer.OriginalPrice + variant.ExtraPrice
-				cart.CartItems[i].DiscountedPrice = offer.DiscountedPrice + variant.ExtraPrice
-				cart.CartItems[i].OriginalPrice = offer.OriginalPrice + variant.ExtraPrice
+				cart.CartItems[i].Price = offer.OriginalPrice
+				cart.CartItems[i].DiscountedPrice = offer.DiscountedPrice
+				cart.CartItems[i].OriginalPrice = offer.OriginalPrice
 				cart.CartItems[i].DiscountPercentage = offer.DiscountPercentage
 				cart.CartItems[i].OfferName = offer.OfferName
 				cart.CartItems[i].IsOfferApplied = offer.IsOfferApplied
+				
 				if err := tx.Save(&cart.CartItems[i]).Error; err != nil {
 					return err
 				}
@@ -218,13 +225,14 @@ func AddToCart(c *gin.Context) {
 			ProductID:          productID,
 			VariantsID:         req.VariantID,
 			Quantity:           req.Quantity,
-			Price:              offer.OriginalPrice + variant.ExtraPrice,
-			DiscountedPrice:    offer.DiscountedPrice + variant.ExtraPrice,
-			OriginalPrice:      offer.OriginalPrice + variant.ExtraPrice,
+			Price:              offer.OriginalPrice,
+			DiscountedPrice:    offer.DiscountedPrice,
+			OriginalPrice:      offer.OriginalPrice,
 			DiscountPercentage: offer.DiscountPercentage,
 			OfferName:          offer.OfferName,
 			IsOfferApplied:     offer.IsOfferApplied,
 		}
+		
 		if err := tx.Create(&item).Error; err != nil {
 			return err
 		}
@@ -235,6 +243,7 @@ func AddToCart(c *gin.Context) {
 
 		return updateCartTotal(&cart, tx)
 	})
+	
 	if err != nil {
 		if ginErr, ok := err.(gin.Error); ok && ginErr.Meta != nil {
 			c.JSON(http.StatusBadRequest, ginErr.Meta)

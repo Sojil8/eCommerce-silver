@@ -61,7 +61,7 @@ func AdminRoutes(c *gin.Engine) {
 			protected.POST("/category_offers/:category_id", controllers.AddCategoryOffer)
 			protected.GET("/category_offers/:id", controllers.ShowCategoryOfferEdit)
 			protected.PUT("/category_offers/:id", controllers.EditCategoryOffer)
-			// protected.DELETE("/category_offers/:id", controllers.DeleteCategoryOffer)
+			protected.DELETE("/category_offers/:id", controllers.DeleteCategoryOffer)
 			// protected.GET("/apply_offer/:product_id", controllers.ApplyBestOffer)
 
 			//sales report

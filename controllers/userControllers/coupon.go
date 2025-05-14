@@ -15,16 +15,6 @@ type couponApplyReq struct {
 	CouponCode string `json:"coupon_code" binding:"required"`
 }
 
-type addCouponReq struct {
-	CouponCode         string    `json:"couponcode" binding:"required"`
-	DiscountPercentage float64   `json:"discount_percentage" binding:"required,gt=0"`
-	MinAmount          float64   `json:"min_amount" binding:"required,gte=0"`
-	MaxAmount          float64   `json:"max_amount" binding:"required,gte=0"`
-	ExpiryDate         time.Time `json:"expirydate" binding:"required"`
-	UsageLimit         int       `json:"usage_limit" binding:"required,gt=0"`
-	IsActive           bool      `json:"is_active"`
-}
-
 func ApplyCoupon(c *gin.Context) {
 	userID, _ := c.Get("id")
 
@@ -57,7 +47,7 @@ func ApplyCoupon(c *gin.Context) {
 	}
 
 	totalPrice := cart.TotalPrice
-	if totalPrice < coupon.MinPurchaseAmount || (coupon.MaxPurchaseAmount > 0 && totalPrice > coupon.MaxPurchaseAmount) {
+	if totalPrice < coupon.MinPurchaseAmount  {
 		helper.ResponseWithErr(c, http.StatusBadRequest, "Invalid amount",
 			"Coupon not applicable for this cart amount", "")
 		return
@@ -83,7 +73,7 @@ func ApplyCoupon(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"status":      "ok",
 		"message":     "Coupon applied successfully",
-		"discount":    discount,
+		"coupon_discount": discount,
 		"final_price": finalPrice,
 		"coupon_id":   coupon.ID,
 		"subtotal":    totalPrice,
@@ -120,7 +110,6 @@ func GetAvailableCoupons(c *gin.Context) {
 			"coupon_code":         coupon.CouponCode,
 			"discount_percentage": coupon.DiscountPercentage,
 			"min_purchase_amount": coupon.MinPurchaseAmount,
-			"max_purchase_amount": coupon.MaxPurchaseAmount,
 			"is_used":             isUsed,
 		})
 	}

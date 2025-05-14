@@ -52,7 +52,6 @@ func GenerateToken(c *gin.Context, id int, email string, role string) (string, e
 
 func Authenticate(cookieName, expectedRole, loginRedirect string) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		ClearCache()
 		cookie, err := c.Cookie(cookieName)
 		if err != nil {
 			fmt.Printf("No %s cookie found: %v\n", cookieName, err)

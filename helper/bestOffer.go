@@ -10,20 +10,19 @@ import (
 )
 
 type OfferDetails struct {
-	DiscountedPrice   float64
-	OriginalPrice     float64
+	DiscountedPrice    float64
+	OriginalPrice      float64
 	DiscountPercentage float64
-	OfferName         string
-	IsOfferApplied    bool
+	OfferName          string
+	IsOfferApplied     bool
+	EndTime            time.Time
 }
 
-// GetBestOfferForProduct calculates the best offer for a product based on its base price plus the variant's extra price
 func GetBestOfferForProduct(product *adminModels.Product, variantExtraPrice float64) OfferDetails {
 	var productOffer adminModels.ProductOffer
 	var categoryOffer adminModels.CategoryOffer
 	var result OfferDetails
 
-	// Calculate total price (base price + variant extra price)
 	totalPrice := product.Price + variantExtraPrice
 	result.OriginalPrice = totalPrice
 	result.DiscountedPrice = totalPrice
@@ -31,7 +30,6 @@ func GetBestOfferForProduct(product *adminModels.Product, variantExtraPrice floa
 
 	currentTime := time.Now()
 
-	// Check for active product offer
 	err := database.DB.Where("product_id = ? AND is_active = ? AND start_date <= ? AND end_date >= ?",
 		product.ID, true, currentTime, currentTime).First(&productOffer).Error
 	productDiscount := 0.0
@@ -44,7 +42,6 @@ func GetBestOfferForProduct(product *adminModels.Product, variantExtraPrice floa
 		log.Printf("Error fetching product offer for product_id=%d: %v", product.ID, err)
 	}
 
-	// Check for active category offer
 	var category adminModels.Category
 	err = database.DB.Where("category_name = ?", product.CategoryName).First(&category).Error
 	if err == nil {
@@ -57,10 +54,12 @@ func GetBestOfferForProduct(product *adminModels.Product, variantExtraPrice floa
 				result.DiscountPercentage = categoryOffer.Discount
 				result.OfferName = categoryOffer.OfferName
 				result.IsOfferApplied = true
+				result.EndTime = categoryOffer.EndDate
 			} else if productDiscount > 0 {
 				result.DiscountPercentage = productOffer.Discount
 				result.OfferName = productOffer.OfferName
 				result.IsOfferApplied = true
+				result.EndTime = productOffer.EndDate
 			}
 		} else if err == gorm.ErrRecordNotFound {
 			log.Printf("No active category offer found for category_id=%d", category.ID)
@@ -68,6 +67,7 @@ func GetBestOfferForProduct(product *adminModels.Product, variantExtraPrice floa
 				result.DiscountPercentage = productOffer.Discount
 				result.OfferName = productOffer.OfferName
 				result.IsOfferApplied = true
+				result.EndTime = productOffer.EndDate
 			}
 		} else {
 			log.Printf("Error fetching category offer for category_id=%d: %v", category.ID, err)
@@ -78,12 +78,12 @@ func GetBestOfferForProduct(product *adminModels.Product, variantExtraPrice floa
 			result.DiscountPercentage = productOffer.Discount
 			result.OfferName = productOffer.OfferName
 			result.IsOfferApplied = true
+			result.EndTime = productOffer.EndDate
 		}
 	} else {
 		log.Printf("Error fetching category for category_name=%s: %v", product.CategoryName, err)
 	}
 
-	// Apply the discount to the total price if an offer is found
 	if result.IsOfferApplied {
 		result.DiscountedPrice = totalPrice * (1 - result.DiscountPercentage/100)
 		result.OriginalPrice = totalPrice

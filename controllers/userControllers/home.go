@@ -1,8 +1,8 @@
 package controllers
 
 import (
+	"log"
 	"net/http"
-	"strings"
 
 	"github.com/Sojil8/eCommerce-silver/database"
 	"github.com/Sojil8/eCommerce-silver/helper"
@@ -11,70 +11,60 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-type productQuery struct {
-	Search   string `form:"search"`
-	Sort     string `form:"sort"`
-	Category string `form:"category"`
-}
-
-type ProductWithOffer struct {
-	Product            adminModels.Product
-	OfferDetails       helper.OfferDetails
-	DiscountPercentage int
-}
-
 func GetUserProducts(c *gin.Context) {
-	var query productQuery
-	if err := c.ShouldBindQuery(&query); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid query parameters"})
-		return
-	}
 
 	db := database.DB.Model(&adminModels.Product{}).
 		Joins("JOIN categories ON categories.category_name = products.category_name").
-		Where("products.is_listed = ? AND categories.status = ?", true, true)
-
-	if query.Search != "" {
-		searchTerm := "%" + strings.ToLower(query.Search) + "%"
-		db = db.Where("LOWER(products.product_name) LIKE ?", searchTerm)
-	}
+		Where("products.is_listed=? AND categories.status = ?", true, true).
+		Preload("Variants")
 
 	var products []adminModels.Product
-	if err := db.Preload("Variants").Find(&products).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "Failed to fetch products",
-		})
+	if err := db.Find(&products).Error; err != nil {
+		helper.ResponseWithErr(c, http.StatusInternalServerError, "error:failed to fetch products", "error:failed to fetch products", "")
 		return
 	}
 
-	var productsWithOffers []ProductWithOffer
-	for _, product := range products {
-		// In GetProductDetails
-		var variantExtraPrice float64
-		if len(product.Variants) > 0 {
-			// Assume the first variant with stock is selected by default
-			for _, variant := range product.Variants {
-				if variant.Stock > 0 {
-					variantExtraPrice = variant.ExtraPrice
-					break
-				}
-			}
-		}
-		offerDetails := helper.GetBestOfferForProduct(&product, variantExtraPrice)
-		discountPercentage := int(offerDetails.DiscountPercentage)
-		productsWithOffers = append(productsWithOffers, ProductWithOffer{
-			Product:            product,
-			OfferDetails:       offerDetails,
-			DiscountPercentage: discountPercentage,
-		})
+	if products == nil {
+		log.Println("product are not retreving")
 	}
+
+	type ProductWithOffer struct {
+		adminModels.Product
+		OfferPrice    float64
+		OriginalPrice float64
+		DiscountPercentage float64
+		IsOffer       bool
+		OfferName     string
+	}
+
+	var produtWithOffers []ProductWithOffer
+
+	for _, product := range products {
+		variantExtraPrice := 0.0
+		if len(product.Variants) > 0 {
+			variantExtraPrice = product.Variants[0].ExtraPrice
+		}
+
+		offer :=helper.GetBestOfferForProduct(&product,variantExtraPrice)
+
+		produtWithOffers =append(produtWithOffers,ProductWithOffer{
+			Product: product,
+			OfferPrice:offer.DiscountedPrice ,
+			OriginalPrice: offer.OriginalPrice,
+			DiscountPercentage: offer.DiscountPercentage,
+			IsOffer: offer.IsOfferApplied,
+			OfferName: offer.OfferName,
+		})
+
+	}	
+
 
 	user, exists := c.Get("user")
 	userName, nameExists := c.Get("user_name")
 	if !exists || !nameExists {
 		c.HTML(http.StatusOK, "home.html", gin.H{
 			"status":        "success",
-			"Products":      productsWithOffers,
+			"Products":      produtWithOffers,
 			"UserName":      "Guest",
 			"WishlistCount": 0,
 			"CartCount":     0,
@@ -96,7 +86,7 @@ func GetUserProducts(c *gin.Context) {
 
 	c.HTML(http.StatusOK, "home.html", gin.H{
 		"status":        "success",
-		"Products":      productsWithOffers,
+		"Products":      produtWithOffers,
 		"UserName":      userNameStr,
 		"ProfileImage":  userData.ProfileImage,
 		"WishlistCount": wishlistCount,
