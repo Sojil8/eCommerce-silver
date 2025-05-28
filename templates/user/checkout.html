@@ -108,6 +108,7 @@
                 {{if .Cart.CartItems}}
                 <div class="space-y-4">
                     {{range .Cart.CartItems}}
+                    {{if .Product.InStock}} <!-- Only display items with stock -->
                     <div class="flex items-center border-b py-3 transition-all hover:bg-gray-50">
                         <img src="{{index .Product.Images 0}}" alt="{{.Product.ProductName}}"
                             class="w-16 sm:w-20 h-16 sm:h-20 object-cover rounded-md mr-3 sm:mr-4 border"
@@ -127,6 +128,10 @@
                             </div>
                         </div>
                     </div>
+                    {{end}}
+                    {{end}}
+                    {{if .HasInvalidItems}}
+                    <p class="text-red-600 text-sm mt-4">Some items are out of stock and not included in the order.</p>
                     {{end}}
                 </div>
 
@@ -167,62 +172,62 @@
                     </div>
                 </div>
 
-               <div class="mt-8 border-t pt-6">
-    <h4 class="section-header"><i class="fas fa-calculator text-indigo-600 mr-3"></i> Price Breakdown</h4>
-    <br>
-    <div class="space-y-4">
-        <!-- Original Total -->
-        <div class="flex justify-between">
-            <span class="text-gray-600">Original Total</span>
-            <span class="font-semibold text-gray-900" id="originalTotal">${{printf "%.2f" .OriginalTotalPrice}}</span>
-        </div>
-        
-        <!-- Offer Discounts -->
-        <div class="flex justify-between">
-            <span class="text-green-600">Offer Discounts</span>
-            <span class="font-semibold text-green-600" id="productDiscount">
-                {{ $totalDiscount := 0.0 }}
-                {{range .Cart.CartItems}}
-                {{if .IsOfferApplied}}
-                {{ $itemDiscount := sub .OriginalPrice .DiscountedPrice }}
-                {{ $totalDiscount = add $totalDiscount (mul $itemDiscount .Quantity) }}
-                {{end}}
-                {{end}}
-                -${{printf "%.2f" $totalDiscount}}
-            </span>
-        </div>
-        
-        <!-- Shipping -->
-        <div class="flex justify-between">
-            <span class="text-gray-600">Shipping</span>
-            <span class="font-semibold text-gray-900" id="shipping">${{printf "%.2f" .Shipping}}</span>
-        </div>
-        
-        <!-- Coupon Discount -->
-        <div class="flex justify-between" id="couponDiscountRow" 
-            style="display: {{if .Discount}}flex{{else}}none{{end}};">
-            <span class="text-green-600">Coupon Discount</span>
-            <span class="font-semibold text-green-600" id="couponDiscount" 
-                aria-label="Coupon discount amount">-${{printf "%.2f" .Discount}}</span>
-        </div>
-        
-        <!-- Total Discount -->
-        <div class="flex justify-between">
-            <span class="text-green-600">Total Discount</span>
-            <span class="font-semibold text-green-600">
-                {{ $totalDiscount = add $totalDiscount .Discount }}
-                -${{printf "%.2f" $totalDiscount}}
-            </span>
-        </div>
-        
-        <!-- Grand Total -->
-        <div class="flex justify-between border-t pt-4">
-            <span class="text-lg font-bold text-gray-900">Grand Total</span>
-            <span class="text-lg font-bold text-indigo-600" id="finalTotal"
-                aria-label="Final total amount">${{printf "%.2f" .FinalPrice}}</span>
-        </div>
-    </div>
-</div>
+                <div class="mt-8 border-t pt-6">
+                    <h4 class="section-header"><i class="fas fa-calculator text-indigo-600 mr-3"></i> Price Breakdown</h4>
+                    <br>
+                    <div class="space-y-4">
+                        <!-- Original Total -->
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">Original Total</span>
+                            <span class="font-semibold text-gray-900" id="originalTotal">${{printf "%.2f" .OriginalTotalPrice}}</span>
+                        </div>
+                        
+                        <!-- Offer Discounts -->
+                        <div class="flex justify-between">
+                            <span class="text-green-600">Offer Discounts</span>
+                            <span class="font-semibold text-green-600" id="productDiscount">
+                                {{ $totalDiscount := 0.0 }}
+                                {{range .Cart.CartItems}}
+                                {{if .IsOfferApplied}}
+                                {{ $itemDiscount := sub .OriginalPrice .DiscountedPrice }}
+                                {{ $totalDiscount = add $totalDiscount (mul $itemDiscount .Quantity) }}
+                                {{end}}
+                                {{end}}
+                                -${{printf "%.2f" $totalDiscount}}
+                            </span>
+                        </div>
+                        
+                        <!-- Shipping -->
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">Shipping</span>
+                            <span class="font-semibold text-gray-900" id="shipping">${{printf "%.2f" .Shipping}}</span>
+                        </div>
+                        
+                        <!-- Coupon Discount -->
+                        <div class="flex justify-between" id="couponDiscountRow" 
+                            style="display: {{if .Discount}}flex{{else}}none{{end}};">
+                            <span class="text-green-600">Coupon Discount</span>
+                            <span class="font-semibold text-green-600" id="couponDiscount" 
+                                aria-label="Coupon discount amount">-${{printf "%.2f" .Discount}}</span>
+                        </div>
+                        
+                        <!-- Total Discount -->
+                        <div class="flex justify-between">
+                            <span class="text-green-600">Total Discount</span>
+                            <span class="font-semibold text-green-600">
+                                {{ $totalDiscount = add $totalDiscount .Discount }}
+                                -${{printf "%.2f" $totalDiscount}}
+                            </span>
+                        </div>
+                        
+                        <!-- Grand Total -->
+                        <div class="flex justify-between border-t pt-4">
+                            <span class="text-lg font-bold text-gray-900">Grand Total</span>
+                            <span class="text-lg font-bold text-indigo-600" id="finalTotal"
+                                aria-label="Final total amount">${{printf "%.2f" .FinalPrice}}</span>
+                        </div>
+                    </div>
+                </div>
                 {{else}}
                 <p class="text-gray-500 text-center py-4 text-sm sm:text-base">Your cart is empty.</p>
                 {{end}}
@@ -303,42 +308,41 @@
     <script>
         // State
         let state = {
-    selectedAddressId: "{{range .Addresses}}{{if .IsDefault}}{{.ID}}{{end}}{{end}}" || null,
-    originalTotal: Number("{{printf "%.2f" .OriginalTotalPrice}}") || 0, // Add original total
-    subtotal: Number("{{printf "%.2f" .Subtotal}}") || 0,
-    shipping: Number("{{printf "%.2f" .Shipping}}") || 0,
-    discount: Number("{{printf "%.2f" .Discount}}") || 0,
-    finalTotal: Number("{{printf "%.2f" .FinalPrice}}") || 0,
-    appliedCoupon: {{if .AppliedCoupon.CouponCode}}true{{else}}false{{end}}
-};
+            selectedAddressId: "{{range .Addresses}}{{if .IsDefault}}{{.ID}}{{end}}{{end}}" || null,
+            originalTotal: Number("{{printf "%.2f" .OriginalTotalPrice}}") || 0,
+            subtotal: Number("{{printf "%.2f" .Subtotal}}") || 0,
+            shipping: Number("{{printf "%.2f" .Shipping}}") || 0,
+            discount: Number("{{printf "%.2f" .Discount}}") || 0,
+            finalTotal: Number("{{printf "%.2f" .FinalPrice}}") || 0,
+            appliedCoupon: {{if .AppliedCoupon.CouponCode}}true{{else}}false{{end}}
+        };
 
-// DOM Elements
-const els = {
-    addressSelect: document.getElementById('addressSelect'),
-    couponCode: document.getElementById('couponCode'),
-    couponMessage: document.getElementById('couponMessage'),
-    availableCoupons: document.getElementById('availableCoupons'),
-    couponDiscountRow: document.getElementById('couponDiscountRow'),
-    couponDiscount: document.getElementById('couponDiscount'),
-    originalTotal: document.getElementById('originalTotal'), // Add original total
-    subtotal: document.getElementById('subtotal'),
-    finalTotal: document.getElementById('finalTotal'),
-    paymentMethod: document.getElementById('paymentMethod'),
-    couponSection: document.getElementById('couponSection'),
-    couponContainer: document.getElementById('couponContainer'),
-    placeOrderBtn: document.getElementById('placeOrderBtn')
-};
+        // DOM Elements
+        const els = {
+            addressSelect: document.getElementById('addressSelect'),
+            couponCode: document.getElementById('couponCode'),
+            couponMessage: document.getElementById('couponMessage'),
+            availableCoupons: document.getElementById('availableCoupons'),
+            couponDiscountRow: document.getElementById('couponDiscountRow'),
+            couponDiscount: document.getElementById('couponDiscount'),
+            originalTotal: document.getElementById('originalTotal'),
+            subtotal: document.getElementById('subtotal'),
+            finalTotal: document.getElementById('finalTotal'),
+            paymentMethod: document.getElementById('paymentMethod'),
+            couponSection: document.getElementById('couponSection'),
+            couponContainer: document.getElementById('couponContainer'),
+            placeOrderBtn: document.getElementById('placeOrderBtn')
+        };
 
         // Initialize
-     // Initialize
-document.addEventListener('DOMContentLoaded', () => {
-    console.log('DOM loaded, initializing checkout page');
-    if (state.discount === 0) {
-        els.couponDiscountRow.style.display = 'none';
-    }
-    fetchCoupons();
-    els.placeOrderBtn.addEventListener('click', placeOrder);
-});
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('DOM loaded, initializing checkout page');
+            if (state.discount === 0) {
+                els.couponDiscountRow.style.display = 'none';
+            }
+            fetchCoupons();
+            els.placeOrderBtn.addEventListener('click', placeOrder);
+        });
 
         // Utility Functions
         const showAlert = (icon, title, text, timer = 0) => {
@@ -421,146 +425,147 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-       async function applyCoupon(code = null) {
-    const couponCode = code || els.couponCode.value.trim();
-    if (!couponCode) {
-        els.couponMessage.textContent = 'Please enter a coupon code';
-        els.couponMessage.classList.remove('hidden', 'text-green-600');
-        els.couponMessage.classList.add('text-red-600');
-        els.couponMessage.style.display = 'block';
-        return;
-    }
-
-    try {
-        showLoading();
-        const data = await apiCall('/checkout/apply-coupon', 'POST', { coupon_code: couponCode });
-        closeLoading();
-
-        if (data.status === 'ok') {
-            state.appliedCoupon = true;
-            state.discount = data.coupon_discount || 0;
-            state.finalTotal = data.final_price || state.finalTotal;
-
-            if (state.discount === 0) {
-                console.warn('Coupon applied but discount is 0', data);
-            }
-
-            els.couponDiscountRow.style.display = 'flex';
-            els.couponDiscount.textContent = `-$${state.discount.toFixed(2)}`;
-            els.finalTotal.textContent = `$${state.finalTotal.toFixed(2)}`;
-            els.couponContainer.innerHTML = `
-                <div class="flex items-center justify-between bg-green-100 p-3 rounded-lg">
-                    <div>
-                        <p class="text-green-700 font-medium text-sm sm:text-base">Coupon: ${couponCode}</p>
-                        <p class="text-xs sm:text-sm text-green-600">Saved: $${state.discount.toFixed(2)}</p>
-                    </div>
-                    <button onclick="removeCoupon()" class="btn-primary bg-red-600 hover:bg-red-700 text-sm px-4">
-                        Remove
-                    </button>
-                </div>
-            `;
-            
-            // Show success message
-            showAlert('success', 'Coupon Applied', 'Coupon applied successfully!', 2000);
-            
-            // Also update the coupon message 
-            els.couponMessage = document.getElementById('couponMessage');
-            if (els.couponMessage) {
-                els.couponMessage.textContent = 'Coupon applied successfully!';
-                els.couponMessage.classList.remove('hidden', 'text-red-600');
-                els.couponMessage.classList.add('text-green-600');
-                els.couponMessage.style.display = 'block';
-            }
-
-            await fetchCoupons();
-        } else {
-            els.couponMessage.textContent = data.message || 'Invalid coupon';
-            els.couponMessage.classList.remove('hidden', 'text-green-600');
-            els.couponMessage.classList.add('text-red-600');
-            els.couponMessage.style.display = 'block';
-            
-            // Show error alert
-            showAlert('error', 'Coupon Error', data.message || 'Invalid coupon', 2000);
-        }
-    } catch (error) {
-        console.error('ApplyCoupon Error:', error);
-        closeLoading();
-        els.couponMessage.textContent = error.message || 'Failed to apply coupon';
-        els.couponMessage.classList.remove('hidden', 'text-green-600');
-        els.couponMessage.classList.add('text-red-600');
-        els.couponMessage.style.display = 'block';
-        
-        // Show error alert
-        showAlert('error', 'System Error', error.message || 'Failed to apply coupon', 2000);
-    }
-}
-
-async function removeCoupon() {
-    try {
-        showLoading();
-        const data = await apiCall('/checkout/remove-coupon', 'POST');
-        closeLoading();
-
-        if (data.status === 'ok') {
-            state.appliedCoupon = false;
-            state.discount = 0;
-            state.finalTotal = data.final_price || state.finalTotal;
-
-            els.couponDiscountRow.style.display = 'none';
-            els.finalTotal.textContent = `$${state.finalTotal.toFixed(2)}`;
-            els.couponContainer.innerHTML = `
-                <div class="flex flex-col sm:flex-row gap-3">
-                    <input type="text" id="couponCode" placeholder="Enter coupon code" 
-                        class="input-field" aria-label="Coupon code">
-                    <button onclick="applyCoupon()" class="btn-primary whitespace-nowrap">Apply Coupon</button>
-                </div>
-                <p id="couponMessage" class="mt-2 text-xs sm:text-sm text-gray-600 hidden"></p>
-            `;
-            
-            // Update DOM elements after HTML changes
-            els.couponCode = document.getElementById('couponCode');
-            els.couponMessage = document.getElementById('couponMessage');
-            
-            // Show success alert
-            showAlert('success', 'Coupon Removed', 'Coupon removed successfully!', 2000);
-            
-            // Also update the coupon message
-            if (els.couponMessage) {
-                els.couponMessage.textContent = 'Coupon removed successfully!';
-                els.couponMessage.classList.remove('hidden', 'text-red-600');
-                els.couponMessage.classList.add('text-green-600');
-                els.couponMessage.style.display = 'block';
-            }
-
-            await fetchCoupons();
-        } else {
-            // Show error alert
-            showAlert('error', 'Error', data.message || 'Failed to remove coupon', 2000);
-            
-            // Update message element
-            if (els.couponMessage) {
-                els.couponMessage.textContent = data.message || 'Failed to remove coupon';
+        async function applyCoupon(code = null) {
+            const couponCode = code || els.couponCode.value.trim();
+            if (!couponCode) {
+                els.couponMessage.textContent = 'Please enter a coupon code';
                 els.couponMessage.classList.remove('hidden', 'text-green-600');
                 els.couponMessage.classList.add('text-red-600');
                 els.couponMessage.style.display = 'block';
+                return;
+            }
+
+            try {
+                showLoading();
+                const data = await apiCall('/checkout/apply-coupon', 'POST', { coupon_code: couponCode });
+                closeLoading();
+
+                if (data.status === 'ok') {
+                    state.appliedCoupon = true;
+                    state.discount = data.coupon_discount || 0;
+                    state.finalTotal = data.final_price || state.finalTotal;
+
+                    if (state.discount === 0) {
+                        console.warn('Coupon applied but discount is 0', data);
+                    }
+
+                    els.couponDiscountRow.style.display = 'flex';
+                    els.couponDiscount.textContent = `-$${state.discount.toFixed(2)}`;
+                    els.finalTotal.textContent = `$${state.finalTotal.toFixed(2)}`;
+                    els.couponContainer.innerHTML = `
+                        <div class="flex items-center justify-between bg-green-100 p-3 rounded-lg">
+                            <div>
+                                <p class="text-green-700 font-medium text-sm sm:text-base">Coupon: ${couponCode}</p>
+                                <p class="text-xs sm:text-sm text-green-600">Saved: $${state.discount.toFixed(2)}</p>
+                            </div>
+                            <button onclick="removeCoupon()" class="btn-primary bg-red-600 hover:bg-red-700 text-sm px-4">
+                                Remove
+                            </button>
+                        </div>
+                    `;
+                    
+                    // Show success message
+                    showAlert('success', 'Coupon Applied', 'Coupon applied successfully!', 2000);
+                    
+                    // Also update the coupon message 
+                    els.couponMessage = document.getElementById('couponMessage');
+                    if (els.couponMessage) {
+                        els.couponMessage.textContent = 'Coupon applied successfully!';
+                        els.couponMessage.classList.remove('hidden', 'text-red-600');
+                        els.couponMessage.classList.add('text-green-600');
+                        els.couponMessage.style.display = 'block';
+                    }
+
+                    await fetchCoupons();
+                } else {
+                    els.couponMessage.textContent = data.message || 'Invalid coupon';
+                    els.couponMessage.classList.remove('hidden', 'text-green-600');
+                    els.couponMessage.classList.add('text-red-600');
+                    els.couponMessage.style.display = 'block';
+                    
+                    // Show error alert
+                    showAlert('error', 'Coupon Error', data.message || 'Invalid coupon', 2000);
+                }
+            } catch (error) {
+                console.error('ApplyCoupon Error:', error);
+                closeLoading();
+                els.couponMessage.textContent = error.message || 'Failed to apply coupon';
+                els.couponMessage.classList.remove('hidden', 'text-green-600');
+                els.couponMessage.classList.add('text-red-600');
+                els.couponMessage.style.display = 'block';
+                
+                // Show error alert
+                showAlert('error', 'System Error', error.message || 'Failed to apply coupon', 2000);
             }
         }
-    } catch (error) {
-        console.error('RemoveCoupon Error:', error);
-        closeLoading();
-        
-        // Show error alert
-        showAlert('error', 'System Error', error.message || 'Failed to remove coupon', 2000);
-        
-        // Update message element
-        if (els.couponMessage) {
-            els.couponMessage.textContent = error.message || 'Failed to remove coupon';
-            els.couponMessage.classList.remove('hidden', 'text-green-600');
-            els.couponMessage.classList.add('text-red-600');
-            els.couponMessage.style.display = 'block';
+
+        async function removeCoupon() {
+            try {
+                showLoading();
+                const data = await apiCall('/checkout/remove-coupon', 'POST');
+                closeLoading();
+
+                if (data.status === 'ok') {
+                    state.appliedCoupon = false;
+                    state.discount = 0;
+                    state.finalTotal = data.final_price || state.finalTotal;
+
+                    els.couponDiscountRow.style.display = 'none';
+                    els.finalTotal.textContent = `$${state.finalTotal.toFixed(2)}`;
+                    els.couponContainer.innerHTML = `
+                        <div class="flex flex-col sm:flex-row gap-3">
+                            <input type="text" id="couponCode" placeholder="Enter coupon code" 
+                                class="input-field" aria-label="Coupon code">
+                            <button onclick="applyCoupon()" class="btn-primary whitespace-nowrap">Apply Coupon</button>
+                        </div>
+                        <p id="couponMessage" class="mt-2 text-xs sm:text-sm text-gray-600 hidden"></p>
+                    `;
+                    
+                    // Update DOM elements after HTML changes
+                    els.couponCode = document.getElementById('couponCode');
+                    els.couponMessage = document.getElementById('couponMessage');
+                    
+                    // Show success alert
+                    showAlert('success', 'Coupon Removed', 'Coupon removed successfully!', 2000);
+                    
+                    // Also update the coupon message
+                    if (els.couponMessage) {
+                        els.couponMessage.textContent = 'Coupon removed successfully!';
+                        els.couponMessage.classList.remove('hidden', 'text-red-600');
+                        els.couponMessage.classList.add('text-green-600');
+                        els.couponMessage.style.display = 'block';
+                    }
+
+                    await fetchCoupons();
+                } else {
+                    // Show error alert
+                    showAlert('error', 'Error', data.message || 'Failed to remove coupon', 2000);
+                    
+                    // Update message element
+                    if (els.couponMessage) {
+                        els.couponMessage.textContent = data.message || 'Failed to remove coupon';
+                        els.couponMessage.classList.remove('hidden', 'text-green-600');
+                        els.couponMessage.classList.add('text-red-600');
+                        els.couponMessage.style.display = 'block';
+                    }
+                }
+            } catch (error) {
+                console.error('RemoveCoupon Error:', error);
+                closeLoading();
+                
+                // Show error alert
+                showAlert('error', 'System Error', error.message || 'Failed to remove coupon', 2000);
+                
+                // Update message element
+                if (els.couponMessage) {
+                    els.couponMessage.textContent = error.message || 'Failed to remove coupon';
+                    els.couponMessage.classList.remove('hidden', 'text-green-600');
+                    els.couponMessage.classList.add('text-red-600');
+                    els.couponMessage.style.display = 'block';
+                }
+            }
         }
-    }
-}
+
         // Address Functions
         async function selectAddress(id) {
             if (!id) {
@@ -693,7 +698,7 @@ async function removeCoupon() {
                                 `Your address has been ${isEdit ? 'updated' : 'added'} successfully.`,
                                 1500
                             );
-                            window.location.reload();
+  window.location.reload();
                         } else {
                             showAlert('error', 'Failed', data.message || 'Something went wrong', 2000);
                         }

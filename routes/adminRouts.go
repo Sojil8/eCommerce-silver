@@ -65,7 +65,6 @@ func AdminRoutes(c *gin.Engine) {
 			// protected.GET("/apply_offer/:product_id", controllers.ApplyBestOffer)
 
 			//sales report
-			protected.GET("/dash-board", controllers.GetSalesReport)
 
 
 

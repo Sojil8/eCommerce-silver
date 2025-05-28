@@ -3,6 +3,7 @@ package controllers
 import (
 	"bytes"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"strconv"
@@ -93,17 +94,19 @@ func CancelOrder(c *gin.Context) {
 				return fmt.Errorf("payment details not found: %v", err)
 			}
 
-			wallet,err:=EnshureWallet(tx,uint(userID.(uint)))
-			if err!=nil{
+			wallet, err := EnshureWallet(tx, uint(userID.(uint)))
+			if err != nil {
 				return err
 			}
-			wallet.Balance+=payment.Amount
-			if err:=tx.Save(&wallet).Error;err!=nil{
+			//coupon logic impliment here
+
+			wallet.Balance += payment.Amount
+			if err := tx.Save(&wallet).Error; err != nil {
 				return fmt.Errorf("failed to update wallet balance: %v", err)
 			}
 
 			payment.Status = "RefundedToWallet"
-			if err:=tx.Save(&payment).Error;err!=nil{
+			if err := tx.Save(&payment).Error; err != nil {
 				return fmt.Errorf("failed to update payment status: %v", err)
 			}
 
@@ -181,22 +184,22 @@ func CancelOrderItem(c *gin.Context) {
 						return fmt.Errorf("payment details not found: %v", err)
 					}
 
-					refundAmount:=item.Price * float64(item.Quantity)
+					refundAmount := item.UnitPrice * float64(item.Quantity)
 
-					wallet,err:=EnshureWallet(tx,uint(userID.(uint)))
-					if err!=nil{
+					wallet, err := EnshureWallet(tx, uint(userID.(uint)))
+					if err != nil {
 						return err
 					}
 
 					wallet.Balance += refundAmount
-					if err:=tx.Save(&wallet).Error;err!=nil{
+					if err := tx.Save(&wallet).Error; err != nil {
 						return fmt.Errorf("failed to update wallet balance: %v", err)
 					}
 
-					payment.Amount -= refundAmount	
-					if payment.Amount <=0{
+					payment.Amount -= refundAmount
+					if payment.Amount <= 0 {
 						payment.Status = "RefundedToWallet"
-					}else{
+					} else {
 						payment.Status = "PartiallyRefundedToWallet"
 					}
 					if err := tx.Save(&payment).Error; err != nil {
@@ -315,29 +318,66 @@ func ReturnOrder(c *gin.Context) {
 }
 
 func ShowOrderDetails(c *gin.Context) {
-	userID, _ := c.Get("id")
+	// 1. Extract user ID
+	userID, exists := c.Get("id")
+	if !exists {
+		log.Printf("No user ID found in context")
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
+	uid, ok := userID.(uint)
+	if !ok {
+		log.Printf("Invalid user ID type")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+		return
+	}
+
+	// 2. Get order ID from URL parameter
 	orderID := c.Param("order_id")
+	if orderID == "" {
+		log.Printf("No order ID provided")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Order ID is required"})
+		return
+	}
+
+	// 3. Fetch order with related data
 	var order userModels.Orders
-	if err := database.DB.Where("order_id_unique = ? AND user_id = ?", orderID, userID).
-		Preload("OrderItems.Product").Preload("OrderItems.Variants").
+	if err := database.DB.Where("order_id_unique = ? AND user_id = ?", orderID, uid).
+		Preload("OrderItems.Product").
+		Preload("OrderItems.Variants").
 		First(&order).Error; err != nil {
+		log.Printf("Order not found for order_id=%s, user_id=%d: %v", orderID, uid, err)
 		c.JSON(http.StatusNotFound, gin.H{"error": "Order not found"})
 		return
 	}
-	var address adminModels.ShippingAddress
-	database.DB.Where("user_id = ? AND order_id = ?", userID, orderID).First(&address)
 
+	// 4. Fetch shipping address
+	var address adminModels.ShippingAddress
+	if err := database.DB.Where("order_id = ? AND user_id = ?", orderID, uid).First(&address).Error; err != nil {
+		log.Printf("Shipping address not found for order_id=%s, user_id=%d: %v", orderID, uid, err)
+		c.JSON(http.StatusNotFound, gin.H{"error": "Shipping address not found"})
+		return
+	}
+
+	// 5. Calculate total offer discount from order items
+	totalOfferDiscount := 0.0
+	for _, item := range order.OrderItems {
+		totalOfferDiscount += item.DiscountAmount
+	}
+
+	// 6. Prepare user data
 	user, exists := c.Get("user")
 	userName, nameExists := c.Get("user_name")
 	if !exists || !nameExists {
 		c.HTML(http.StatusOK, "orderDetail.html", gin.H{
-			"status":          "success",
-			"Order":           order,
-			"ShippingAddress": address,
-			"UserName":        "Guest",
-			"WishlistCount":   0,
-			"CartCount":       0,
-			"ProfileImage":    "",
+			"status":             "success",
+			"Order":              order,
+			"ShippingAddress":    address,
+			"UserName":           "Guest",
+			"WishlistCount":      0,
+			"CartCount":          0,
+			"ProfileImage":       "",
+			"TotalOfferDiscount": totalOfferDiscount,
 		})
 		return
 	}
@@ -345,20 +385,30 @@ func ShowOrderDetails(c *gin.Context) {
 	userData := user.(userModels.Users)
 	userNameStr := userName.(string)
 
+	// 7. Fetch wishlist and cart counts
 	var wishlistCount, cartCount int64
 	if err := database.DB.Model(&userModels.Wishlist{}).Where("user_id = ?", userData.ID).Count(&wishlistCount).Error; err != nil {
+		log.Printf("Failed to fetch wishlist count for user_id=%d: %v", userData.ID, err)
 		wishlistCount = 0
 	}
-	if err := database.DB.Model(&userModels.CartItem{}).Joins("JOIN carts ON carts.id = cart_items.cart_id").Where("carts.user_id = ?", userData.ID).Count(&cartCount).Error; err != nil {
+	if err := database.DB.Model(&userModels.CartItem{}).
+		Joins("JOIN carts ON carts.id = cart_items.cart_id").
+		Where("carts.user_id = ?", userData.ID).
+		Count(&cartCount).Error; err != nil {
+		log.Printf("Failed to fetch cart count for user_id=%d: %v", userData.ID, err)
 		cartCount = 0
 	}
+
+	// 8. Render template
 	c.HTML(http.StatusOK, "orderDetail.html", gin.H{
-		"Order":           order,
-		"ShippingAddress": address,
-		"UserName":        userNameStr,
-		"ProfileImage":    userData.ProfileImage,
-		"WishlistCount":   wishlistCount,
-		"CartCount":       cartCount,
+		"status":             "success",
+		"Order":              order,
+		"ShippingAddress":    address,
+		"UserName":           userNameStr,
+		"ProfileImage":       userData.ProfileImage,
+		"WishlistCount":      wishlistCount,
+		"CartCount":          cartCount,
+		"TotalOfferDiscount": totalOfferDiscount,
 	})
 }
 
@@ -385,7 +435,7 @@ func DownloadInvoice(c *gin.Context) {
 	pdf.Cell(40, 10, "Items:")
 	pdf.Ln(10)
 	for _, item := range order.OrderItems {
-		pdf.Cell(40, 10, fmt.Sprintf("%s (%s) - Qty: %d - $%.2f", item.Product.ProductName, item.Variants.Color, item.Quantity, item.Price*float64(item.Quantity)))
+		pdf.Cell(40, 10, fmt.Sprintf("%s (%s) - Qty: %d - $%.2f", item.Product.ProductName, item.Variants.Color, item.Quantity, item.UnitPrice*float64(item.Quantity)))
 		pdf.Ln(10)
 	}
 

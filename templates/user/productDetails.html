@@ -213,10 +213,10 @@
                             </div>
                             {{ end }}
                             <!-- Out of Stock Badge -->
-                            {{ if not .IsInStock }}
-                            <div class="absolute top-3 right-3 bg-gradient-to-r from-red-500 to-red-600 text-white text-xs font-semibold px-3 py-1 rounded-full shadow-sm">
-                                Out of Stock
-                            </div>
+                            {{ if not .HasStock }}
+    <div class="absolute top-3 right-3 bg-gradient-to-r from-red-500 to-red-600 text-white text-xs font-semibold px-3 py-1 rounded-full shadow-sm">
+        Out of Stock
+    </div>
                             {{ end }}
                             {{ else }}
                             <img src="/static/default-product.jpg" alt="Default Image"

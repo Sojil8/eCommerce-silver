@@ -14,6 +14,72 @@
         body {
             font-family: 'Inter', sans-serif;
         }
+        
+        /* Out of stock styling */
+        .out-of-stock {
+            position: relative;
+            background-color: #f9f9f9;
+            border-color: #e5e7eb !important;
+        }
+        
+        .out-of-stock .item-content {
+            opacity: 0.7;
+        }
+        
+        .out-of-stock img {
+            filter: grayscale(70%);
+        }
+        
+        /* Stock badge styling */
+        .stock-badge {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            z-index: 20;
+            background: linear-gradient(135deg, #dc2626, #b91c1c);
+            color: white;
+            font-size: 0.75rem;
+            font-weight: 700;
+            padding: 0.35rem 0.75rem;
+            border-radius: 9999px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            box-shadow: 0 2px 8px rgba(220, 38, 38, 0.3);
+            animation: pulse-red 2s infinite;
+        }
+        
+        /* Offer badge positioning */
+        .offer-badge {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            z-index: 20;
+        }
+        
+        /* Ensure these elements remain fully visible */
+        .out-of-stock .stock-badge,
+        .out-of-stock .offer-badge,
+        .out-of-stock .remove-btn {
+            opacity: 1 !important;
+            filter: none !important;
+        }
+        
+        /* Make remove button stand out more */
+        .out-of-stock .remove-btn {
+            color: #dc2626 !important;
+            background-color: #fee2e2 !important;
+        }
+        
+        /* Disable hover effects on out-of-stock items */
+        .out-of-stock:hover {
+            transform: none !important;
+            cursor: not-allowed;
+        }
+        
+        @keyframes pulse-red {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
     </style>
 </head>
 
@@ -27,24 +93,41 @@
             <div class="md:col-span-2">
                 {{if .CartItems}}
                 {{range .CartItems}}
-                <div
-                    class="bg-white rounded-xl shadow-md p-4 mb-4 transform transition-all duration-300 hover:shadow-xl hover:-translate-y-1 relative">
-                    {{ if .IsOfferApplied }}
-                    <div class="absolute top-3 right-3 bg-gradient-to-r from-green-500 to-green-600 text-white text-xs font-semibold px-3 py-1 rounded-full shadow-sm">
-                        {{ printf "%.0f" .DiscountPercentage }}% OFF
+                <div class="bg-white rounded-xl shadow-md p-4 mb-4 transform transition-all duration-300 hover:shadow-xl hover:-translate-y-1 relative {{if not .Product.InStock}}out-of-stock{{end}}">
+                    <!-- Out of Stock Badge -->
+                    {{if not .Product.InStock}}
+                    <div class="stock-badge">
+                        <i class="fas fa-exclamation-triangle mr-1"></i>
+                        Out of Stock
                     </div>
-                    {{ else }}
-                    <div class="absolute top-3 right-3 bg-gradient-to-r from-gray-500 to-gray-600 text-white text-xs font-semibold px-3 py-1 rounded-full shadow-sm">
-                        No Offer
+                    {{end}}
+                    
+                    <!-- Offer Badge -->
+                    <div class="offer-badge">
+                        {{ if .IsOfferApplied }}
+                        <div class="bg-gradient-to-r from-green-500 to-green-600 text-white text-xs font-semibold px-3 py-1 rounded-full shadow-sm">
+                            {{ printf "%.0f" .DiscountPercentage }}% OFF
+                        </div>
+                        {{ else }}
+                        <div class="bg-gradient-to-r from-gray-500 to-gray-600 text-white text-xs font-semibold px-3 py-1 rounded-full shadow-sm">
+                            No Offer
+                        </div>
+                        {{ end }}
                     </div>
-                    {{ end }}
-                    <div class="flex items-center space-x-4">
+                    
+                    <div class="flex items-center space-x-4 item-content">
                         <img src="{{(index .Product.Images 0)}}" alt="{{.Product.ProductName}}"
                             class="w-20 h-20 object-cover rounded-md">
                         <div class="flex-grow">
                             <h3 class="text-lg font-semibold text-gray-900">{{.Product.ProductName}}</h3>
                             <p class="text-sm text-gray-500">{{.Product.CategoryName}} - <span
                                     class="text-indigo-500">{{.Variants.Color}}</span></p>
+                            {{if not .Product.InStock}}
+                            <p class="text-xs text-red-600 font-medium mt-1">
+                                <i class="fas fa-info-circle mr-1"></i>
+                                Available: {{.Variants.Stock}} | Requested: {{.Quantity}}
+                            </p>
+                            {{end}}
                             <div class="flex items-center space-x-2">
                                 {{ if .IsOfferApplied }}
                                 <p class="text-indigo-600 font-bold">${{printf "%.2f" .DiscountedPrice}}</p>
@@ -53,36 +136,45 @@
                                     {{ printf "%.0f" .DiscountPercentage }}% Off
                                 </span>
                                 {{ else }}
-                                <p class="text-indigo-600 font-bold">${{printf "%.2f" .Price}}</p>
+                                <p class="text-indigo-600 font-bold">${{printf "%.2f" .OriginalPrice}}</p>
                                 {{ end }}
                             </div>
                         </div>
                         <div class="flex items-center space-x-2">
                             <button onclick="updateQuantity('{{.ProductID}}', '{{.VariantsID}}', {{.Quantity}} - 1)"
-                                class="text-gray-600 hover:text-indigo-600 p-2 rounded-full hover:bg-indigo-50 transition-colors {{if eq .Quantity 1}}opacity-50 cursor-not-allowed{{end}}"
-                                {{if eq .Quantity 1}}disabled{{end}}>
+                                class="text-gray-600 hover:text-indigo-600 p-2 rounded-full hover:bg-indigo-50 transition-colors {{if or (eq .Quantity 1) (not .Product.InStock)}}opacity-50 cursor-not-allowed{{end}}"
+                                {{if or (eq .Quantity 1) (not .Product.InStock)}}disabled{{end}}>
                                 <i class="fas fa-minus"></i>
                             </button>
                             <input type="number" value="{{.Quantity}}" min="1" max="{{.Variants.Stock}}"
-                                class="w-12 text-center border border-gray-300 rounded py-1 bg-gray-50" readonly>
+                                class="w-12 text-center border border-gray-300 rounded py-1 {{if not .Product.InStock}}bg-gray-200{{else}}bg-gray-50{{end}}" readonly>
                             <button onclick="updateQuantity('{{.ProductID}}', '{{.VariantsID}}', {{.Quantity}} + 1)"
-                                class="text-gray-600 hover:text-indigo-600 p-2 rounded-full hover:bg-indigo-50 transition-colors {{if eq .Quantity .Variants.Stock}}opacity-50 cursor-not-allowed{{end}}"
-                                {{if eq .Quantity .Variants.Stock}}disabled{{end}}>
+                                class="text-gray-600 hover:text-indigo-600 p-2 rounded-full hover:bg-indigo-50 transition-colors {{if or (eq .Quantity .Variants.Stock) (not .Product.InStock)}}opacity-50 cursor-not-allowed{{end}}"
+                                {{if or (eq .Quantity .Variants.Stock) (not .Product.InStock)}}disabled{{end}}>
                                 <i class="fas fa-plus"></i>
                             </button>
                         </div>
                         <div class="flex items-center space-x-4">
-                            {{ if .IsOfferApplied }}
                             <p class="font-bold text-indigo-600">${{printf "%.2f" .ItemTotal}}</p>
-                            {{ else }}
-                            <p class="font-bold text-indigo-600">${{printf "%.2f" .ItemTotal}}</p>
-                            {{ end }}
-                            <button onclick="removeItem(' relocation assistance{{.ProductID}}', '{{.VariantsID}}')"
-                                class="text-red-500 hover:text-red-600 p-2 rounded-full hover:bg-red-50 transition-colors">
+                            <button onclick="removeItem('{{.ProductID}}', '{{.VariantsID}}')"
+                                class="text-red-500 hover:text-red-600 p-2 rounded-full hover:bg-red-50 transition-colors remove-btn">
                                 <i class="fas fa-trash"></i>
                             </button>
                         </div>
                     </div>
+                    
+                    {{if not .Product.InStock}}
+                    <div class="mt-3 px-3 py-2 bg-red-50 border border-red-200 rounded-md text-sm text-red-700">
+                        <i class="fas fa-exclamation-circle mr-2"></i> 
+                        <strong>This item is currently out of stock.</strong> 
+                        {{if gt .Variants.Stock 0}}
+                        Only {{.Variants.Stock}} {{if eq .Variants.Stock 1}}item{{else}}items{{end}} available, but you have {{.Quantity}} in cart.
+                        {{else}}
+                        This item is completely out of stock.
+                        {{end}}
+                        Please remove it to proceed to checkout.
+                    </div>
+                    {{end}}
                 </div>
                 {{end}}
                 {{else}}
@@ -100,36 +192,47 @@
 
             {{if .CartItems}}
             <div class="bg-white rounded-xl shadow-md p-6 sticky top-24">
-                <h3 class="text-2xl font-semibold text-gray-900 mb-4">Cart Totals</h3>
+                <h3 class="text-2xl font-semibold text-gray-900 mb-4">Cart Summary</h3>
+                
+                <!-- Cart Items Count Info -->
+                <div class="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-100">
+                    <div class="flex justify-between text-sm">
+                        <span class="text-blue-700">Total Items:</span>
+                        <span class="font-semibold text-blue-900">{{.TotalItemCount}}</span>
+                    </div>
+                    <div class="flex justify-between text-sm">
+                        <span class="text-green-700">Available for Checkout:</span>
+                        <span class="font-semibold text-green-900">{{.CartItemCount}}</span>
+                    </div>
+                    {{if gt .OutOfStockCount 0}}
+                    <div class="flex justify-between text-sm">
+                        <span class="text-red-700">Out of Stock:</span>
+                        <span class="font-semibold text-red-900">{{.OutOfStockCount}}</span>
+                    </div>
+                    {{end}}
+                </div>
+                
                 <div class="space-y-3 mb-6">
-                    <!-- Original Price (Before Discounts) -->
                     <div class="flex justify-between">
                         <span class="text-gray-600">Original Price</span>
                         <span class="font-semibold text-gray-900">${{printf "%.2f" (add .TotalPrice .TotalDiscount)}}</span>
                     </div>
-                    
-                    <!-- Discount Section -->
                     {{if .TotalDiscount}}
                     <div class="flex justify-between text-green-600">
                         <span class="font-medium">Discount</span>
                         <span class="font-semibold">-${{printf "%.2f" .TotalDiscount}}</span>
                     </div>
                     {{end}}
-                    
-                    <!-- Subtotal (After Discounts) -->
                     <div class="flex justify-between">
-                        <span class="text-gray-600">Subtotal</span>
+                        <span class="text-gray-600">Subtotal (Available Items)</span>
                         <span class="font-semibold text-gray-900">${{printf "%.2f" .TotalPrice}}</span>
                     </div>
-                    
-                    <!-- Final Total -->
                     <div class="border-t border-gray-200 pt-3 flex justify-between">
                         <span class="font-bold text-lg text-gray-900">Total</span>
                         <span class="font-bold text-lg text-indigo-600">${{printf "%.2f" .TotalPrice}}</span>
                     </div>
                 </div>
                 
-                <!-- Savings Summary -->
                 {{if .TotalDiscount}}
                 <div class="bg-green-50 p-3 rounded-lg mb-4 border border-green-100">
                     <p class="text-green-700 font-medium flex items-center justify-center">
@@ -139,11 +242,33 @@
                 </div>
                 {{end}}
                 
+                {{if gt .OutOfStockCount 0}}
+                <div class="bg-red-100 p-3 rounded-lg mb-4 border border-red-200">
+                    <p class="text-red-800 font-medium text-center">
+                        <i class="fas fa-exclamation-circle mr-2"></i>
+                        {{.OutOfStockCount}} {{if eq .OutOfStockCount 1}}item is{{else}}items are{{end}} out of stock
+                    </p>
+                    <p class="text-red-700 text-sm text-center mt-1">
+                        Remove {{if eq .OutOfStockCount 1}}it{{else}}them{{end}} to proceed with available items
+                    </p>
+                </div>
+                {{end}}
+                
                 <button onclick="proceedToCheckout()"
-                    class="w-full bg-indigo-600 text-white py-3 rounded-full font-medium hover:bg-indigo-700 transition-colors duration-200 {{if eq .CartItemCount 0}}opacity-50 cursor-not-allowed{{end}}"
+                    class="w-full py-3 rounded-full font-medium transition-all duration-200 {{if eq .CartItemCount 0}}bg-gray-400 text-gray-600 cursor-not-allowed{{else}}bg-indigo-600 text-white hover:bg-indigo-700{{end}}"
                     {{if eq .CartItemCount 0}}disabled{{end}}>
-                    Proceed to Checkout
+                    {{if eq .CartItemCount 0}}
+                        <i class="fas fa-shopping-cart mr-2"></i>Cart is Empty
+                    {{else}}
+                        <i class="fas fa-credit-card mr-2"></i>Proceed to Checkout ({{.CartItemCount}} {{if eq .CartItemCount 1}}item{{else}}items{{end}})
+                    {{end}}
                 </button>
+                
+                <div class="mt-3 text-center">
+                    <a href="/shop" class="text-indigo-600 hover:text-indigo-800 font-medium text-sm">
+                        <i class="fas fa-arrow-left mr-1"></i> Continue Shopping
+                    </a>
+                </div>
             </div>
             {{end}}
         </div>
@@ -194,10 +319,16 @@
         }
         
         async function removeItem(productId, variantId) {
-            const parsedProductId = parseInt(productId, 10);
-            const parsedVariantId = parseInt(variantId, 10);
-
             try {
+                const parsedProductId = parseInt(productId, 10);
+                const parsedVariantId = parseInt(variantId, 10);
+                
+                if (isNaN(parsedProductId) || isNaN(parsedVariantId)) {
+                    console.error('Invalid product or variant ID:', { productId, variantId });
+                    Swal.fire('Error', 'Invalid product or variant information', 'error');
+                    return;
+                }
+
                 const result = await Swal.fire({
                     title: 'Remove Item?',
                     text: 'Are you sure you want to remove this item from your cart?',
@@ -238,9 +369,64 @@
         }
 
         function proceedToCheckout() {
+            {{if gt .OutOfStockCount 0}}
+            Swal.fire({
+                icon: 'warning',
+                title: 'Out-of-Stock Items Detected',
+                html: '<p><strong>{{.OutOfStockCount}} {{if eq .OutOfStockCount 1}}item is{{else}}items are{{end}}</strong> out of stock and will remain in your cart.</p><p class="mt-2 text-sm text-gray-600">{{if gt .CartItemCount 0}}The remaining {{.CartItemCount}} {{if eq .CartItemCount 1}}item{{else}}items{{end}} will proceed to checkout.{{else}}Please remove the out-of-stock {{if eq .OutOfStockCount 1}}item{{else}}items{{end}} to continue.{{end}}</p>',
+                confirmButtonColor: '#4f46e5',
+                confirmButtonText: '{{if gt .CartItemCount 0}}Proceed with Available Items{{else}}Got it{{end}}'
+            }).then((result) => {
+                if (result.isConfirmed && {{.CartItemCount}} > 0) {
+                    // Proceed with in-stock items only
+                    const cartData = {
+                        cartItems: [
+                            {{range .InStockCartItems}}
+                            {
+                                productId: {{.ProductID}},
+                                productName: "{{.Product.ProductName}}",
+                                variantId: {{.VariantsID}},
+                                variantColor: "{{.Variants.Color}}",
+                                quantity: {{.Quantity}},
+                                price: {{printf "%.2f" .Price}},
+                                discountedPrice: {{printf "%.2f" .DiscountedPrice}},
+                                originalPrice: {{printf "%.2f" .OriginalPrice}},
+                                discountPercentage: {{printf "%.0f" .DiscountPercentage}},
+                                offerName: "{{.OfferName}}",
+                                isOfferApplied: {{.IsOfferApplied}},
+                                image: "{{(index .Product.Images 0)}}"
+                            },
+                            {{end}}
+                        ],
+                        originalPrice: {{printf "%.2f" (add .TotalPrice .TotalDiscount)}},
+                        discount: {{printf "%.2f" .TotalDiscount}},
+                        subtotal: {{printf "%.2f" .TotalPrice}},
+                        shipping: 10,
+                        finalTotal: {{printf "%.2f" (.TotalPrice | add 10.00)}},
+                        itemCount: {{.CartItemCount}}
+                    };
+                    
+                    sessionStorage.setItem('cartData', JSON.stringify(cartData));
+                    window.location.href = '/checkout';
+                }
+            });
+            return;
+            {{end}}
+            
+            {{if eq .CartItemCount 0}}
+            Swal.fire({
+                icon: 'info',
+                title: 'Cart is Empty',
+                text: 'Add some items to your cart before proceeding to checkout.',
+                confirmButtonColor: '#4f46e5'
+            });
+            return;
+            {{end}}
+            
+            // Proceed with all items (no out-of-stock items)
             const cartData = {
                 cartItems: [
-                    {{range .CartItems}}
+                    {{range .InStockCartItems}}
                     {
                         productId: {{.ProductID}},
                         productName: "{{.Product.ProductName}}",
@@ -261,12 +447,13 @@
                 discount: {{printf "%.2f" .TotalDiscount}},
                 subtotal: {{printf "%.2f" .TotalPrice}},
                 shipping: 10,
-                finalTotal: {{printf "%.2f" (.TotalPrice | add 10.00)}}
+                finalTotal: {{printf "%.2f" (.TotalPrice | add 10.00)}},
+                itemCount: {{.CartItemCount}}
             };
+            
             sessionStorage.setItem('cartData', JSON.stringify(cartData));
             window.location.href = '/checkout';
         }
     </script>
 </body>
-
 </html>

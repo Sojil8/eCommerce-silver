@@ -18,7 +18,7 @@ import (
 )
 
 const shipping = 10.0
-const minimumOrderAmount = 1.0
+const minimumOrderAmount = 10.0
 
 func ShowCheckout(c *gin.Context) {
 	userID, _ := c.Get("id")
@@ -29,21 +29,40 @@ func ShowCheckout(c *gin.Context) {
 		Preload("CartItems.Variants").
 		First(&cart).Error; err != nil {
 		log.Printf("Cart not found for user %v: %v", userID, err)
-		helper.ResponseWithErr(c, http.StatusNotFound, "Cart not found", "Please add items to cart", "")
-		return
+		// helper.ResponseWithErr(c, http.StatusNotFound, "Cart not found", "Please add items to cart", "")
+		if err := database.DB.Where("user_id = ? AND status = ?", userID, "Pending").
+            Order("order_date DESC").
+            First(&userModels.Orders{}).Error; err == nil {
+            // Fetch the order ID to redirect
+            var recentOrder userModels.Orders
+            database.DB.Where("user_id = ? AND status = ?", userID, "Pending").
+                Order("order_date DESC").
+                First(&recentOrder)
+            c.Redirect(http.StatusFound, fmt.Sprintf("/order/success?order_id=%s", recentOrder.OrderIdUnique))
+            return
+        }
+        c.Redirect(http.StatusFound, "/cart")
+        return
 	}
 
-	var validCartItems []userModels.CartItem
-	var invalidProductFound bool
-	totalPrice := 0.0
-	originalTotalPrice := 0.0 // New variable for original total
+	
 
+	var validCartItems []userModels.CartItem
+	var invalidCartItems []userModels.CartItem
+	totalPrice := 0.0
+	originalTotalPrice := 0.0
 	for _, item := range cart.CartItems {
 		var category adminModels.Category
 		var variant adminModels.Variants
-		if item.Product.IsListed &&
-			database.DB.Where("category_name = ? AND status = ?", item.Product.CategoryName, true).First(&category).Error == nil &&
-			database.DB.Where("id = ? AND deleted_at IS NULL", item.VariantsID).First(&variant).Error == nil {
+
+		isInStock := item.Product.IsListed && item.Product.InStock
+		hasVariantStock := false
+		if err := database.DB.Where("id = ? AND deleted_at IS NULL", item.VariantsID).First(&variant).Error; err == nil {
+			hasVariantStock = variant.Stock >= item.Quantity
+		}
+
+		if isInStock && hasVariantStock &&
+			database.DB.Where("category_name = ? AND status = ?", item.Product.CategoryName, true).First(&category).Error == nil {
 			offerDetails := helper.GetBestOfferForProduct(&item.Product, item.Variants.ExtraPrice)
 			item.Price = offerDetails.OriginalPrice
 			item.DiscountedPrice = offerDetails.DiscountedPrice
@@ -56,56 +75,32 @@ func ShowCheckout(c *gin.Context) {
 			originalTotalPrice += offerDetails.OriginalPrice * float64(item.Quantity)
 			validCartItems = append(validCartItems, item)
 		} else {
-			invalidProductFound = true
-			log.Printf("Invalid cart item for user %v: product_id=%d, variant_id=%d, product_listed=%v, category_error=%v, variant_error=%v",
-				userID, item.ProductID, item.VariantsID, item.Product.IsListed,
-				database.DB.Where("category_name = ? AND status = ?", item.Product.CategoryName, true).First(&category).Error,
-				database.DB.Where("id = ? AND deleted_at IS NULL", item.VariantsID).First(&variant).Error)
+			item.Product.InStock = false
+			item.Variants.Stock = variant.Stock
+			invalidCartItems = append(invalidCartItems, item)
+			log.Printf("Invalid cart item for user %v: product_id=%d, variant_id=%d, product_listed=%v, product_in_stock=%v, variant_stock=%d, quantity=%d, category_error=%v",
+				userID, item.ProductID, item.VariantsID, item.Product.IsListed, isInStock, variant.Stock, item.Quantity,
+				database.DB.Where("category_name = ? AND status = ?", item.Product.CategoryName, true).First(&category).Error)
 		}
 	}
 
 	if len(validCartItems) == 0 {
 		log.Printf("No valid items in cart for user %v", userID)
 		helper.ResponseWithErr(c, http.StatusBadRequest, "No valid products in cart",
-			"Some products in your cart are no longer available", "")
+			"All products in your cart are either out of stock or have insufficient quantity", "")
 		return
 	}
 
-	if invalidProductFound || totalPrice != cart.TotalPrice {
+	if totalPrice != cart.TotalPrice {
 		cart.TotalPrice = totalPrice
-		if err := database.DB.Transaction(func(tx *gorm.DB) error {
-			if err := tx.Where("cart_id = ?", cart.ID).Delete(&userModels.CartItem{}).Error; err != nil {
-				return err
-			}
-			if err := tx.Save(&cart).Error; err != nil {
-				return err
-			}
-			for _, item := range validCartItems {
-				newItem := userModels.CartItem{
-					CartID:             cart.ID,
-					ProductID:          item.ProductID,
-					VariantsID:         item.VariantsID,
-					Quantity:           item.Quantity,
-					Price:              item.Price,
-					DiscountedPrice:    item.DiscountedPrice,
-					OriginalPrice:      item.OriginalPrice,
-					DiscountPercentage: item.DiscountPercentage,
-					OfferName:          item.OfferName,
-					IsOfferApplied:     item.IsOfferApplied,
-					ItemTotal:          item.ItemTotal,
-				}
-				if err := tx.Create(&newItem).Error; err != nil {
-					return err
-				}
-			}
-			return nil
-		}); err != nil {
-			log.Printf("Failed to save updated cart for user %v: %v", userID, err)
+		if err := database.DB.Save(&cart).Error; err != nil {
+			log.Printf("Failed to update cart total for user %v: %v", userID, err)
 			helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to update cart", err.Error(), "")
 			return
 		}
-		cart.CartItems = validCartItems
 	}
+
+	cart.CartItems = append(validCartItems, invalidCartItems...)
 
 	var addresses []userModels.Address
 	if err := database.DB.Where("user_id = ?", userID).Find(&addresses).Error; err != nil {
@@ -131,7 +126,7 @@ func ShowCheckout(c *gin.Context) {
 			if appliedCoupon.IsActive &&
 				appliedCoupon.ExpiryDate.After(time.Now()) &&
 				appliedCoupon.UsedCount < appliedCoupon.UsageLimit &&
-				totalPrice >= appliedCoupon.MinPurchaseAmount  {
+				totalPrice >= appliedCoupon.MinPurchaseAmount {
 				discount = totalPrice * (appliedCoupon.DiscountPercentage / 100)
 				finalPrice -= discount
 				couponApplied = true
@@ -169,24 +164,26 @@ func ShowCheckout(c *gin.Context) {
 	userName, nameExists := c.Get("user_name")
 	if !exists || !nameExists {
 		c.HTML(http.StatusOK, "checkout.html", gin.H{
-			"title":         "Checkout",
-			"Cart":          cart,
-			"Addresses":     addresses,
-			"Shipping":      shipping,
-			"FinalPrice":    finalPrice,
-			"Subtotal":      totalPrice,
+			"title":              "Checkout",
+			"Cart":               cart,
+			"InvalidCartItems":   invalidCartItems,
+			"HasInvalidItems":    len(invalidCartItems) > 0,
+			"Addresses":          addresses,
+			"Shipping":           shipping,
+			"FinalPrice":         finalPrice,
+			"Subtotal":           totalPrice,
 			"OriginalTotalPrice": originalTotalPrice,
-			"Discount":      discount,
-			"CouponApplied": couponApplied,
-			"AppliedCoupon": appliedCoupon,
-			"UserEmail":     user.Email,
-			"UserPhone":     user.Phone,
-			"RazorpayKey":   os.Getenv("RAZORPAY_KEY_ID"),
-			"status":        "success",
-			"UserName":      "Guest",
-			"WishlistCount": 0,
-			"CartCount":     0,
-			"ProfileImage":  "",
+			"Discount":           discount,
+			"CouponApplied":      couponApplied,
+			"AppliedCoupon":      appliedCoupon,
+			"UserEmail":          user.Email,
+			"UserPhone":          user.Phone,
+			"RazorpayKey":        os.Getenv("RAZORPAY_KEY_ID"),
+			"status":             "success",
+			"UserName":           "Guest",
+			"WishlistCount":      0,
+			"CartCount":          0,
+			"ProfileImage":       "",
 		})
 		return
 	}
@@ -203,29 +200,49 @@ func ShowCheckout(c *gin.Context) {
 	}
 
 	c.HTML(http.StatusOK, "checkout.html", gin.H{
-		"title":         "Checkout",
-		"Cart":          cart,
-		"Addresses":     addresses,
-		"Shipping":      shipping,
-		"FinalPrice":    finalPrice,
-		"Subtotal":      totalPrice,
+		"title":              "Checkout",
+		"Cart":               cart,
+		"InvalidCartItems":   invalidCartItems,
+		"HasInvalidItems":    len(invalidCartItems) > 0,
+		"Addresses":          addresses,
+		"Shipping":           shipping,
+		"FinalPrice":         finalPrice,
+		"Subtotal":           totalPrice,
 		"OriginalTotalPrice": originalTotalPrice,
-		"Discount":      discount,
-		"CouponApplied": couponApplied,
-		"AppliedCoupon": appliedCoupon,
-		"UserEmail":     user.Email,
-		"UserPhone":     user.Phone,
-		"RazorpayKey":   os.Getenv("RAZORPAY_KEY_ID"),
-		"UserName":      userNameStr,
-		"ProfileImage":  userData.ProfileImage,
-		"WishlistCount": wishlistCount,
-		"CartCount":     cartCount,
+		"Discount":           discount,
+		"CouponApplied":      couponApplied,
+		"AppliedCoupon":      appliedCoupon,
+		"UserEmail":          user.Email,
+		"UserPhone":          user.Phone,
+		"RazorpayKey":        os.Getenv("RAZORPAY_KEY_ID"),
+		"UserName":           userNameStr,
+		"ProfileImage":       userData.ProfileImage,
+		"WishlistCount":      wishlistCount,
+		"CartCount":          cartCount,
 	})
 }
 
-func PlaceOrder(c *gin.Context) {
-	userID, _ := c.Get("id")
+type PaymentRequest struct {
+	AddressID     uint   `json:"address_id" binding:"required"`
+	PaymentMethod string `json:"payment_method" binding:"required"`
+}
 
+func PlaceOrder(c *gin.Context) {
+	// 1. Extract and validate user ID
+	userID, exists := c.Get("id")
+	if !exists {
+		log.Printf("No user ID found in context")
+		helper.ResponseWithErr(c, http.StatusUnauthorized, "User not authenticated", "No user ID found in context", "")
+		return
+	}
+	uid, ok := userID.(uint)
+	if !ok {
+		log.Printf("Invalid user ID type")
+		helper.ResponseWithErr(c, http.StatusInternalServerError, "Internal server error", "Invalid user ID type", "")
+		return
+	}
+
+	// 2. Bind JSON request
 	var req PaymentRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		log.Printf("Error binding JSON: %v", err)
@@ -233,33 +250,47 @@ func PlaceOrder(c *gin.Context) {
 		return
 	}
 
-	log.Printf("PlaceOrder request for user %v: address_id=%d, payment_method=%s", userID, req.AddressID, req.PaymentMethod)
+	log.Printf("PlaceOrder request for user %v: address_id=%d, payment_method=%s", uid, req.AddressID, req.PaymentMethod)
 
+	// 3. Validate payment method
 	if req.PaymentMethod != "COD" && req.PaymentMethod != "ONLINE" {
 		helper.ResponseWithErr(c, http.StatusBadRequest, "Invalid payment method", "Choose either COD or ONLINE", "")
 		return
 	}
 
+	// 4. Initialize variables
 	var cart userModels.Cart
 	var validCartItems []userModels.CartItem
 	var address userModels.Address
 	var finalPrice float64
-	var discount float64
+	var couponDiscount float64
+	var offerDiscount float64
 	var coupon adminModels.Coupons
 	orderID := generateOrderID()
 	totalPrice := 0.0
 
+	// 5. Single transaction for validation and order creation (for COD only)
 	err := database.DB.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Where("user_id = ?", userID).
+		// Validate cart
+		if err := tx.Where("user_id = ?", uid).
 			Preload("CartItems.Product").
 			Preload("CartItems.Variants").
 			First(&cart).Error; err != nil {
 			return fmt.Errorf("cart not found: %v", err)
 		}
 
+		// Validate cart items and calculate offer discounts
 		for _, item := range cart.CartItems {
 			var category adminModels.Category
-			if item.Product.IsListed &&
+			var variant adminModels.Variants
+
+			isInStock := item.Product.IsListed && item.Product.InStock
+			hasVariantStock := false
+			if err := tx.Where("id = ? AND deleted_at IS NULL", item.VariantsID).First(&variant).Error; err == nil {
+				hasVariantStock = variant.Stock >= item.Quantity
+			}
+
+			if isInStock && hasVariantStock &&
 				tx.Where("category_name = ? AND status = ?", item.Product.CategoryName, true).First(&category).Error == nil {
 				offerDetails := helper.GetBestOfferForProduct(&item.Product, item.Variants.ExtraPrice)
 				item.Price = offerDetails.OriginalPrice
@@ -270,55 +301,43 @@ func PlaceOrder(c *gin.Context) {
 				item.IsOfferApplied = offerDetails.IsOfferApplied
 				item.ItemTotal = offerDetails.DiscountedPrice * float64(item.Quantity)
 				totalPrice += item.ItemTotal
+				offerDiscount += (offerDetails.OriginalPrice - offerDetails.DiscountedPrice) * float64(item.Quantity)
 				validCartItems = append(validCartItems, item)
+			} else {
+				log.Printf("Skipping item: product_id=%d, variant_id=%d, product_listed=%v, product_in_stock=%v, variant_stock=%d, quantity=%d",
+					item.ProductID, item.VariantsID, item.Product.IsListed, isInStock, variant.Stock, item.Quantity)
 			}
 		}
 
 		if len(validCartItems) == 0 {
-			return fmt.Errorf("no valid items in cart")
+			return fmt.Errorf("no valid items in cart with sufficient stock")
 		}
 
+		// Update cart total
 		cart.TotalPrice = totalPrice
-		if err := tx.Where("cart_id = ?", cart.ID).Delete(&userModels.CartItem{}).Error; err != nil {
-			return fmt.Errorf("failed to delete cart items: %v", err)
-		}
 		if err := tx.Save(&cart).Error; err != nil {
 			return fmt.Errorf("failed to save cart: %v", err)
 		}
-		for _, item := range validCartItems {
-			newItem := userModels.CartItem{
-				CartID:             cart.ID,
-				ProductID:          item.ProductID,
-				VariantsID:         item.VariantsID,
-				Quantity:           item.Quantity,
-				Price:              item.Price,
-				DiscountedPrice:    item.DiscountedPrice,
-				OriginalPrice:      item.OriginalPrice,
-				DiscountPercentage: item.DiscountPercentage,
-				OfferName:          item.OfferName,
-				IsOfferApplied:     item.IsOfferApplied,
-				ItemTotal:          item.ItemTotal,
-			}
-			if err := tx.Create(&newItem).Error; err != nil {
-				return fmt.Errorf("failed to create cart item: %v", err)
-			}
-		}
 
-		if err := tx.Where("id = ? AND user_id = ?", req.AddressID, userID).First(&address).Error; err != nil {
+		// Validate address
+		if err := tx.Where("id = ? AND user_id = ?", req.AddressID, uid).First(&address).Error; err != nil {
 			return fmt.Errorf("invalid address: %v", err)
 		}
 
+		// Calculate final price and apply coupon
 		finalPrice = cart.TotalPrice + shipping
+		couponCode := ""
 		if cart.CouponID != 0 {
 			if err := tx.First(&coupon, cart.CouponID).Error; err == nil {
 				if coupon.IsActive &&
 					coupon.ExpiryDate.After(time.Now()) &&
 					coupon.UsedCount < coupon.UsageLimit &&
-					cart.TotalPrice >= coupon.MinPurchaseAmount  {
-					discount = cart.TotalPrice * (coupon.DiscountPercentage / 100)
-					finalPrice -= discount
+					cart.TotalPrice >= coupon.MinPurchaseAmount {
+					couponDiscount = cart.TotalPrice * (coupon.DiscountPercentage / 100)
+					finalPrice -= couponDiscount
+					couponCode = coupon.CouponCode
 				} else {
-					log.Printf("Coupon %s invalid in PlaceOrder: active=%v, expired=%v, used=%d/%d, min=%.2f, cartTotal=%.2f",
+					log.Printf("Coupon %s invalid: active=%v, expired=%v, used=%d/%d, min=%.2f, cartTotal=%.2f",
 						coupon.CouponCode, coupon.IsActive, coupon.ExpiryDate.Before(time.Now()),
 						coupon.UsedCount, coupon.UsageLimit, coupon.MinPurchaseAmount, cart.TotalPrice)
 					cart.CouponID = 0
@@ -327,76 +346,69 @@ func PlaceOrder(c *gin.Context) {
 					}
 				}
 			} else {
-				log.Printf("Coupon ID %v not found in PlaceOrder: %v", cart.CouponID, err)
+				log.Printf("Coupon ID %v not found: %v", cart.CouponID, err)
 				cart.CouponID = 0
 				if err := tx.Save(&cart).Error; err != nil {
 					return fmt.Errorf("failed to reset coupon: %v", err)
 				}
 			}
 		}
-		return nil
-	})
 
-	if err != nil {
-		log.Printf("Transaction error: %v", err)
-		helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to validate order", err.Error(), "")
-		return
-	}
-
-	if finalPrice < minimumOrderAmount {
-		helper.ResponseWithErr(c, http.StatusBadRequest, "Order amount too low",
-			fmt.Sprintf("Order amount must be at least ₹%.2f", minimumOrderAmount), "")
-		return
-	}
-
-	if req.PaymentMethod == "ONLINE" {
-		log.Printf("Creating Razorpay order: userID=%v, finalPrice=%.2f, cart.TotalPrice=%.2f, discount=%.2f",
-			userID, finalPrice, cart.TotalPrice, discount)
-
-		client := razorpay.NewClient(os.Getenv("RAZORPAY_KEY_ID"), os.Getenv("RAZORPAY_KEY_SECRET"))
-		amount := int(finalPrice * 100)
-		data := map[string]interface{}{
-			"amount":   amount,
-			"currency": "INR",
-			"receipt":  fmt.Sprintf("receipt_%d_%d", userID, time.Now().Unix()),
+		// Validate minimum order amount
+		if finalPrice < minimumOrderAmount {
+			return fmt.Errorf("order amount too low: %.2f < %.2f", finalPrice, minimumOrderAmount)
 		}
 
-		razorpayOrder, err := client.Order.Create(data, nil)
-		if err != nil {
-			log.Printf("Razorpay error: %v", err)
-			helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to create payment order", err.Error(), "")
-			return
+		// Create payment details (for both COD and ONLINE)
+		var paymentStatus string
+		if req.PaymentMethod == "COD" {
+			paymentStatus = "Pending"
+		} else {
+			paymentStatus = "Created"
 		}
-		razorpayOrderID := razorpayOrder["id"].(string)
-
 		paymentDetails := adminModels.PaymentDetails{
-			UserID:          userID.(uint), // Changed from ID to UserID
-			RazorpayOrderID: razorpayOrderID,
-			Amount:          finalPrice,
-			Status:          "Created",
+			UserID:        uid,
+			Amount:        finalPrice,
+			PaymentMethod: req.PaymentMethod,
+			Status:        paymentStatus,
 		}
 
-		if err := database.DB.Create(&paymentDetails).Error; err != nil {
-			log.Printf("Error saving payment details: %v", err)
-			helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to store payment details", err.Error(), "")
-			return
+		if req.PaymentMethod == "ONLINE" {
+			// For ONLINE, only create payment details and return
+			client := razorpay.NewClient(os.Getenv("RAZORPAY_KEY_ID"), os.Getenv("RAZORPAY_KEY_SECRET"))
+			amount := int(finalPrice * 100)
+			data := map[string]interface{}{
+				"amount":   amount,
+				"currency": "INR",
+				"receipt":  fmt.Sprintf("receipt_%d_%d", uid, time.Now().Unix()),
+			}
+			razorpayOrder, err := client.Order.Create(data, nil)
+			if err != nil {
+				return fmt.Errorf("failed to create Razorpay order: %v", err)
+			}
+			paymentDetails.RazorpayOrderID = razorpayOrder["id"].(string)
+			if err := tx.Create(&paymentDetails).Error; err != nil {
+				return fmt.Errorf("failed to store payment details: %v", err)
+			}
+			c.Set("razorpayOrderID", paymentDetails.RazorpayOrderID)
+			c.Set("amount", amount)
+			return nil
 		}
 
-		c.JSON(http.StatusOK, gin.H{
-			"status":            "payment_required",
-			"message":           "Proceed to payment",
-			"razorpay_order_id": razorpayOrderID,
-			"amount":            amount,
-			"order_id":          orderID,
-		})
-		return
-	}
+		// For COD, proceed with order creation
+		// Validate COD order limit
+		var orderCount int64
+		if err := tx.Model(&userModels.Orders{}).Where("user_id = ? AND payment_method = ?", uid, "COD").Count(&orderCount).Error; err != nil {
+			return fmt.Errorf("failed to check COD order count: %v", err)
+		}
+		if err := tx.Where("id = ? AND user_id = ?", req.AddressID, userID).First(&address).Error; err != nil {
+			return fmt.Errorf("invalid address: %v", err)
+		}
 
-	var order userModels.Orders
-	err = database.DB.Transaction(func(tx *gorm.DB) error {
+		// Create shipping address
 		shippingAdd := adminModels.ShippingAddress{
 			OrderID:        orderID,
-			UserID:         address.UserID,
+			UserID:         uid,
 			Name:           address.Name,
 			City:           address.City,
 			Landmark:       address.Landmark,
@@ -411,31 +423,46 @@ func PlaceOrder(c *gin.Context) {
 			return fmt.Errorf("failed to create shipping address: %v", err)
 		}
 
-		order = userModels.Orders{
-			UserID:        userID.(uint),
-			OrderIdUnique: orderID,
-			AddressID:     req.AddressID,
-			TotalPrice:    finalPrice,
-			Subtotal:      cart.TotalPrice,
-			Discount:      discount,
-			CouponID:      cart.CouponID,
-			Status:        "Confirmed",
-			PaymentMethod: req.PaymentMethod,
-			OrderDate:     time.Now(),
+		// Create order
+		order := userModels.Orders{
+			UserID:                uid,
+			OrderIdUnique:         orderID,
+			AddressID:             req.AddressID,
+			ShippingAddress:       shippingAdd,
+			TotalPrice:            finalPrice,
+			Subtotal:              cart.TotalPrice,
+			CouponDiscount:        couponDiscount,
+			OfferDiscount:         offerDiscount,
+			CouponID:              cart.CouponID,
+			CouponCode:            couponCode,
+			Status:                "Pending",
+			PaymentMethod:         req.PaymentMethod,
+			PaymentStatus:         paymentStatus,
+			OrderDate:             time.Now(),
+			ShippingCost:          shipping,
+			TrackingNumber:        "",
+			EstimatedDeliveryDate: time.Now().AddDate(0, 0, 7),
+			CancellationStatus:    "None",
 		}
-
 		if err := tx.Create(&order).Error; err != nil {
 			return fmt.Errorf("failed to create order: %v", err)
 		}
 
+		// Create order items and update stock
 		for _, item := range validCartItems {
+			// variantAttributes := fmt.Sprintf(`{"color": "%s", "size": "%s"}`, item.Variants.Color, item.Variants.Size)
 			orderItem := userModels.OrderItem{
-				OrderID:    order.ID,
-				ProductID:  item.ProductID,
-				VariantsID: item.VariantsID,
-				Quantity:   item.Quantity,
-				Price:      item.DiscountedPrice,
-				Status:     "Active",
+				OrderID:        order.ID,
+				ProductID:      item.ProductID,
+				VariantsID:     item.VariantsID,
+				Quantity:       item.Quantity,
+				UnitPrice:      item.DiscountedPrice,
+				ItemTotal:      item.DiscountedPrice * float64(item.Quantity),
+				DiscountAmount: (item.OriginalPrice - item.DiscountedPrice) * float64(item.Quantity),
+				OfferName:      item.OfferName,
+				Status:         "Active",
+				ReturnStatus:   "None",
+				// VariantAttributes: variantAttributes,
 			}
 			if err := tx.Create(&orderItem).Error; err != nil {
 				return fmt.Errorf("failed to create order item: %v", err)
@@ -445,10 +472,6 @@ func PlaceOrder(c *gin.Context) {
 			if err := tx.First(&variant, item.VariantsID).Error; err != nil {
 				return fmt.Errorf("variant not found: %v", err)
 			}
-			if variant.Stock < item.Quantity {
-				return fmt.Errorf("insufficient stock for variant ID %d", item.VariantsID)
-			}
-
 			variant.Stock -= item.Quantity
 			if variant.Stock == 0 {
 				var product adminModels.Product
@@ -460,12 +483,12 @@ func PlaceOrder(c *gin.Context) {
 					return fmt.Errorf("failed to update product stock: %v", err)
 				}
 			}
-
 			if err := tx.Save(&variant).Error; err != nil {
 				return fmt.Errorf("failed to update variant stock: %v", err)
 			}
 		}
 
+		// Update coupon usage for COD
 		if cart.CouponID != 0 {
 			coupon.UsedCount++
 			if err := tx.Save(&coupon).Error; err != nil {
@@ -473,15 +496,48 @@ func PlaceOrder(c *gin.Context) {
 			}
 		}
 
-		if err := tx.Where("cart_id = ?", cart.ID).Delete(&userModels.CartItem{}).Error; err != nil {
-			return fmt.Errorf("failed to delete cart items: %v", err)
+		// Store payment details for COD
+		paymentDetails.OrderID = order.ID
+		if err := tx.Create(&paymentDetails).Error; err != nil {
+			return fmt.Errorf("failed to store payment details: %v", err)
 		}
-		return tx.Delete(&cart).Error
+
+		// Delete cart for COD
+		if err := tx.Delete(&cart).Error; err != nil {
+			return fmt.Errorf("failed to delete cart: %v", err)
+		}
+
+		return nil
 	})
 
+	// 6. Handle transaction error
 	if err != nil {
-		log.Printf("Order creation error: %v", err)
+		log.Printf("Transaction error: %v", err)
 		helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to place order", err.Error(), "")
+		return
+	}
+
+	// 7. Prepare response
+	if req.PaymentMethod == "ONLINE" {
+		razorpayOrderID, exists := c.Get("razorpayOrderID")
+		if !exists {
+			log.Printf("Razorpay order ID not found in context")
+			helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to retrieve payment details", "Razorpay order ID not found", "")
+			return
+		}
+		amount, exists := c.Get("amount")
+		if !exists {
+			log.Printf("Amount not found in context")
+			helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to retrieve payment details", "Amount not found", "")
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"status":            "payment_required",
+			"message":           "Proceed to payment",
+			"razorpay_order_id": razorpayOrderID,
+			"amount":            amount,
+			"order_id":          orderID,
+		})
 		return
 	}
 
@@ -520,11 +576,6 @@ func SetDefaultAddress(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"status": "ok", "message": "Default address updated"})
 }
 
-type PaymentRequest struct {
-	AddressID     uint   `json:"address_id" binding:"required"`
-	PaymentMethod string `json:"payment_method" binding:"required"`
-}
-
 func ShowOrderSuccess(c *gin.Context) {
 	userID, _ := c.Get("id")
 	orderID := c.Query("order_id")
@@ -558,8 +609,8 @@ func ShowOrderSuccess(c *gin.Context) {
 	}
 
 	c.HTML(http.StatusOK, "orderSuccess.html", gin.H{
-		"title":   "Order Successful",
-		"OrderID": order.OrderIdUnique,
+		"title":         "Order Successful",
+		"OrderID":       order.OrderIdUnique,
 		"status":        "success",
 		"UserName":      userNameStr,
 		"ProfileImage":  userData.ProfileImage,

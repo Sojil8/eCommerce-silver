@@ -1,6 +1,8 @@
 package controllers
 
 import (
+	"fmt"
+	"log"
 	"net/http"
 
 	"github.com/Sojil8/eCommerce-silver/database"
@@ -31,56 +33,115 @@ func GetCart(c *gin.Context) {
         }
     }
 
-    var filteredCartItems []userModels.CartItem
-    totalPrice := 0.0
-    totalDiscount := 0.0 // New variable to track total discount
+    var allCartItems []userModels.CartItem      // All items (for display)
+    var inStockCartItems []userModels.CartItem  // Only in-stock items (for checkout)
+    var outOfStockCartItems []userModels.CartItem // Out-of-stock items (for display only)
+    var invalidItems []string
+    
+    totalPrice := 0.0           // Only from in-stock items
+    totalDiscount := 0.0        // Only from in-stock items
+    outOfStockCount := 0
 
     for _, item := range cart.CartItems {
-        var category adminModels.Category
-        if item.Product.IsListed &&
-            database.DB.Where("category_name = ? AND status = ?", item.Product.CategoryName, true).First(&category).Error == nil {
-            offer := helper.GetBestOfferForProduct(&item.Product, item.Variants.ExtraPrice)
-            item.DiscountedPrice = offer.DiscountedPrice
-            item.OriginalPrice = offer.OriginalPrice 
-            item.DiscountPercentage = offer.DiscountPercentage
-            item.OfferName = offer.OfferName
-            item.IsOfferApplied = offer.IsOfferApplied
-            item.Price = offer.OriginalPrice + item.Variants.ExtraPrice
+        var product adminModels.Product
+        if err := database.DB.Preload("Variants").First(&product, item.ProductID).Error; err != nil {
+            log.Printf("Product not found for ProductID: %d, removing cart item", item.ProductID)
+            database.DB.Delete(&item)
+            invalidItems = append(invalidItems, fmt.Sprintf("Product %d", item.ProductID))
+            continue
+        }
 
+        var category adminModels.Category
+        if !product.IsListed ||
+            database.DB.Where("category_name = ? AND status = ?", product.CategoryName, true).First(&category).Error != nil {
+            invalidItems = append(invalidItems, fmt.Sprintf("Product %d (unlisted or invalid category)", item.ProductID))
+            continue
+        }
+
+        var variant adminModels.Variants
+        if err := database.DB.Where("deleted_at IS NULL").First(&variant, item.VariantsID).Error; err != nil || variant.ProductID != item.ProductID {
+            log.Printf("Invalid or missing variant for VariantsID: %d, ProductID: %d, skipping cart item", item.VariantsID, item.ProductID)
+            invalidItems = append(invalidItems, fmt.Sprintf("Product %d (Variant %d)", item.ProductID, item.VariantsID))
+            continue
+        }
+
+        item.Product = product
+        item.Variants = variant
+        
+        // Check stock availability
+        isInStock := variant.Stock > 0 && variant.Stock >= item.Quantity
+        item.Product.InStock = isInStock
+
+        // Debug logging
+        log.Printf("CartItem: ProductID=%d, VariantID=%d, ProductName=%s, Stock=%d, Quantity=%d, InStock=%v",
+            item.ProductID, item.VariantsID, product.ProductName, variant.Stock, item.Quantity, isInStock)
+
+        variantExtraPrice := variant.ExtraPrice
+        offer := helper.GetBestOfferForProduct(&product, variantExtraPrice)
+
+        item.Price = product.Price + variantExtraPrice
+        item.DiscountedPrice = offer.DiscountedPrice
+        item.OriginalPrice = product.Price + variantExtraPrice
+        item.DiscountPercentage = offer.DiscountPercentage
+        item.OfferName = offer.OfferName
+        item.IsOfferApplied = offer.IsOfferApplied
+        item.ItemTotal = item.DiscountedPrice * float64(item.Quantity)
+
+        if err := database.DB.Save(&item).Error; err != nil {
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update cart item"})
+            return
+        }
+
+        // Add to all items for display
+        allCartItems = append(allCartItems, item)
+
+        if isInStock {
+            // Add to in-stock items (for checkout calculation)
+            inStockCartItems = append(inStockCartItems, item)
+            totalPrice += item.ItemTotal
+            
+            // Calculate discount only for in-stock items
             if item.IsOfferApplied {
-                item.ItemTotal = item.DiscountedPrice * float64(item.Quantity)
-                // Calculate discount for this item
                 discountPerItem := (item.OriginalPrice - item.DiscountedPrice) * float64(item.Quantity)
                 totalDiscount += discountPerItem
-            } else {
-                item.ItemTotal = item.Price * float64(item.Quantity)
             }
-
-            filteredCartItems = append(filteredCartItems, item)
-        }
-    }
-
-    for _, item := range filteredCartItems {
-        if item.IsOfferApplied {
-            totalPrice += item.DiscountedPrice * float64(item.Quantity)
         } else {
-            totalPrice += item.Price * float64(item.Quantity)
+            // Add to out-of-stock items (for display with styling)
+            outOfStockCartItems = append(outOfStockCartItems, item)
+            outOfStockCount++
         }
     }
+
+    // Update cart total with only in-stock items
+    cart.TotalPrice = totalPrice
+    if err := database.DB.Save(&cart).Error; err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update cart total"})
+        return
+    }
+
+    // Log final counts
+    log.Printf("Cart Summary: TotalItems=%d, InStockItems=%d, OutOfStockItems=%d", 
+        len(allCartItems), len(inStockCartItems), len(outOfStockCartItems))
 
     userr, exists := c.Get("user")
     userName, nameExists := c.Get("user_name")
     if !exists || !nameExists {
         c.HTML(http.StatusOK, "cart.html", gin.H{
-            "CartItems":     filteredCartItems,
-            "TotalPrice":    totalPrice,
-            "TotalDiscount": totalDiscount, 
-            "CartItemCount": len(filteredCartItems),
-            "status":        "success",
-            "UserName":      "Guest",
-            "WishlistCount": 0,
-            "CartCount":     0,
-            "ProfileImage":  "",
+            "CartItems":           allCartItems,           // All items for display
+            "InStockCartItems":    inStockCartItems,      // Only in-stock items for checkout
+            "OutOfStockCartItems": outOfStockCartItems,   // Out-of-stock items for display
+            "TotalPrice":          totalPrice,            // Total from in-stock items only
+            "TotalDiscount":       totalDiscount,         // Discount from in-stock items only
+            "CartItemCount":       len(inStockCartItems), // Count of items that can be checked out
+            "OutOfStockCount":     outOfStockCount,       // Count of out-of-stock items
+            "TotalItemCount":      len(allCartItems),     // Total items in cart
+            "CanCheckout":         len(inStockCartItems) > 0 && outOfStockCount == 0, // Can proceed to checkout
+            "status":              "success",
+            "UserName":            "Guest",
+            "WishlistCount":       0,
+            "CartCount":           0,
+            "ProfileImage":        "",
+            "InvalidItems":        invalidItems,
         })
         return
     }
@@ -97,14 +158,20 @@ func GetCart(c *gin.Context) {
     }
 
     c.HTML(http.StatusOK, "cart.html", gin.H{
-        "CartItems":     filteredCartItems,
-        "TotalPrice":    totalPrice,
-        "TotalDiscount": totalDiscount, // Pass total discount to template
-        "CartItemCount": len(filteredCartItems),
-        "UserName":      userNameStr,
-        "ProfileImage":  userData.ProfileImage,
-        "WishlistCount": wishlistCount,
-        "CartCount":     cartCount,
+        "CartItems":           allCartItems,           // All items for display
+        "InStockCartItems":    inStockCartItems,      // Only in-stock items for checkout
+        "OutOfStockCartItems": outOfStockCartItems,   // Out-of-stock items for display
+        "TotalPrice":          totalPrice,            // Total from in-stock items only
+        "TotalDiscount":       totalDiscount,         // Discount from in-stock items only
+        "CartItemCount":       len(inStockCartItems), // Count of items that can be checked out
+        "OutOfStockCount":     outOfStockCount,       // Count of out-of-stock items
+        "TotalItemCount":      len(allCartItems),     // Total items in cart
+        "CanCheckout":         len(inStockCartItems) > 0 && outOfStockCount == 0, // Can proceed to checkout
+        "UserName":            userNameStr,
+        "ProfileImage":        userData.ProfileImage,
+        "WishlistCount":       wishlistCount,
+        "CartCount":           cartCount,
+        "InvalidItems":        invalidItems,
     })
 }
 type RequestCartItem struct {
@@ -155,7 +222,7 @@ func AddToCart(c *gin.Context) {
 		}
 
 		var product adminModels.Product
-		if err := tx.Preload("Variants").First(&product, productID).Error; err != nil {
+		if err := tx.Preload("Variants").Preload("Offers").First(&product, productID).Error; err != nil {
 			return gin.Error{Err: err, Meta: gin.H{"error": "Product not found"}}
 		}
 
@@ -169,8 +236,8 @@ func AddToCart(c *gin.Context) {
 		}
 
 		var variant adminModels.Variants
-		if err := tx.First(&variant, req.VariantID).Error; err != nil || productID != variant.ProductID {
-			return gin.Error{Err: err, Meta: gin.H{"error": "Invalid variant"}}
+		if err := tx.Where("deleted_at IS NULL").First(&variant, req.VariantID).Error; err != nil || productID != variant.ProductID {
+			return gin.Error{Err: err, Meta: gin.H{"error": "Invalid or missing variant"}}
 		}
 
 		if variant.Stock < req.Quantity {
@@ -187,32 +254,24 @@ func AddToCart(c *gin.Context) {
 			return err
 		}
 
-		var variantExtraPrice float64
-		if len(product.Variants) > 0 {
-			for _, v := range product.Variants {
-				if v.ID == req.VariantID && v.Stock > 0 {
-					variantExtraPrice = v.ExtraPrice
-					break
-				}
-			}
-		}
-		
+		variantExtraPrice := variant.ExtraPrice
 		offer := helper.GetBestOfferForProduct(&product, variantExtraPrice)
-		
+
 		for i, item := range cart.CartItems {
 			if item.ProductID == productID && item.VariantsID == req.VariantID {
 				newQnty := item.Quantity + req.Quantity
 				if newQnty > MAX_QUANTITY_PER_PRODUCT || newQnty > variant.Stock {
 					return gin.Error{Meta: gin.H{"error": "Quantity limit exceeded"}}
 				}
+
 				cart.CartItems[i].Quantity = newQnty
-				cart.CartItems[i].Price = offer.OriginalPrice
-				cart.CartItems[i].DiscountedPrice = offer.DiscountedPrice
-				cart.CartItems[i].OriginalPrice = offer.OriginalPrice
+				cart.CartItems[i].Price = product.Price + variantExtraPrice
+				cart.CartItems[i].DiscountedPrice = offer.DiscountedPrice 
+				cart.CartItems[i].OriginalPrice = product.Price 
 				cart.CartItems[i].DiscountPercentage = offer.DiscountPercentage
 				cart.CartItems[i].OfferName = offer.OfferName
 				cart.CartItems[i].IsOfferApplied = offer.IsOfferApplied
-				
+
 				if err := tx.Save(&cart.CartItems[i]).Error; err != nil {
 					return err
 				}
@@ -220,19 +279,21 @@ func AddToCart(c *gin.Context) {
 			}
 		}
 
+
 		item := userModels.CartItem{
 			CartID:             cart.ID,
 			ProductID:          productID,
 			VariantsID:         req.VariantID,
 			Quantity:           req.Quantity,
-			Price:              offer.OriginalPrice,
+			Price:              product.Price,
 			DiscountedPrice:    offer.DiscountedPrice,
-			OriginalPrice:      offer.OriginalPrice,
+			OriginalPrice:      product.Price + variantExtraPrice,
 			DiscountPercentage: offer.DiscountPercentage,
 			OfferName:          offer.OfferName,
 			IsOfferApplied:     offer.IsOfferApplied,
+			ItemTotal:          (offer.DiscountedPrice) * float64(req.Quantity),
 		}
-		
+
 		if err := tx.Create(&item).Error; err != nil {
 			return err
 		}
@@ -243,7 +304,7 @@ func AddToCart(c *gin.Context) {
 
 		return updateCartTotal(&cart, tx)
 	})
-	
+
 	if err != nil {
 		if ginErr, ok := err.(gin.Error); ok && ginErr.Meta != nil {
 			c.JSON(http.StatusBadRequest, ginErr.Meta)
@@ -275,55 +336,50 @@ func UpdateQuantity(c *gin.Context) {
 			return err
 		}
 
-		var variants adminModels.Variants
-		if err := tx.First(&variants, req.VariantID).Error; err != nil {
-			return err
+		var variant adminModels.Variants
+		if err := tx.Where("deleted_at IS NULL").First(&variant, req.VariantID).Error; err != nil {
+			return gin.Error{Err: err, Meta: gin.H{"error": "Invalid or missing variant"}}
 		}
 
 		var product adminModels.Product
-		if err := tx.First(&product, req.ProductID).Error; err != nil {
-			return err
+		if err := tx.Preload("Variants").Preload("Offers").First(&product, req.ProductID).Error; err != nil {
+			return gin.Error{Err: err, Meta: gin.H{"error": "Product not found"}}
 		}
 
-		// In GetProductDetails
-		var variantExtraPrice float64
-		if len(product.Variants) > 0 {
-			// Assume the first variant with stock is selected by default
-			for _, variant := range product.Variants {
-				if variant.Stock > 0 {
-					variantExtraPrice = variant.ExtraPrice
-					break
-				}
-			}
+		if !product.IsListed {
+			return gin.Error{Meta: gin.H{"error": "Product is not available"}}
 		}
+
+		if req.Quantity > variant.Stock {
+			return gin.Error{Meta: gin.H{
+				"error": "Quantity exceeds available stock",
+			}}
+		}
+
+		if req.Quantity > MAX_QUANTITY_PER_PRODUCT {
+			return gin.Error{Meta: gin.H{
+				"error": "Maximum limit is 5 items per product",
+			}}
+		}
+
+		variantExtraPrice := variant.ExtraPrice
 		offer := helper.GetBestOfferForProduct(&product, variantExtraPrice)
 
 		for i, item := range cart.CartItems {
 			if item.ProductID == req.ProductID && item.VariantsID == req.VariantID {
-				if req.Quantity > variants.Stock {
-					return gin.Error{Meta: gin.H{
-						"error": "Quantity exceeds available stock",
-					}}
-				}
-
-				if req.Quantity > MAX_QUANTITY_PER_PRODUCT {
-					return gin.Error{Meta: gin.H{
-						"error": "Maximum limit is 5 items per product",
-					}}
-				}
-
 				if req.Quantity == 0 {
 					if err := tx.Delete(&cart.CartItems[i]).Error; err != nil {
 						return err
 					}
 				} else {
 					cart.CartItems[i].Quantity = req.Quantity
-					cart.CartItems[i].Price = offer.OriginalPrice + variants.ExtraPrice
-					cart.CartItems[i].DiscountedPrice = offer.DiscountedPrice + variants.ExtraPrice
-					cart.CartItems[i].OriginalPrice = offer.OriginalPrice + variants.ExtraPrice
+					cart.CartItems[i].Price = product.Price + variantExtraPrice
+					cart.CartItems[i].DiscountedPrice = offer.DiscountedPrice
+					cart.CartItems[i].OriginalPrice = product.Price + variantExtraPrice
 					cart.CartItems[i].DiscountPercentage = offer.DiscountPercentage
 					cart.CartItems[i].OfferName = offer.OfferName
 					cart.CartItems[i].IsOfferApplied = offer.IsOfferApplied
+					cart.CartItems[i].ItemTotal = (offer.DiscountedPrice + variantExtraPrice) * float64(req.Quantity)
 					if err := tx.Save(&cart.CartItems[i]).Error; err != nil {
 						return err
 					}
@@ -394,11 +450,41 @@ func updateCartTotal(cart *userModels.Cart, tx *gorm.DB) error {
 	var total float64
 	for _, item := range cart.CartItems {
 		var product adminModels.Product
-		if err := tx.First(&product, item.ProductID).Error; err != nil {
+		if err := tx.Preload("Variants").Preload("Offers").First(&product, item.ProductID).Error; err != nil {
+			log.Printf("Product not found for ProductID: %d, removing cart item", item.ProductID)
+			// tx.Delete(&item)
+			continue
+		}
+		if !product.IsListed {
+			log.Printf("Product unlisted for ProductID: %d, removing cart item", item.ProductID)
+			// tx.Delete(&item)
+			continue
+		}
+
+		// Fetch variant; skip if missing
+		var variant adminModels.Variants
+		if err := tx.Where("deleted_at IS NULL").First(&variant, item.VariantsID).Error; err != nil {
+			log.Printf("Invalid or missing variant for VariantsID: %d, ProductID: %d, skipping cart item", item.VariantsID, item.ProductID)
+			continue
+		}
+
+		variantExtraPrice := variant.ExtraPrice
+		offer := helper.GetBestOfferForProduct(&product, variantExtraPrice)
+
+		item.Price = product.Price + variantExtraPrice
+		item.DiscountedPrice = offer.DiscountedPrice 
+		item.OriginalPrice = product.Price + variantExtraPrice
+		item.DiscountPercentage = offer.DiscountPercentage
+		item.OfferName = offer.OfferName
+		item.IsOfferApplied = offer.IsOfferApplied
+		item.ItemTotal = (offer.DiscountedPrice) * float64(item.Quantity)
+
+		if err := tx.Save(&item).Error; err != nil {
 			return err
 		}
-		if product.IsListed {
-			total += item.DiscountedPrice * float64(item.Quantity)
+
+		if variant.Stock >= item.Quantity {
+			total += item.ItemTotal
 		}
 	}
 	cart.TotalPrice = total
