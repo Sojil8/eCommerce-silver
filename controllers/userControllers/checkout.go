@@ -369,6 +369,7 @@ func PlaceOrder(c *gin.Context) {
 		paymentDetails := adminModels.PaymentDetails{
 			UserID:        uid,
 			Amount:        finalPrice,
+			AddressID: req.AddressID,
 			PaymentMethod: req.PaymentMethod,
 			Status:        paymentStatus,
 		}

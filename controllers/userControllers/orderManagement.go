@@ -326,7 +326,7 @@ func ShowOrderDetails(c *gin.Context) {
 		return
 	}
 	uid, ok := userID.(uint)
-	if !ok {
+	if !ok {	
 		log.Printf("Invalid user ID type")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
 		return

@@ -12,6 +12,7 @@ type PaymentDetails struct {
 	RazorpayPaymentID string `gorm:"size:100"`
 	RazorpaySignature string `gorm:"size:255"`
 	PaymentMethod     string
+	AddressID         uint `gorm:"index"`
 	Amount            float64
 	Status            string `gorm:"size:50"`
 	Attempts          int

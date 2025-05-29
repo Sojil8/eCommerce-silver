@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strconv"
 
-	controllers "github.com/Sojil8/eCommerce-silver/controllers/userControllers"
+	"github.com/Sojil8/eCommerce-silver/config"
 	"github.com/Sojil8/eCommerce-silver/database"
 	"github.com/Sojil8/eCommerce-silver/helper"
 	"github.com/Sojil8/eCommerce-silver/models/adminModels"
@@ -132,7 +132,7 @@ func ListReturnRequests(c *gin.Context) {
 	var ordersReturn userModels.Orders
 	database.DB.Where("status = ?", "Returned").Find(&ordersReturn)
 
-	c.HTML(http.StatusOK, "adminReturn.html", gin.H{
+	c.HTML(http.StatusOK, "ReturnOrders.html", gin.H{
 		"Returns": returns,
 	})
 }
@@ -143,7 +143,9 @@ type ReturnRequest struct {
 
 func VerifyReturnRequest(c *gin.Context) {
 	returnID := c.Param("return_id")
-	var returnRequest ReturnRequest
+	var returnRequest struct {
+		Approve bool `json:"approve"`
+	}
 
 	if err := c.ShouldBindJSON(&returnRequest); err != nil {
 		helper.ResponseWithErr(c, http.StatusBadRequest, "Invalid request", err.Error(), "")
@@ -162,10 +164,11 @@ func VerifyReturnRequest(c *gin.Context) {
 		}
 
 		if returnRequest.Approve {
+			// Handle wallet and payment for non-COD orders
 			if returnReq.Order.PaymentMethod != "Cash On Delivery" {
-				wallet, err := controllers.EnshureWallet(tx, returnReq.Order.UserID)
+				wallet, err := config.EnshureWallet(tx, returnReq.Order.UserID)
 				if err != nil {
-					return err
+					return fmt.Errorf("failed to ensure wallet: %v", err)
 				}
 				wallet.Balance += returnReq.Order.TotalPrice
 				if err := tx.Save(&wallet).Error; err != nil {
@@ -175,17 +178,25 @@ func VerifyReturnRequest(c *gin.Context) {
 				var payment adminModels.PaymentDetails
 				if err := tx.Where("order_id = ? AND status IN ?", returnReq.Order.ID, []string{"Success", "PartiallyRefundedToWallet"}).
 					First(&payment).Error; err != nil {
-					return fmt.Errorf("payment details not found: %v", err)
-				}
-				payment.Status = "RefundedToWallet"
-				payment.Amount = 0
-				if err := tx.Save(&payment).Error; err != nil {
-					return fmt.Errorf("failed to update payment status: %v", err)
+					if err == gorm.ErrRecordNotFound {
+						// Log warning but proceed if payment details are missing (e.g., COD or manual order)
+						fmt.Printf("Warning: No payment details found for order_id=%d\n", returnReq.Order.ID)
+					} else {
+						return fmt.Errorf("failed to fetch payment details: %v", err)
+					}
+				} else {
+					// Update payment status if payment record exists
+					payment.Status = "RefundedToWallet"
+					payment.Amount = 0
+					if err := tx.Save(&payment).Error; err != nil {
+						return fmt.Errorf("failed to update payment status: %v", err)
+					}
 				}
 			}
 
+			// Restock items
 			for _, item := range returnReq.Order.OrderItems {
-				if item.Status == "Active" || item.Status == "Returned" {
+				if item.Status == "Active" || item.Status == "Delivered" {
 					if err := incrementStock(tx, item.VariantsID, item.Quantity); err != nil {
 						return fmt.Errorf("failed to restock item: %v", err)
 					}
@@ -198,8 +209,9 @@ func VerifyReturnRequest(c *gin.Context) {
 
 			returnReq.Order.Status = "Returned"
 		} else {
+			// Reject return request
 			for _, item := range returnReq.Order.OrderItems {
-				if item.Status == "Active" || item.Status == "Returned" {
+				if item.Status == "Active" || item.Status == "Delivered" {
 					item.Status = "Return Rejected"
 					if err := tx.Save(&item).Error; err != nil {
 						return fmt.Errorf("failed to update item status: %v", err)
@@ -231,7 +243,6 @@ func VerifyReturnRequest(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"status": "ok", "message": "Return request processed"})
 }
-
 func incrementStock(tx *gorm.DB, variantID, quantity uint) error {
 	var variant adminModels.Variants
 	if err := tx.First(&variant, variantID).Error; err != nil {

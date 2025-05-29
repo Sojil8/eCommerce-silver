@@ -15,7 +15,6 @@ import (
 	"gorm.io/gorm"
 )
 
-
 type PaymentVerification struct {
 	RazorpayOrderID   string `json:"razorpay_order_id" binding:"required"`
 	RazorpayPaymentID string `json:"razorpay_payment_id" binding:"required"`
@@ -135,9 +134,8 @@ func VerifyPayment(c *gin.Context) {
 			return fmt.Errorf("failed to save cart: %v", err)
 		}
 
-
 		// Calculate final price and apply coupon
-		finalPrice = cart.TotalPrice + shipping 
+		finalPrice = cart.TotalPrice + shipping
 		couponCode := ""
 		if cart.CouponID != 0 {
 			if err := tx.First(&coupon, cart.CouponID).Error; err == nil {
@@ -171,7 +169,16 @@ func VerifyPayment(c *gin.Context) {
 			return fmt.Errorf("order amount too low: %.2f < %.2f", finalPrice, minimumOrderAmount)
 		}
 
-		
+		// Fetch payment details
+		// var paymentDetails adminModels.PaymentDetails
+		if err := tx.Where("razorpay_order_id = ? AND user_id = ?", req.RazorpayOrderID, uid).First(&paymentDetails).Error; err != nil {
+			return fmt.Errorf("payment record not found: %v", err)
+		}
+
+		// ✅ ADD THIS: Fetch the address using the AddressID from payment details
+		if err := tx.Where("id = ? AND user_id = ?", paymentDetails.AddressID, uid).First(&address).Error; err != nil {
+			return fmt.Errorf("invalid address: %v", err)
+		}
 
 		// Create shipping address
 		orderID := generateOrderID()
@@ -196,7 +203,7 @@ func VerifyPayment(c *gin.Context) {
 		order := userModels.Orders{
 			UserID:                uid,
 			OrderIdUnique:         orderID,
-			// AddressID:             paymentDetails.AddressID,
+			AddressID:             paymentDetails.AddressID,
 			ShippingAddress:       shippingAdd,
 			TotalPrice:            finalPrice,
 			Subtotal:              cart.TotalPrice,
@@ -221,16 +228,16 @@ func VerifyPayment(c *gin.Context) {
 		for _, item := range validCartItems {
 			// variantAttributes := fmt.Sprintf(`{"color": "%s", "size": "%s"}`, item.Variants.Color, item.Variants.Size)
 			orderItem := userModels.OrderItem{
-				OrderID:           order.ID,
-				ProductID:         item.ProductID,
-				VariantsID:        item.VariantsID,
-				Quantity:          item.Quantity,
-				UnitPrice:         item.DiscountedPrice,
-				ItemTotal:         item.DiscountedPrice * float64(item.Quantity),
-				DiscountAmount:    (item.OriginalPrice - item.DiscountedPrice) * float64(item.Quantity),
-				OfferName:         item.OfferName,
-				Status:            "Active",
-				ReturnStatus:      "None",
+				OrderID:        order.ID,
+				ProductID:      item.ProductID,
+				VariantsID:     item.VariantsID,
+				Quantity:       item.Quantity,
+				UnitPrice:      item.DiscountedPrice,
+				ItemTotal:      item.DiscountedPrice * float64(item.Quantity),
+				DiscountAmount: (item.OriginalPrice - item.DiscountedPrice) * float64(item.Quantity),
+				OfferName:      item.OfferName,
+				Status:         "Active",
+				ReturnStatus:   "None",
 				// VariantAttributes: variantAttributes,
 			}
 			if err := tx.Create(&orderItem).Error; err != nil {
