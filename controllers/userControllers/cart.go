@@ -33,13 +33,13 @@ func GetCart(c *gin.Context) {
         }
     }
 
-    var allCartItems []userModels.CartItem      // All items (for display)
-    var inStockCartItems []userModels.CartItem  // Only in-stock items (for checkout)
-    var outOfStockCartItems []userModels.CartItem // Out-of-stock items (for display only)
+    var allCartItems []userModels.CartItem      
+    var inStockCartItems []userModels.CartItem  
+    var outOfStockCartItems []userModels.CartItem 
     var invalidItems []string
     
-    totalPrice := 0.0           // Only from in-stock items
-    totalDiscount := 0.0        // Only from in-stock items
+    totalPrice := 0.0         
+    totalDiscount := 0.0       
     outOfStockCount := 0
 
     for _, item := range cart.CartItems {
@@ -68,11 +68,9 @@ func GetCart(c *gin.Context) {
         item.Product = product
         item.Variants = variant
         
-        // Check stock availability
         isInStock := variant.Stock > 0 && variant.Stock >= item.Quantity
         item.Product.InStock = isInStock
 
-        // Debug logging
         log.Printf("CartItem: ProductID=%d, VariantID=%d, ProductName=%s, Stock=%d, Quantity=%d, InStock=%v",
             item.ProductID, item.VariantsID, product.ProductName, variant.Stock, item.Quantity, isInStock)
 
@@ -92,34 +90,28 @@ func GetCart(c *gin.Context) {
             return
         }
 
-        // Add to all items for display
         allCartItems = append(allCartItems, item)
 
         if isInStock {
-            // Add to in-stock items (for checkout calculation)
             inStockCartItems = append(inStockCartItems, item)
             totalPrice += item.ItemTotal
             
-            // Calculate discount only for in-stock items
             if item.IsOfferApplied {
                 discountPerItem := (item.OriginalPrice - item.DiscountedPrice) * float64(item.Quantity)
                 totalDiscount += discountPerItem
             }
         } else {
-            // Add to out-of-stock items (for display with styling)
             outOfStockCartItems = append(outOfStockCartItems, item)
             outOfStockCount++
         }
     }
 
-    // Update cart total with only in-stock items
     cart.TotalPrice = totalPrice
     if err := database.DB.Save(&cart).Error; err != nil {
         c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update cart total"})
         return
     }
 
-    // Log final counts
     log.Printf("Cart Summary: TotalItems=%d, InStockItems=%d, OutOfStockItems=%d", 
         len(allCartItems), len(inStockCartItems), len(outOfStockCartItems))
 
@@ -127,15 +119,15 @@ func GetCart(c *gin.Context) {
     userName, nameExists := c.Get("user_name")
     if !exists || !nameExists {
         c.HTML(http.StatusOK, "cart.html", gin.H{
-            "CartItems":           allCartItems,           // All items for display
-            "InStockCartItems":    inStockCartItems,      // Only in-stock items for checkout
-            "OutOfStockCartItems": outOfStockCartItems,   // Out-of-stock items for display
-            "TotalPrice":          totalPrice,            // Total from in-stock items only
-            "TotalDiscount":       totalDiscount,         // Discount from in-stock items only
-            "CartItemCount":       len(inStockCartItems), // Count of items that can be checked out
-            "OutOfStockCount":     outOfStockCount,       // Count of out-of-stock items
-            "TotalItemCount":      len(allCartItems),     // Total items in cart
-            "CanCheckout":         len(inStockCartItems) > 0 && outOfStockCount == 0, // Can proceed to checkout
+            "CartItems":           allCartItems,          
+            "InStockCartItems":    inStockCartItems,      
+            "OutOfStockCartItems": outOfStockCartItems,  
+            "TotalPrice":          totalPrice,          
+            "TotalDiscount":       totalDiscount,        
+            "CartItemCount":       len(inStockCartItems),
+            "OutOfStockCount":     outOfStockCount,       
+            "TotalItemCount":      len(allCartItems),     
+            "CanCheckout":         len(inStockCartItems) > 0 && outOfStockCount == 0,
             "status":              "success",
             "UserName":            "Guest",
             "WishlistCount":       0,
@@ -158,15 +150,15 @@ func GetCart(c *gin.Context) {
     }
 
     c.HTML(http.StatusOK, "cart.html", gin.H{
-        "CartItems":           allCartItems,           // All items for display
-        "InStockCartItems":    inStockCartItems,      // Only in-stock items for checkout
-        "OutOfStockCartItems": outOfStockCartItems,   // Out-of-stock items for display
-        "TotalPrice":          totalPrice,            // Total from in-stock items only
-        "TotalDiscount":       totalDiscount,         // Discount from in-stock items only
-        "CartItemCount":       len(inStockCartItems), // Count of items that can be checked out
-        "OutOfStockCount":     outOfStockCount,       // Count of out-of-stock items
-        "TotalItemCount":      len(allCartItems),     // Total items in cart
-        "CanCheckout":         len(inStockCartItems) > 0 && outOfStockCount == 0, // Can proceed to checkout
+        "CartItems":           allCartItems,          
+        "InStockCartItems":    inStockCartItems,      
+        "OutOfStockCartItems": outOfStockCartItems,  
+        "TotalPrice":          totalPrice,            
+        "TotalDiscount":       totalDiscount,        
+        "CartItemCount":       len(inStockCartItems), 
+        "OutOfStockCount":     outOfStockCount,       
+        "TotalItemCount":      len(allCartItems),    
+        "CanCheckout":         len(inStockCartItems) > 0 && outOfStockCount == 0,
         "UserName":            userNameStr,
         "ProfileImage":        userData.ProfileImage,
         "WishlistCount":       wishlistCount,
@@ -452,16 +444,13 @@ func updateCartTotal(cart *userModels.Cart, tx *gorm.DB) error {
 		var product adminModels.Product
 		if err := tx.Preload("Variants").Preload("Offers").First(&product, item.ProductID).Error; err != nil {
 			log.Printf("Product not found for ProductID: %d, removing cart item", item.ProductID)
-			// tx.Delete(&item)
 			continue
 		}
 		if !product.IsListed {
 			log.Printf("Product unlisted for ProductID: %d, removing cart item", item.ProductID)
-			// tx.Delete(&item)
 			continue
 		}
 
-		// Fetch variant; skip if missing
 		var variant adminModels.Variants
 		if err := tx.Where("deleted_at IS NULL").First(&variant, item.VariantsID).Error; err != nil {
 			log.Printf("Invalid or missing variant for VariantsID: %d, ProductID: %d, skipping cart item", item.VariantsID, item.ProductID)

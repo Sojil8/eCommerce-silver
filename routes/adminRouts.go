@@ -15,7 +15,7 @@ func AdminRoutes(c *gin.Engine) {
 		adminGroup.POST("/login", controllers.AdminLogin)
 
 		protected := adminGroup.Group("")
-		protected.Use(middleware.Authenticate("jwtTokensAdmin","Admin","/admin/login"),middleware.ClearCache())
+		protected.Use(middleware.Authenticate("jwtTokensAdmin", "Admin", "/admin/login"), middleware.ClearCache())
 		{
 			//user-management route
 			protected.GET("/user-management", controllers.GetUsers)
@@ -25,17 +25,17 @@ func AdminRoutes(c *gin.Engine) {
 			// Category routes
 			protected.GET("/category", controllers.GetCategories)
 			protected.POST("/category/add", controllers.AddCategory)
-			protected.PATCH("/category/edit/:id", controllers.EditCategory) 
-			protected.PATCH("/category/list/:id", controllers.ListCategory)  
+			protected.PATCH("/category/edit/:id", controllers.EditCategory)
+			protected.PATCH("/category/list/:id", controllers.ListCategory)
 			protected.PATCH("/category/unlist/:id", controllers.UnlistCategory)
 
 			//product roures
 			protected.GET("/products", controllers.GetProducts)
-			protected.GET("/products/add",controllers.ShowAddProductForm)
+			protected.GET("/products/add", controllers.ShowAddProductForm)
 			protected.POST("/products/add", controllers.AddProduct)
 			protected.GET("/products/edit/:id", controllers.ShowEditProductForm)
 			protected.PATCH("/products/edit/:id", controllers.EditProduct)
-			protected.GET("/products/details/:id",controllers.ProductDetailsHandler)//product detals admin
+			protected.GET("/products/details/:id", controllers.ProductDetailsHandler) //product detals admin
 			protected.PATCH("/products/toggle/:id", controllers.ToggleProductStatus)
 
 			//order
@@ -45,12 +45,12 @@ func AdminRoutes(c *gin.Engine) {
 			protected.GET("/returns", controllers.ListReturnRequests)
 			protected.POST("/returns/:return_id/verify", controllers.VerifyReturnRequest)
 
-			//coupons 
-			protected.GET("/coupons",controllers.ShowCoupon)
-			protected.POST("/coupons/add",controllers.AddCoupon)
-			protected.GET("/coupons/get/:id",controllers.GetCoupon)
-			protected.POST("/coupons/edit/:id",controllers.EditCoupon)
-			protected.DELETE("/coupons/delete/:id",controllers.DeleteCoupon)
+			//coupons
+			protected.GET("/coupons", controllers.ShowCoupon)
+			protected.POST("/coupons/add", controllers.AddCoupon)
+			protected.GET("/coupons/get/:id", controllers.GetCoupon)
+			protected.POST("/coupons/edit/:id", controllers.EditCoupon)
+			protected.DELETE("/coupons/delete/:id", controllers.DeleteCoupon)
 
 			//offers
 			protected.GET("/offers", controllers.ShowOfferPage)
@@ -64,10 +64,11 @@ func AdminRoutes(c *gin.Engine) {
 			protected.DELETE("/category_offers/:id", controllers.DeleteCategoryOffer)
 			// protected.GET("/apply_offer/:product_id", controllers.ApplyBestOffer)
 
-			//sales report
-
-
-
+			//admin dashboard report
+			protected.GET("/dashboard", controllers.ShowDashboard)
+			protected.GET("/dashboard/data", controllers.GetDashboardData)
+			protected.GET("/dashboard/export", controllers.ExportSalesReport)
+			protected.POST("/dashboard/log-action", controllers.LogAdminAction)
 
 			protected.POST("/logout", controllers.AdminLogout)
 		}

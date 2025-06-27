@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Profile - Referral Program</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+    <style>
+        .profile-input:focus {
+            border-color: #4f46e5;
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.2);
+        }
+        .swal2-container {
+            z-index: 9999;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .tab-button {
+            transition: all 0.3s ease;
+        }
+        .tab-button.active {
+            background-color: #4f46e5;
+            color: white;
+        }
+        .referral-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            transition: transform 0.3s ease;
+        }
+        .referral-card:hover {
+            transform: translateY(-2px);
+        }
+        .copy-btn {
+            transition: all 0.2s ease;
+        }
+        .copy-btn:hover {
+            transform: scale(1.05);
+        }
+        .stats-card {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+        .reward-card {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        }
+    </style>
+</head>
+<body class="bg-gray-50 flex flex-col min-h-screen">
+    <!-- Navigation would be included here -->
+    <!-- {{template "navbar.html" .}} -->
+
+    <!-- Main Content -->
+    <div class="container mx-auto p-6 flex-grow">
+        <div class="flex flex-col md:flex-row gap-6">
+            <!-- Sidebar Navigation -->
+            {{template "userSideBar.html" .}}
+
+            <!-- Main Content Area -->
+            <div class="flex-1">
+                <!-- Referral Tab -->
+                <div id="referral-tab" class="tab-content active bg-white rounded-xl shadow-md p-6">
+                    <div class="flex items-center mb-6">
+                        <i class="fas fa-users text-indigo-600 text-3xl mr-3"></i>
+                        <h3 class="text-2xl font-semibold text-gray-900">Referral Program</h3>
+                    </div>
+                    
+                    <!-- Referral Link Section -->
+                    <div class="referral-card text-white rounded-xl p-6 mb-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <h4 class="text-xl font-semibold">Your Referral Link</h4>
+                            <i class="fas fa-gift text-2xl"></i>
+                        </div>
+                        <p class="text-white/90 mb-4">Share this link with friends and earn rewards when they sign up!</p>
+                        
+                        <div class="bg-white/10 backdrop-blur-sm rounded-lg p-4 mb-4">
+                            <div class="flex items-center justify-between">
+                                <input type="text" id="referral-link" readonly 
+                                       class="bg-transparent text-white placeholder-white/70 flex-1 outline-none text-sm"
+                                       placeholder="Loading your referral link...">
+                                <button onclick="copyReferralLink()" 
+                                        class="copy-btn bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg ml-3 text-sm font-medium">
+                                    <i class="fas fa-copy mr-2"></i>Copy
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <button onclick="shareViaWhatsApp()" 
+                                    class="bg-green-500 hover:bg-green-600 px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+                                <i class="fab fa-whatsapp mr-2"></i>WhatsApp
+                            </button>
+                            <button onclick="shareViaEmail()" 
+                                    class="bg-blue-500 hover:bg-blue-600 px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+                                <i class="fas fa-envelope mr-2"></i>Email
+                            </button>
+                            <button onclick="shareViaSMS()" 
+                                    class="bg-purple-500 hover:bg-purple-600 px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+                                <i class="fas fa-sms mr-2"></i>SMS
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Stats Section -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
+                        <div class="stats-card text-white rounded-xl p-6">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-white/90 text-sm">Total Referrals</p>
+                                    <p class="text-3xl font-bold" id="total-referrals">0</p>
+                                </div>
+                                <i class="fas fa-user-friends text-3xl text-white/70"></i>
+                            </div>
+                        </div>
+                        
+                        <div class="reward-card text-white rounded-xl p-6">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-white/90 text-sm">Rewards Earned</p>
+                                    <p class="text-3xl font-bold" id="total-rewards">₹0</p>
+                                </div>
+                                <i class="fas fa-coins text-3xl text-white/70"></i>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-gradient-to-r from-green-400 to-green-600 text-white rounded-xl p-6">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-white/90 text-sm">Active Referrals</p>
+                                    <p class="text-3xl font-bold" id="active-referrals">0</p>
+                                </div>
+                                <i class="fas fa-chart-line text-3xl text-white/70"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- How it Works Section -->
+                    <div class="bg-gray-50 rounded-xl p-6 mb-6">
+                        <h4 class="text-xl font-semibold text-gray-900 mb-4">How It Works</h4>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div class="text-center">
+                                <div class="bg-indigo-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3">
+                                    <i class="fas fa-share text-indigo-600 text-2xl"></i>
+                                </div>
+                                <h5 class="font-semibold text-gray-900 mb-2">1. Share Your Link</h5>
+                                <p class="text-gray-600 text-sm">Share your unique referral link with friends and family</p>
+                            </div>
+                            
+                            <div class="text-center">
+                                <div class="bg-green-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3">
+                                    <i class="fas fa-user-plus text-green-600 text-2xl"></i>
+                                </div>
+                                <h5 class="font-semibold text-gray-900 mb-2">2. Friend Signs Up</h5>
+                                <p class="text-gray-600 text-sm">Your friend creates an account using your referral link</p>
+                            </div>
+                            
+                            <div class="text-center">
+                                <div class="bg-yellow-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3">
+                                    <i class="fas fa-gift text-yellow-600 text-2xl"></i>
+                                </div>
+                                <h5 class="font-semibold text-gray-900 mb-2">3. Earn Rewards</h5>
+                                <p class="text-gray-600 text-sm">Both you and your friend receive amazing rewards!</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Referral History -->
+                    <div class="bg-white rounded-xl border border-gray-200 p-6">
+                        <h4 class="text-xl font-semibold text-gray-900 mb-4">Recent Referrals</h4>
+                        <div class="overflow-x-auto">
+                            <table class="w-full">
+                                <thead>
+                                    <tr class="border-b border-gray-200">
+                                        <th class="text-left py-3 px-4 text-gray-600 font-medium">Friend</th>
+                                        <th class="text-left py-3 px-4 text-gray-600 font-medium">Status</th>
+                                        <th class="text-left py-3 px-4 text-gray-600 font-medium">Reward</th>
+                                        <th class="text-left py-3 px-4 text-gray-600 font-medium">Date</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="referral-history">
+                                    <tr>
+                                        <td colspan="4" class="text-center py-8 text-gray-500">
+                                            <i class="fas fa-users text-4xl mb-3 block"></i>
+                                            No referrals yet. Start sharing your link!
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-gray-900 text-white p-6 mt-auto">
+        <div class="container mx-auto flex flex-col md:flex-row justify-between items-center">
+            <p class="text-sm">© 2025 Silver. All rights reserved.</p>
+            <div class="mt-4 md:mt-0 space-x-6">
+                <a href="#" class="text-gray-300 hover:text-white transition-colors duration-200">Privacy Policy</a>
+                <a href="#" class="text-gray-300 hover:text-white transition-colors duration-200">Terms of Service</a>
+            </div>
+        </div>
+    </footer>
+
+    <!-- JavaScript -->
+    <script>
+        let referralLink = '';
+        
+        // Load referral data on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            loadReferralData();
+        });
+
+        function loadReferralData() {
+            // Show loading state
+            document.getElementById('referral-link').placeholder = 'Loading your referral link...';
+            
+            fetch('/api/referral/invite-link', {
+                method: 'GET',
+                credentials: 'include',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.invite_link) {
+                    referralLink = data.invite_link;
+                    document.getElementById('referral-link').value = referralLink;
+                    document.getElementById('referral-link').placeholder = '';
+                } else {
+                    throw new Error('Failed to load referral link');
+                }
+            })
+            .catch(error => {
+                console.error('Error loading referral data:', error);
+                document.getElementById('referral-link').placeholder = 'Error loading referral link';
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'Failed to load referral data. Please refresh the page.',
+                    confirmButtonColor: '#4f46e5'
+                });
+            });
+
+            // Load referral stats (you'll need to implement this endpoint)
+            loadReferralStats();
+        }
+
+        function loadReferralStats() {
+            // This would fetch actual stats from your backend
+            // For now, showing placeholder data
+            fetch('/api/referral/stats', {
+                method: 'GET',
+                credentials: 'include'
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('total-referrals').textContent = data.total_referrals || 0;
+                document.getElementById('total-rewards').textContent = '₹' + (data.total_rewards || 0);
+                document.getElementById('active-referrals').textContent = data.active_referrals || 0;
+                
+                if (data.referral_history && data.referral_history.length > 0) {
+                    updateReferralHistory(data.referral_history);
+                }
+            })
+            .catch(error => {
+                console.error('Error loading referral stats:', error);
+            });
+        }
+
+        function updateReferralHistory(history) {
+            const tbody = document.getElementById('referral-history');
+            tbody.innerHTML = '';
+            
+            history.forEach(referral => {
+                const row = document.createElement('tr');
+                row.className = 'border-b border-gray-100 hover:bg-gray-50';
+                row.innerHTML = `
+                    <td class="py-3 px-4">${referral.friend_name || 'Anonymous'}</td>
+                    <td class="py-3 px-4">
+                        <span class="px-2 py-1 rounded-full text-xs font-medium ${getStatusClass(referral.status)}">
+                            ${referral.status}
+                        </span>
+                    </td>
+                    <td class="py-3 px-4">₹${referral.reward || 0}</td>
+                    <td class="py-3 px-4">${new Date(referral.created_at).toLocaleDateString()}</td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        function getStatusClass(status) {
+            switch(status) {
+                case 'completed': return 'bg-green-100 text-green-800';
+                case 'pending': return 'bg-yellow-100 text-yellow-800';
+                case 'cancelled': return 'bg-red-100 text-red-800';
+                default: return 'bg-gray-100 text-gray-800';
+            }
+        }
+
+        function copyReferralLink() {
+            if (!referralLink) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'Referral link not loaded yet. Please wait.',
+                    confirmButtonColor: '#4f46e5'
+                });
+                return;
+            }
+
+            navigator.clipboard.writeText(referralLink).then(() => {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Copied!',
+                    text: 'Referral link copied to clipboard',
+                    timer: 2000,
+                    showConfirmButton: false,
+                    confirmButtonColor: '#4f46e5'
+                });
+            }).catch(() => {
+                // Fallback for older browsers
+                const textArea = document.createElement('textarea');
+                textArea.value = referralLink;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Copied!',
+                    text: 'Referral link copied to clipboard',
+                    timer: 2000,
+                    showConfirmButton: false,
+                    confirmButtonColor: '#4f46e5'
+                });
+            });
+        }
+
+        function shareViaWhatsApp() {
+            if (!referralLink) return;
+            const message = `Hey! Check out Silver - I think you'll love it! Use my referral link to get started: ${referralLink}`;
+            const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`;
+            window.open(whatsappUrl, '_blank');
+        }
+
+        function shareViaEmail() {
+            if (!referralLink) return;
+            const subject = 'Join Silver with my referral link!';
+            const body = `Hi there!\n\nI've been using Silver and thought you might be interested. Use my referral link to get started:\n\n${referralLink}\n\nBest regards!`;
+            const emailUrl = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+            window.location.href = emailUrl;
+        }
+
+        function shareViaSMS() {
+            if (!referralLink) return;
+            const message = `Hey! Check out Silver - use my referral link: ${referralLink}`;
+            const smsUrl = `sms:?body=${encodeURIComponent(message)}`;
+            window.location.href = smsUrl;
+        }
+    </script>
+</body>
+</html>

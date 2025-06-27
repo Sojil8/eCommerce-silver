@@ -9,26 +9,26 @@ import (
 
 type Orders struct {
 	gorm.Model
-	UserID                uint                        `json:"user_id"`
-	User                  Users                       `gorm:"foreignKey:UserID" json:"user"`
-	OrderIdUnique         string                      `gorm:"type:varchar(255);unique" json:"order_id"`
-	AddressID             uint                        `json:"address_id"`
-	ShippingAddress       adminModels.ShippingAddress `gorm:"foreignKey:AddressID" json:"shipping_address"`
-	TotalPrice            float64                     `json:"total_price"`
-	ShippingCost          float64                     `json:"shipping_cost"`
-	PaymentMethod         string                      `json:"payment_method"`
-	PaymentStatus         string                      `json:"payment_status"`
-	OrderItems            []OrderItem                 `gorm:"foreignKey:OrderID" json:"order_items"`
-	CouponID              uint                        `json:"coupon_id"`
-	CouponCode            string                      `json:"coupon_code"`
-	CouponDiscount        float64                     `json:"coupon_discount"`
-	OfferDiscount         float64                     `json:"offer_discount"`
-	Status                string                      `json:"status"`
-	Subtotal              float64                     `json:"subtotal"`
-	OrderDate             time.Time                   `json:"order_date"`
-	TrackingNumber        string                      `json:"tracking_number"`
-	EstimatedDeliveryDate time.Time                   `json:"estimated_delivery_date"`
-	CancellationStatus    string                      `json:"cancellation_status"`
+	UserID          uint                        `json:"user_id"`
+	User            Users                       `gorm:"foreignKey:UserID" json:"user"`
+	OrderIdUnique   string                      `gorm:"type:varchar(255);unique" json:"order_id"`
+	AddressID       uint                        `json:"address_id"`
+	ShippingAddress adminModels.ShippingAddress `gorm:"foreignKey:AddressID" json:"shipping_address"`
+	TotalPrice      float64                     `json:"total_price"`
+	ShippingCost    float64                     `json:"shipping_cost"`
+	PaymentMethod   string                      `json:"payment_method"`
+	PaymentStatus   string                      `json:"payment_status"`
+	OrderItems      []OrderItem                 `gorm:"foreignKey:OrderID" json:"order_items"`
+	CouponID        uint                        `json:"coupon_id"`
+	CouponCode      string                      `json:"coupon_code"`
+	CouponDiscount  float64                     `json:"coupon_discount"`
+	OfferDiscount   float64                     `json:"offer_discount"`
+	TotalDiscount   float64                     `json:"total_discount"`
+	Status          string                      `json:"status"`
+	Subtotal        float64                     `json:"subtotal"`
+	OrderDate       time.Time                   `json:"order_date"`
+
+	CancellationStatus string `json:"cancellation_status"`
 }
 
 type OrderItem struct {

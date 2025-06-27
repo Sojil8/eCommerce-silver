@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"fmt"
 	"net/http"
 	"time"
 
@@ -46,10 +47,43 @@ func ApplyCoupon(c *gin.Context) {
 		return
 	}
 
-	totalPrice := cart.TotalPrice
-	if totalPrice < coupon.MinPurchaseAmount  {
+	var originalTotalPrice float64
+	var totalPrice float64
+
+	for _, item := range cart.CartItems {
+		var category adminModels.Category
+		var variant adminModels.Variants
+
+		isInStock := item.Product.IsListed && item.Product.InStock
+		hasVariantStock := false
+
+		if err := database.DB.Where("id = ? AND deleted_at IS NULL", item.VariantsID).First(&variant).Error; err == nil {
+			hasVariantStock = variant.Stock >= item.Quantity
+		}
+
+		if isInStock && hasVariantStock &&
+			database.DB.Where("category_name = ? AND status = ?", item.Product.CategoryName, true).First(&category).Error == nil {
+
+			offerDetails := helper.GetBestOfferForProduct(&item.Product, item.Variants.ExtraPrice)
+			itemOriginalPrice := offerDetails.OriginalPrice * float64(item.Quantity)
+			itemDiscountedPrice := offerDetails.DiscountedPrice * float64(item.Quantity)
+
+			originalTotalPrice += itemOriginalPrice
+			totalPrice += itemDiscountedPrice
+		}
+	}
+
+	cart.OriginalTotalPrice = originalTotalPrice
+	cart.TotalPrice = totalPrice
+	if err := database.DB.Save(&cart).Error; err != nil {
+		helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to update cart", "Database error", "")
+		return
+	}
+
+	if originalTotalPrice < coupon.MinPurchaseAmount {
 		helper.ResponseWithErr(c, http.StatusBadRequest, "Invalid amount",
-			"Coupon not applicable for this cart amount", "")
+			fmt.Sprintf("Minimum purchase amount for this coupon is %.2f, your cart total is %.2f",
+				coupon.MinPurchaseAmount, originalTotalPrice), "")
 		return
 	}
 
@@ -67,20 +101,20 @@ func ApplyCoupon(c *gin.Context) {
 		return
 	}
 
-	discount := totalPrice * (coupon.DiscountPercentage / 100)
+	discount := originalTotalPrice * (coupon.DiscountPercentage / 100)
 	finalPrice := totalPrice + shipping - discount
 
 	c.JSON(http.StatusOK, gin.H{
-		"status":      "ok",
-		"message":     "Coupon applied successfully",
+		"status":          "ok",
+		"message":         "Coupon applied successfully",
 		"coupon_discount": discount,
-		"final_price": finalPrice,
-		"coupon_id":   coupon.ID,
-		"subtotal":    totalPrice,
-		"shipping":    shipping,
+		"final_price":     finalPrice,
+		"coupon_id":       coupon.ID,
+		"subtotal":        totalPrice,
+		"original_total":  originalTotalPrice,
+		"shipping":        shipping,
 	})
 }
-
 func GetAvailableCoupons(c *gin.Context) {
 	userID, _ := c.Get("id")
 

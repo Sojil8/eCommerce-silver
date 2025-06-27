@@ -20,6 +20,16 @@ type ShopQuery struct {
 	PriceMax float64 `json:"price_max"`
 }
 
+// Enhanced Product struct for shop display with offer information
+type ShopProduct struct {
+	adminModels.Product
+	IsOffer            bool    `json:"is_offer"`
+	OfferPrice         float64 `json:"offer_price"`
+	OriginalPrice      float64 `json:"original_price"`
+	DiscountPercentage float64 `json:"discount_percentage"`
+	OfferName          string  `json:"offer_name"`
+}
+
 func GetUserShop(c *gin.Context) {
 	var query ShopQuery
 	if c.Request.Method == "POST" {
@@ -97,6 +107,28 @@ func GetUserShop(c *gin.Context) {
 		}
 	}
 
+	// Transform products to include offer information
+	var shopProducts []ShopProduct
+	for _, product := range availableProducts {
+		var variants adminModels.Variants
+		if err := database.DB.Find(&variants, product.Variants).Error; err != nil {
+			helper.ResponseWithErr(c,http.StatusNotFound, "Product varinats not found", "", "")
+			return 
+		}
+
+		offerDetails := helper.GetBestOfferForProduct(&product, variants.ExtraPrice)
+
+		shopProduct := ShopProduct{
+			Product:            product,
+			IsOffer:            offerDetails.IsOfferApplied,
+			OfferPrice:         offerDetails.DiscountedPrice,
+			OriginalPrice:      offerDetails.OriginalPrice,
+			DiscountPercentage: offerDetails.DiscountPercentage,
+			OfferName:          offerDetails.OfferName,
+		}
+		shopProducts = append(shopProducts, shopProduct)
+	}
+
 	var categories []adminModels.Category
 	if err := database.DB.Where("status = ?", true).Find(&categories).Error; err != nil {
 		helper.ResponseWithErr(c, http.StatusInternalServerError, "error:Failed to fetch categories", "error:Failed to fetch categories", "")
@@ -107,7 +139,7 @@ func GetUserShop(c *gin.Context) {
 	userName, nameExists := c.Get("user_name")
 	if !exists || !nameExists {
 		c.HTML(http.StatusOK, "shop.html", gin.H{
-			"Products":      availableProducts,
+			"Products":      shopProducts,
 			"Categories":    categories,
 			"Query":         query,
 			"status":        "success",
@@ -131,7 +163,7 @@ func GetUserShop(c *gin.Context) {
 	}
 
 	c.HTML(http.StatusOK, "shop.html", gin.H{
-		"Products":      availableProducts,
+		"Products":      shopProducts,
 		"Categories":    categories,
 		"Query":         query,
 		"UserName":      userNameStr,

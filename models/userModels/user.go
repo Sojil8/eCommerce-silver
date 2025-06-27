@@ -11,6 +11,7 @@ type Users struct {
 	First_name   string    `json:"first_name"`
 	Last_name    string    `json:"last_name"`
 	ProfileImage string    `json:"profile_image"`
+	ReferralToken string 	`json:"uniqueIndex"`
 	Is_blocked   bool      `gorm:"type : bool; check:Is_blocked in (true,false); default:false" json:"is_blocked"`
 	Addresses    []Address `gorm:"foreignKey:UserID" json:"addresses"`
 }

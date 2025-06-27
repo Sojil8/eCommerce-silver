@@ -7,6 +7,32 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <style>
+    .product-card:hover .product-image { transform: scale(1.05); }
+    .out-of-stock-badge { transition: all 0.3s ease; }
+    .product-card:hover .out-of-stock-badge { transform: translateY(-2px); }
+    
+    /* Enhanced pricing display */
+    .price-tag {
+      position: relative;
+      display: inline-block;
+    }
+    .offer-badge {
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+      100% { transform: scale(1); }
+    }
+    .discount-pill {
+      transform: rotate(-2deg);
+      transition: all 0.3s ease;
+    }
+    .product-card:hover .discount-pill {
+      transform: rotate(0deg) scale(1.05);
+    }
+  </style>
 </head>
 <body class="bg-gray-50 flex flex-col min-h-screen">
   {{template "navbar.html" .}}
@@ -119,26 +145,50 @@
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {{if .Products}}
             {{range .Products}}
-              <div class="relative bg-white rounded-xl shadow-md overflow-hidden group transform transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
+              <div class="product-card relative bg-white rounded-xl shadow-md overflow-hidden group transform transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
                 <div class="relative">
                   {{if gt (len .Images) 0}}
-                    <img src="{{index .Images 0}}" alt="{{.ProductName}}" class="w-full h-56 object-cover transition-opacity duration-300 group-hover:opacity-75">
+                    <img src="{{index .Images 0}}" alt="{{.ProductName}}" class="product-image w-full h-56 object-cover transition-transform duration-500">
                   {{else}}
-                    <img src="/static/default-product.jpg" alt="{{.ProductName}}" class="w-full h-56 object-cover transition-opacity duration-300 group-hover:opacity-75">
+                    <img src="/static/default-product.jpg" alt="{{.ProductName}}" class="product-image w-full h-56 object-cover transition-transform duration-500">
                   {{end}}
-                  <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                    <a href="/product/details/{{.ID}}" class="bg-indigo-600 text-white px-6 py-2 rounded-full font-medium hover:bg-indigo-700 transition-colors duration-200">View Product</a>
+                  <div class="absolute inset-0 flex items-center justify-center bg-black bg-opacity-0 hover:bg-opacity-30 transition-all duration-300">
+                    <a href="/product/details/{{.ID}}" class="bg-gradient-to-r from-yellow-400 to-yellow-500 text-gray-900 px-6 py-2 rounded-full font-medium opacity-0 hover:opacity-100 transition-opacity duration-300 transform hover:scale-105">View Product</a>
                   </div>
                   {{if not (anyVariantInStock .Variants)}}
-                  <div class="out-of-stock-badge absolute top-3 right-3 bg-gradient-to-r from-red-500 to-red-600 text-white text-xs font-semibold px-3 py-1 rounded-full shadow-sm">Out of Stock</div>
-                 {{end}}
+                    <div class="out-of-stock-badge absolute top-3 right-3 bg-gradient-to-r from-red-500 to-red-600 text-white text-xs font-semibold px-3 py-1 rounded-full shadow-sm">Out of Stock</div>
+                  {{end}}
+                  
+                  {{if .IsOffer}}
+                    <div class="absolute top-3 left-3">
+                      <div class="discount-pill bg-gradient-to-r from-green-500 to-emerald-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-md">
+                        {{.DiscountPercentage}}% OFF
+                      </div>
+                    </div>
+                  {{end}}
                 </div>
                 <div class="p-4">
                   <h3 class="text-lg font-semibold text-gray-900 truncate">{{.ProductName}}</h3>
                   <p class="text-gray-500 text-sm">{{.CategoryName}}</p>
                   <div class="flex justify-between items-center mt-2">
-                    <p class="text-indigo-600 font-bold text-lg">₹{{printf "%.2f" .Price}}</p>
-                    <button class="text-indigo-600 hover:text-indigo-800 transition-colors" onclick="addToCart('{{.ID}}')">
+                    <div class="price-tag">
+                      {{if .IsOffer}}
+                        <div class="flex flex-col">
+                          <div class="flex items-center">
+                            <p class="text-red-600 font-bold text-lg">
+                              ₹{{printf "%.2f" .OfferPrice}}
+                            </p>
+                            <span class="line-through text-gray-400 text-sm ml-2">
+                              ₹{{printf "%.2f" .OriginalPrice}}
+                            </span>
+                          </div>
+                          <p class="text-xs text-green-600 font-medium">{{.OfferName}}</p>
+                        </div>
+                      {{else}}
+                        <p class="text-indigo-600 font-bold text-lg">₹{{printf "%.2f" .Price}}</p>
+                      {{end}}
+                    </div>
+                    <button class="text-indigo-600 hover:text-indigo-800 transition-colors transform hover:scale-110" onclick="addToCart('{{.ID}}')">
                       <i class="fas fa-cart-plus text-xl"></i>
                     </button>
                   </div>

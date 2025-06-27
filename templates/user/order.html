@@ -36,101 +36,109 @@
 <body class="bg-gray-50 flex flex-col min-h-screen">
     {{template "navbar.html" .}}
 
-    <!-- Main Content -->
-    <div class="container mx-auto p-6 flex-grow">
-        <div class="flex justify-between items-center mb-8">
-            <h2 class="text-3xl font-bold text-gray-900 tracking-tight">Your Orders</h2>
-            <div class="relative w-full max-w-md">
-                <input type="text" id="searchInput" placeholder="Search by Product or Status" 
-                       class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg search-input bg-white text-gray-900 placeholder-gray-500"
-                       onkeyup="debouncedSearchOrders()">
-                <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+    <!-- Main Layout -->
+    <div class="flex flex-1">
+        <!-- Sidebar -->
+        <aside class="w-64 bg-white shadow-md hidden md:block">
+            {{template "userSideBar.html" .}}
+        </aside>
+
+        <!-- Main Content -->
+        <main class="flex-1 container mx-auto p-6">
+            <div class="flex justify-between items-center mb-8">
+                <h2 class="text-3xl font-bold text-gray-900 tracking-tight">Your Orders</h2>
+                <div class="relative w-full max-w-md">
+                    <input type="text" id="searchInput" placeholder="Search by Product or Status" 
+                           class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg search-input bg-white text-gray-900 placeholder-gray-500"
+                           onkeyup="debouncedSearchOrders()">
+                    <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                </div>
             </div>
-        </div>
 
-        <div id="orderList" class="space-y-6">
-            {{if .Orders}}
-            {{range .Orders}}
-            <div class="order-card bg-white rounded-xl shadow-md p-6">
-                <div class="flex flex-col md:flex-row gap-6">
-                    <!-- Product Image -->
-                    <div class="w-full md:w-32 flex-shrink-0">
-                        {{if .OrderItems}}
-                            {{with index .OrderItems 0}}
-                                {{if .Product.Images}}
-                                    <img src="{{index .Product.Images 0}}" alt="{{.Product.ProductName}}" class="w-full h-32 rounded-lg border border-gray-200 order-image">
-                                {{else}}
-                                    <div class="w-full h-32 bg-gray-200 rounded-lg flex items-center justify-center text-gray-500">
-                                        <i class="fas fa-image text-2xl"></i>
-                                    </div>
+            <div id="orderList" class="space-y-6">
+                {{if .Orders}}
+                {{range .Orders}}
+                <div class="order-card bg-white rounded-xl shadow-md p-6">
+                    <div class="flex flex-col md:flex-row gap-6">
+                        <!-- Product Image -->
+                        <div class="w-full md:w-32 flex-shrink-0">
+                            {{if .OrderItems}}
+                                {{with index .OrderItems 0}}
+                                    {{if .Product.Images}}
+                                        <img src="{{index .Product.Images 0}}" alt="{{.Product.ProductName}}" class="w-full h-32 rounded-lg border border-gray-200 order-image">
+                                    {{else}}
+                                        <div class="w-full h-32 bg-gray-200 rounded-lg flex items-center justify-center text-gray-500">
+                                            <i class="fas fa-image text-2xl"></i>
+                                        </div>
+                                    {{end}}
                                 {{end}}
+                            {{else}}
+                                <div class="w-full h-32 bg-gray-200 rounded-lg flex items-center justify-center text-gray-500">
+                                    <i class="fas fa-image text-2xl"></i>
+                                </div>
                             {{end}}
-                        {{else}}
-                            <div class="w-full h-32 bg-gray-200 rounded-lg flex items-center justify-center text-gray-500">
-                                <i class="fas fa-image text-2xl"></i>
-                            </div>
-                        {{end}}
-                    </div>
-
-                    <!-- Order Details -->
-                    <div class="flex-1 flex flex-col md:flex-row justify-between items-start gap-4">
-                        <div>
-                            <h3 class="text-xl font-semibold text-gray-900">
-                                {{if .OrderItems}}{{(index .OrderItems 0).Product.ProductName}}{{else}}Order #{{.OrderIdUnique}}{{end}}
-                            </h3>
-                            <div class="mt-2 space-y-1 text-sm text-gray-600">
-                                <p><span class="font-medium">Order ID:</span> {{.OrderIdUnique}}</p>
-                                <p><span class="font-medium">Date:</span> {{.OrderDate.Format "Jan 02, 2006"}}</p>
-                                <p><span class="font-medium">Total:</span> ${{printf "%.2f" .TotalPrice}}</p>
-                                <p><span class="font-medium">Items:</span> {{len .OrderItems}}</p>
-                            </div>
                         </div>
-                        <div class="flex flex-col items-start md:items-end gap-2">
-                            <span class="status-badge font-medium text-white 
-                                {{if eq .Status "Cancelled"}}bg-red-600
-                                {{else if eq .Status "Delivered"}}bg-green-600
-                                {{else if eq .Status "Shipped"}}bg-blue-600
-                                {{else if eq .Status "Pending"}}bg-yellow-600
-                                {{else}}bg-gray-600{{end}}">
-                                {{.Status}}
-                            </span>
-                            <div class="flex gap-3 text-sm">
-                                <a href="/orders/details/{{.OrderIdUnique}}" class="text-indigo-600 hover:text-indigo-800 transition-colors">
-                                    <i class="fas fa-eye mr-1"></i> View Details
-                                </a>
-                                {{if eq .Status "Pending"}}
-                                <button onclick="cancelOrder('{{.OrderIdUnique}}')" class="text-red-600 hover:text-red-800 transition-colors">
-                                    <i class="fas fa-times mr-1"></i> Cancel
-                                </button>
-                                {{end}}
-                                {{if eq .Status "Delivered"}}
-                                <button onclick="returnOrder('{{.OrderIdUnique}}')" class="text-orange-600 hover:text-orange-800 transition-colors">
-                                    <i class="fas fa-undo mr-1"></i> Return
-                                </button>
-                                {{end}}
-                                <a href="/orders/invoice/{{.OrderIdUnique}}" class="text-green-600 hover:text-green-800 transition-colors">
-                                    <i class="fas fa-file-download mr-1"></i> Invoice
-                                </a>
+
+                        <!-- Order Details -->
+                        <div class="flex-1 flex flex-col md:flex-row justify-between items-start gap-4">
+                            <div>
+                                <h3 class="text-xl font-semibold text-gray-900">
+                                    {{if .OrderItems}}{{(index .OrderItems 0).Product.ProductName}}{{else}}Order #{{.OrderIdUnique}}{{end}}
+                                </h3>
+                                <div class="mt-2 space-y-1 text-sm text-gray-600">
+                                    <p><span class="font-medium">Order ID:</span> {{.OrderIdUnique}}</p>
+                                    <p><span class="font-medium">Date:</span> {{.OrderDate.Format "Jan 02, 2006"}}</p>
+                                    <p><span class="font-medium">Total:</span> ${{printf "%.2f" .TotalPrice}}</p>
+                                    <p><span class="font-medium">Items:</span> {{len .OrderItems}}</p>
+                                </div>
+                            </div>
+                            <div class="flex flex-col items-start md:items-end gap-2">
+                                <span class="status-badge font-medium text-white 
+                                    {{if eq .Status "Cancelled"}}bg-red-600
+                                    {{else if eq .Status "Delivered"}}bg-green-600
+                                    {{else if eq .Status "Shipped"}}bg-blue-600
+                                    {{else if eq .Status "Pending"}}bg-yellow-600
+                                    {{else}}bg-gray-600{{end}}">
+                                    {{.Status}}
+                                </span>
+                                <div class="flex gap-3 text-sm">
+                                    <a href="/orders/details/{{.OrderIdUnique}}" class="text-indigo-600 hover:text-indigo-800 transition-colors">
+                                        <i class="fas fa-eye mr-1"></i> View Details
+                                    </a>
+                                    {{if eq .Status "Pending"}}
+                                    <button onclick="cancelOrder('{{.OrderIdUnique}}')" class="text-red-600 hover:text-red-800 transition-colors">
+                                        <i class="fas fa-times mr-1"></i> Cancel
+                                    </button>
+                                    {{end}}
+                                    {{if eq .Status "Delivered"}}
+                                    <button onclick="returnOrder('{{.OrderIdUnique}}')" class="text-orange-600 hover:text-orange-800 transition-colors">
+                                        <i class="fas fa-undo mr-1"></i> Return
+                                    </button>
+                                    {{end}}
+                                    <a href="/orders/invoice/{{.OrderIdUnique}}" class="text-green-600 hover:text-green-800 transition-colors">
+                                        <i class="fas fa-file-download mr-1"></i> Invoice
+                                    </a>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
+                {{end}}
+                {{else}}
+                <div class="text-center py-12">
+                    <i class="fas fa-shopping-bag text-5xl text-gray-300 mb-4"></i>
+                    <p class="text-gray-500 text-lg">You haven't placed any orders yet.</p>
+                    <a href="/shop" class="mt-4 inline-block bg-indigo-600 text-white px-6 py-2 rounded-full hover:bg-indigo-700 transition-colors">Start Shopping</a>
+                </div>
+                {{end}}
             </div>
-            {{end}}
-            {{else}}
-            <div class="text-center py-12">
-                <i class="fas fa-shopping-bag text-5xl text-gray-300 mb-4"></i>
-                <p class="text-gray-500 text-lg">You haven't placed any orders yet.</p>
-                <a href="/shop" class="mt-4 inline-block bg-indigo-600 text-white px-6 py-2 rounded-full hover:bg-indigo-700 transition-colors">Start Shopping</a>
-            </div>
-            {{end}}
-        </div>
 
-        <!-- Pagination Placeholder (Optional) -->
-        <div class="mt-8 flex justify-center gap-2">
-            <button class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:bg-gray-400" disabled>Previous</button>
-            <button class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">Next</button>
-        </div>
+            <!-- Pagination Placeholder -->
+            <div class="mt-8 flex justify-center gap-2">
+                <button class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:bg-gray-400" disabled>Previous</button>
+                <button class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">Next</button>
+            </div>
+        </main>
     </div>
 
     <!-- Footer -->

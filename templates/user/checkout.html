@@ -1,106 +1,46 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Checkout - Silver</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11" defer></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/js/all.min.js" crossorigin="anonymous"
-        defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/js/all.min.js" crossorigin="anonymous" defer></script>
     <script src="https://checkout.razorpay.com/v1/checkout.js" defer></script>
     <style>
-        .swal2-container {
-            z-index: 9999;
-        }
-
-        .key-value-pair {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 0.75rem 0;
-            font-size: 0.9rem;
-        }
-
-        .key-value-pair .key {
-            font-weight: 600;
-            color: #374151;
-        }
-
-        .key-value-pair .value {
-            color: #1F2937;
-        }
-
-        .coupon-card {
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
-        }
-
-        .coupon-card:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-        }
-
-        .btn-primary {
-            @apply bg-gradient-to-r from-indigo-600 to-indigo-700 text-white px-5 py-2.5 rounded-full hover:from-indigo-700 hover:to-indigo-800 transition-all duration-200 shadow-md;
-        }
-
-        .btn-secondary {
-            @apply bg-gray-200 text-gray-700 px-5 py-2.5 rounded-full hover:bg-gray-300 transition-all duration-200;
-        }
-
-        .section-header {
-            @apply text-lg sm:text-xl font-semibold text-gray-900 mb-4 flex items-center;
-        }
-
-        .input-field {
-            @apply w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all;
-        }
-
-        .modal-form label {
-            @apply block text-sm font-medium text-gray-700 mb-1;
-        }
-
-        .modal-form input,
-        .modal-form select {
-            @apply input-field text-sm;
-        }
-
-        .card {
-            @apply bg-white rounded-xl shadow-sm p-4 sm:p-6 transition-all hover:shadow-md;
-        }
-
+        .swal2-container { z-index: 9999; }
+        .key-value-pair { display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 0; font-size: 0.9rem; }
+        .key-value-pair .key { font-weight: 600; color: #374151; }
+        .key-value-pair .value { color: #1F2937; }
+        .coupon-card { transition: transform 0.2s ease, box-shadow 0.2s ease; }
+        .coupon-card:hover { transform: translateY(-3px); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); }
+        .btn-primary { @apply bg-gradient-to-r from-indigo-600 to-indigo-700 text-white px-5 py-2.5 rounded-full hover:from-indigo-700 hover:to-indigo-800 transition-all duration-200 shadow-md; }
+        .btn-secondary { @apply bg-gray-200 text-gray-700 px-5 py-2.5 rounded-full hover:bg-gray-300 transition-all duration-200; }
+        .section-header { @apply text-lg sm:text-xl font-semibold text-gray-900 mb-4 flex items-center; }
+        .input-field { @apply w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all; }
+        .modal-form label { @apply block text-sm font-medium text-gray-700 mb-1; }
+        .modal-form input, .modal-form select { @apply input-field text-sm; }
+        .card { @apply bg-white rounded-xl shadow-sm p-4 sm:p-6 transition-all hover:shadow-md; }
         @media (max-width: 640px) {
-            .section-content {
-                display: none;
-            }
-
-            .section-content.active {
-                display: block;
-            }
-
-            .order-summary,
-            .billing-details {
-                @apply w-full;
-            }
+            .section-content { display: none; }
+            .section-content.active { display: block; }
+            .order-summary, .billing-details { @apply w-full; }
         }
     </style>
 </head>
-
-<body class="bg-gray-50 flex flex-col min-h-screen font-sans antialiased">
+<body class="bg-gray-50 flex flex-col min-h-screen font-sans">
     <!-- Navbar -->
     {{template "navbar.html" .}}
 
     <!-- Main Content -->
     <main class="container mx-auto p-4 sm:p-6 flex-grow max-w-7xl">
-        <h2
-            class="text-3xl sm:text-4xl font-bold text-gray-900 mb-6 sm:mb-8 text-center bg-gradient-to-r from-indigo-600 to-indigo-800 text-transparent bg-clip-text">
+        <h2 class="text-3xl sm:text-4xl font-bold text-gray-900 mb-6 sm:mb-8 text-center bg-gradient-to-r from-indigo-600 to-indigo-800 text-transparent bg-clip-text">
             Complete Your Purchase
         </h2>
 
-        <!-- Checkout Layout -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <!-- Order Summary (Left) -->
+            <!-- Order Summary -->
             <section class="order-summary card">
                 <h3 class="section-header">
                     <i class="fas fa-shopping-cart text-indigo-600 mr-2"></i> Order Summary
@@ -108,22 +48,16 @@
                 {{if .Cart.CartItems}}
                 <div class="space-y-4">
                     {{range .Cart.CartItems}}
-                    {{if .Product.InStock}} <!-- Only display items with stock -->
-                    <div class="flex items-center border-b py-3 transition-all hover:bg-gray-50">
-                        <img src="{{index .Product.Images 0}}" alt="{{.Product.ProductName}}"
-                            class="w-16 sm:w-20 h-16 sm:h-20 object-cover rounded-md mr-3 sm:mr-4 border"
-                            loading="lazy">
+                    {{if .Product.InStock}}
+                    <div class="flex items-center border-b py-3 hover:bg-gray-50">
+                        <img src="{{index .Product.Images 0}}" alt="{{.Product.ProductName}}" class="w-16 sm:w-20 h-16 sm:h-20 object-cover rounded-md mr-3 sm:mr-4 border" loading="lazy">
                         <div class="flex-1">
-                            <p class="text-gray-800 font-medium text-sm sm:text-base">{{.Product.ProductName}}
-                                <span class="text-gray-500">({{.Variants.Color}})</span>
-                            </p>
+                            <p class="text-gray-800 font-medium text-sm sm:text-base">{{.Product.ProductName}} <span class="text-gray-500">({{.Variants.Color}})</span></p>
                             <p class="text-gray-600 text-xs sm:text-sm">Quantity: {{.Quantity}}</p>
                             <div class="flex items-center space-x-2">
-                                <p class="text-indigo-600 font-bold text-sm sm:text-base">${{printf "%.2f" (mul
-                                    .DiscountedPrice .Quantity)}}</p>
+                                <p class="text-indigo-600 font-bold text-sm sm:text-base">${{printf "%.2f" (mul .DiscountedPrice .Quantity)}}</p>
                                 {{if .IsOfferApplied}}
-                                <p class="text-gray-500 line-through text-xs sm:text-sm">${{printf "%.2f" (mul
-                                    .OriginalPrice .Quantity)}}</p>
+                                <p class="text-gray-500 line-through text-xs sm:text-sm">${{printf "%.2f" (mul .OriginalPrice .Quantity)}}</p>
                                 {{end}}
                             </div>
                         </div>
@@ -146,21 +80,15 @@
                             {{if .AppliedCoupon.CouponCode}}
                             <div class="flex items-center justify-between bg-green-100 p-3 rounded-lg">
                                 <div>
-                                    <p class="text-green-700 font-medium text-sm sm:text-base">Coupon:
-                                        {{.AppliedCoupon.CouponCode}}</p>
-                                    <p class="text-xs sm:text-sm text-green-600">Saved: ${{printf "%.2f" .Discount}}</p>
+                                    <p class="text-green-700 font-medium text-sm sm:text-base">Coupon: {{.AppliedCoupon.CouponCode}}</p>
+                                    <p class="text-xs sm:text-sm text-green-600">Saved: ${{printf "%.2f" .CouponDiscount}}</p>
                                 </div>
-                                <button onclick="removeCoupon()"
-                                    class="btn-primary bg-red-600 hover:bg-red-700 text-sm px-4">
-                                    Remove
-                                </button>
+                                <button onclick="removeCoupon()" class="btn-primary bg-red-600 hover:bg-red-700 text-sm px-4">Remove</button>
                             </div>
                             {{else}}
                             <div class="flex flex-col sm:flex-row gap-3">
-                                <input type="text" id="couponCode" placeholder="Enter coupon code" class="input-field"
-                                    aria-label="Coupon code">
-                                <button onclick="applyCoupon()" class="btn-primary whitespace-nowrap">Apply
-                                    Coupon</button>
+                                <input type="text" id="couponCode" placeholder="Enter coupon code" class="input-field" aria-label="Coupon code">
+                                <button onclick="applyCoupon()" class="btn-primary whitespace-nowrap">Apply Coupon</button>
                             </div>
                             <p id="couponMessage" class="mt-2 text-xs sm:text-sm text-gray-600 hidden"></p>
                             {{end}}
@@ -172,59 +100,33 @@
                     </div>
                 </div>
 
+                <!-- Price Breakdown -->
                 <div class="mt-8 border-t pt-6">
                     <h4 class="section-header"><i class="fas fa-calculator text-indigo-600 mr-3"></i> Price Breakdown</h4>
-                    <br>
                     <div class="space-y-4">
-                        <!-- Original Total -->
                         <div class="flex justify-between">
                             <span class="text-gray-600">Original Total</span>
                             <span class="font-semibold text-gray-900" id="originalTotal">${{printf "%.2f" .OriginalTotalPrice}}</span>
                         </div>
-                        
-                        <!-- Offer Discounts -->
                         <div class="flex justify-between">
                             <span class="text-green-600">Offer Discounts</span>
-                            <span class="font-semibold text-green-600" id="productDiscount">
-                                {{ $totalDiscount := 0.0 }}
-                                {{range .Cart.CartItems}}
-                                {{if .IsOfferApplied}}
-                                {{ $itemDiscount := sub .OriginalPrice .DiscountedPrice }}
-                                {{ $totalDiscount = add $totalDiscount (mul $itemDiscount .Quantity) }}
-                                {{end}}
-                                {{end}}
-                                -${{printf "%.2f" $totalDiscount}}
-                            </span>
+                            <span class="font-semibold text-green-600" id="productDiscount">-${{printf "%.2f" .OfferDiscount}}</span>
                         </div>
-                        
-                        <!-- Shipping -->
                         <div class="flex justify-between">
                             <span class="text-gray-600">Shipping</span>
                             <span class="font-semibold text-gray-900" id="shipping">${{printf "%.2f" .Shipping}}</span>
                         </div>
-                        
-                        <!-- Coupon Discount -->
-                        <div class="flex justify-between" id="couponDiscountRow" 
-                            style="display: {{if .Discount}}flex{{else}}none{{end}};">
+                        <div class="flex justify-between" id="couponDiscountRow" style="display: {{if .CouponDiscount}}flex{{else}}none{{end}};">
                             <span class="text-green-600">Coupon Discount</span>
-                            <span class="font-semibold text-green-600" id="couponDiscount" 
-                                aria-label="Coupon discount amount">-${{printf "%.2f" .Discount}}</span>
+                            <span class="font-semibold text-green-600" id="couponDiscount">-${{printf "%.2f" .CouponDiscount}}</span>
                         </div>
-                        
-                        <!-- Total Discount -->
                         <div class="flex justify-between">
                             <span class="text-green-600">Total Discount</span>
-                            <span class="font-semibold text-green-600">
-                                {{ $totalDiscount = add $totalDiscount .Discount }}
-                                -${{printf "%.2f" $totalDiscount}}
-                            </span>
+                            <span class="font-semibold text-green-600" id="totalDiscount">-${{printf "%.2f" .TotalDiscount}}</span>
                         </div>
-                        
-                        <!-- Grand Total -->
                         <div class="flex justify-between border-t pt-4">
                             <span class="text-lg font-bold text-gray-900">Grand Total</span>
-                            <span class="text-lg font-bold text-indigo-600" id="finalTotal"
-                                aria-label="Final total amount">${{printf "%.2f" .FinalPrice}}</span>
+                            <span class="text-lg font-bold text-indigo-600" id="finalTotal">${{printf "%.2f" .FinalPrice}}</span>
                         </div>
                     </div>
                 </div>
@@ -233,31 +135,24 @@
                 {{end}}
             </section>
 
-            <!-- Billing Details (Right) -->
+            <!-- Billing Details -->
             <section class="billing-details card">
                 <h3 class="section-header">
                     <i class="fas fa-credit-card text-indigo-600 mr-2"></i> Billing Details
                 </h3>
-                <!-- Customer Info -->
                 <div class="mb-6">
                     <h4 class="text-base sm:text-lg font-semibold text-gray-900 mb-3">Customer Information</h4>
                     <div class="space-y-3">
-                        <div class="key-value-pair"><span class="key">Name</span><span
-                                class="value">{{.UserName}}</span></div>
-                        <div class="key-value-pair"><span class="key">Email</span><span
-                                class="value">{{.UserEmail}}</span></div>
-                        <div class="key-value-pair"><span class="key">Phone</span><span
-                                class="value">{{.UserPhone}}</span></div>
+                        <div class="key-value-pair"><span class="key">Name</span><span class="value">{{.UserName}}</span></div>
+                        <div class="key-value-pair"><span class="key">Email</span><span class="value">{{.UserEmail}}</span></div>
+                        <div class="key-value-pair"><span class="key">Phone</span><span class="value">{{.UserPhone}}</span></div>
                     </div>
                 </div>
-
-                <!-- Shipping Address -->
                 <div class="mb-6">
                     <h4 class="text-base sm:text-lg font-semibold text-gray-900 mb-3">Shipping Address</h4>
                     {{if .Addresses}}
                     <div class="space-y-4">
-                        <select id="addressSelect" onchange="selectAddress(this.value)" class="input-field"
-                            aria-label="Select shipping address">
+                        <select id="addressSelect" onchange="selectAddress(this.value)" class="input-field" aria-label="Select shipping address">
                             <option value="">Select an address</option>
                             {{range .Addresses}}
                             <option value="{{.ID}}" {{if .IsDefault}}selected{{end}}>
@@ -267,8 +162,7 @@
                         </select>
                         <div class="flex flex-col sm:flex-row gap-3">
                             <button onclick="showAddressModal()" class="btn-primary flex-1">Add New Address</button>
-                            <button onclick="showAddressModal(document.getElementById('addressSelect').value)"
-                                class="btn-secondary flex-1">Edit Selected</button>
+                            <button onclick="showAddressModal(document.getElementById('addressSelect').value)" class="btn-secondary flex-1">Edit Selected</button>
                         </div>
                     </div>
                     {{else}}
@@ -276,8 +170,6 @@
                     <button onclick="showAddressModal()" class="btn-primary w-full mt-4">Add New Address</button>
                     {{end}}
                 </div>
-
-                <!-- Payment Method -->
                 <div class="mb-6">
                     <h4 class="text-base sm:text-lg font-semibold text-gray-900 mb-3">Payment Method</h4>
                     <select id="paymentMethod" class="input-field" aria-label="Select payment method">
@@ -285,11 +177,8 @@
                         <option value="ONLINE">Online Payment</option>
                     </select>
                 </div>
-
-                <!-- Place Order -->
                 <div>
-                    <button id="placeOrderBtn"
-                        class="btn-primary w-full py-3 text-sm sm:text-base font-semibold flex items-center justify-center">
+                    <button id="placeOrderBtn" class="btn-primary w-full py-3 text-sm sm:text-base font-semibold flex items-center justify-center">
                         <i class="fas fa-check-circle mr-2"></i> Place Order
                     </button>
                 </div>
@@ -306,18 +195,18 @@
 
     <!-- JavaScript -->
     <script>
-        // State
         let state = {
-            selectedAddressId: "{{range .Addresses}}{{if .IsDefault}}{{.ID}}{{end}}{{end}}" || null,
-            originalTotal: Number("{{printf "%.2f" .OriginalTotalPrice}}") || 0,
-            subtotal: Number("{{printf "%.2f" .Subtotal}}") || 0,
-            shipping: Number("{{printf "%.2f" .Shipping}}") || 0,
-            discount: Number("{{printf "%.2f" .Discount}}") || 0,
-            finalTotal: Number("{{printf "%.2f" .FinalPrice}}") || 0,
+            selectedAddressId: "{{range .Addresses}}{{if .IsDefault}}{{.ID}}{{end}}{{end}}",
+            originalTotal: Number("{{printf "%.2f" .OriginalTotalPrice}}"),
+            subtotal: Number("{{printf "%.2f" .Subtotal}}"),
+            shipping: Number("{{printf "%.2f" .Shipping}}"),
+            offerDiscount: Number("{{printf "%.2f" .OfferDiscount}}"),
+            couponDiscount: Number("{{printf "%.2f" .CouponDiscount}}"),
+            totalDiscount: Number("{{printf "%.2f" .TotalDiscount}}"),
+            finalTotal: Number("{{printf "%.2f" .FinalPrice}}"),
             appliedCoupon: {{if .AppliedCoupon.CouponCode}}true{{else}}false{{end}}
         };
 
-        // DOM Elements
         const els = {
             addressSelect: document.getElementById('addressSelect'),
             couponCode: document.getElementById('couponCode'),
@@ -326,25 +215,20 @@
             couponDiscountRow: document.getElementById('couponDiscountRow'),
             couponDiscount: document.getElementById('couponDiscount'),
             originalTotal: document.getElementById('originalTotal'),
-            subtotal: document.getElementById('subtotal'),
             finalTotal: document.getElementById('finalTotal'),
             paymentMethod: document.getElementById('paymentMethod'),
             couponSection: document.getElementById('couponSection'),
             couponContainer: document.getElementById('couponContainer'),
-            placeOrderBtn: document.getElementById('placeOrderBtn')
+            placeOrderBtn: document.getElementById('placeOrderBtn'),
+            totalDiscount: document.getElementById('totalDiscount')
         };
 
-        // Initialize
         document.addEventListener('DOMContentLoaded', () => {
-            console.log('DOM loaded, initializing checkout page');
-            if (state.discount === 0) {
-                els.couponDiscountRow.style.display = 'none';
-            }
+            if (state.couponDiscount === 0) els.couponDiscountRow.style.display = 'none';
             fetchCoupons();
             els.placeOrderBtn.addEventListener('click', placeOrder);
         });
 
-        // Utility Functions
         const showAlert = (icon, title, text, timer = 0) => {
             const config = { icon, title, text, confirmButtonColor: '#4f46e5', toast: timer > 0 };
             if (timer) config.timer = timer;
@@ -352,17 +236,10 @@
         };
 
         const showLoading = () => {
-            Swal.fire({
-                title: 'Processing',
-                text: 'Please wait...',
-                allowOutsideClick: false,
-                didOpen: () => Swal.showLoading()
-            });
+            Swal.fire({ title: 'Processing', text: 'Please wait...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
         };
 
-        const closeLoading = () => {
-            Swal.close();
-        };
+        const closeLoading = () => Swal.close();
 
         const apiCall = async (url, method, body = null) => {
             const options = { method, credentials: 'include' };
@@ -372,31 +249,17 @@
             }
             const response = await fetch(url, options);
             if (!response.ok) {
-                const contentType = response.headers.get('content-type');
-                let errorMessage = 'Network error';
-                try {
-                    if (contentType && contentType.includes('application/json')) {
-                        const data = await response.json();
-                        errorMessage = data.message || errorMessage;
-                    } else {
-                        errorMessage = await response.text();
-                    }
-                } catch (e) {
-                    console.error('Error parsing response:', e);
-                }
+                const errorMessage = await response.json().then(data => data.message || 'Network error').catch(() => 'Network error');
                 throw new Error(errorMessage);
             }
             return response.json();
         };
 
-        // UI Functions
         function toggleCoupons(header) {
             els.couponSection.classList.toggle('hidden');
-            const icon = header.querySelector('.fa-chevron-down');
-            icon.classList.toggle('fa-chevron-up');
+            header.querySelector('.fa-chevron-down').classList.toggle('fa-chevron-up');
         }
 
-        // Coupon Functions
         async function fetchCoupons() {
             try {
                 const data = await apiCall('/checkout/available-coupons', 'GET');
@@ -408,20 +271,15 @@
                                     ${coupon.coupon_code}
                                 </p>
                                 <p class="text-xs text-gray-600">
-                                    Save ${coupon.discount_percentage}% 
-                                    (Min. $${coupon.min_purchase_amount.toFixed(2)})
+                                    Save ${coupon.discount_percentage}% (Min. $${coupon.min_purchase_amount.toFixed(2)})
                                 </p>
                             </div>
-                            ${!coupon.is_used ? `
-                                <button onclick="applyCoupon('${coupon.coupon_code}')"
-                                    class="btn-primary px-3 py-1 text-sm">Apply</button>
-                            ` : '<span class="text-gray-500 text-sm">Used</span>'}
+                            ${!coupon.is_used ? `<button onclick="applyCoupon('${coupon.coupon_code}')" class="btn-primary px-3 py-1 text-sm">Apply</button>` : '<span class="text-gray-500 text-sm">Used</span>'}
                         </div>
                     `).join('')
                     : '<p class="text-gray-500 text-sm">No coupons available</p>';
             } catch (error) {
-                console.error('FetchCoupons Error:', error);
-                showAlert('error', 'Error', 'Failed to load coupons. Please try again.', 2000);
+                showAlert('error', 'Error', 'Failed to load coupons.', 2000);
             }
         }
 
@@ -429,73 +287,41 @@
             const couponCode = code || els.couponCode.value.trim();
             if (!couponCode) {
                 els.couponMessage.textContent = 'Please enter a coupon code';
-                els.couponMessage.classList.remove('hidden', 'text-green-600');
-                els.couponMessage.classList.add('text-red-600');
-                els.couponMessage.style.display = 'block';
+                els.couponMessage.classList.remove('hidden');
                 return;
             }
-
             try {
                 showLoading();
                 const data = await apiCall('/checkout/apply-coupon', 'POST', { coupon_code: couponCode });
                 closeLoading();
-
                 if (data.status === 'ok') {
                     state.appliedCoupon = true;
-                    state.discount = data.coupon_discount || 0;
-                    state.finalTotal = data.final_price || state.finalTotal;
-
-                    if (state.discount === 0) {
-                        console.warn('Coupon applied but discount is 0', data);
-                    }
-
+                    state.couponDiscount = Number(data.coupon_discount) || 0;
+                    state.totalDiscount = Number(data.total_discount) || 0;
+                    state.finalTotal = Number(data.final_price) || 0;
+                    els.couponDiscount.textContent = `-$${state.couponDiscount.toFixed(2)}`;
                     els.couponDiscountRow.style.display = 'flex';
-                    els.couponDiscount.textContent = `-$${state.discount.toFixed(2)}`;
+                    els.totalDiscount.textContent = `-$${state.totalDiscount.toFixed(2)}`;
                     els.finalTotal.textContent = `$${state.finalTotal.toFixed(2)}`;
                     els.couponContainer.innerHTML = `
                         <div class="flex items-center justify-between bg-green-100 p-3 rounded-lg">
                             <div>
                                 <p class="text-green-700 font-medium text-sm sm:text-base">Coupon: ${couponCode}</p>
-                                <p class="text-xs sm:text-sm text-green-600">Saved: $${state.discount.toFixed(2)}</p>
+                                <p class="text-xs sm:text-sm text-green-600">Saved: $${state.couponDiscount.toFixed(2)}</p>
                             </div>
-                            <button onclick="removeCoupon()" class="btn-primary bg-red-600 hover:bg-red-700 text-sm px-4">
-                                Remove
-                            </button>
-                        </div>
-                    `;
-                    
-                    // Show success message
-                    showAlert('success', 'Coupon Applied', 'Coupon applied successfully!', 2000);
-                    
-                    // Also update the coupon message 
+                            <button onclick="removeCoupon()" class="btn-primary bg-red-600 hover:bg-red-700 text-sm px-4">Remove</button>
+                        </div>`;
+                    els.couponCode = document.getElementById('couponCode');
                     els.couponMessage = document.getElementById('couponMessage');
-                    if (els.couponMessage) {
-                        els.couponMessage.textContent = 'Coupon applied successfully!';
-                        els.couponMessage.classList.remove('hidden', 'text-red-600');
-                        els.couponMessage.classList.add('text-green-600');
-                        els.couponMessage.style.display = 'block';
-                    }
-
+                    showAlert('success', 'Coupon Applied', 'Coupon applied successfully!', 2000);
                     await fetchCoupons();
                 } else {
                     els.couponMessage.textContent = data.message || 'Invalid coupon';
-                    els.couponMessage.classList.remove('hidden', 'text-green-600');
-                    els.couponMessage.classList.add('text-red-600');
-                    els.couponMessage.style.display = 'block';
-                    
-                    // Show error alert
-                    showAlert('error', 'Coupon Error', data.message || 'Invalid coupon', 2000);
+                    els.couponMessage.classList.remove('hidden');
                 }
             } catch (error) {
-                console.error('ApplyCoupon Error:', error);
                 closeLoading();
-                els.couponMessage.textContent = error.message || 'Failed to apply coupon';
-                els.couponMessage.classList.remove('hidden', 'text-green-600');
-                els.couponMessage.classList.add('text-red-600');
-                els.couponMessage.style.display = 'block';
-                
-                // Show error alert
-                showAlert('error', 'System Error', error.message || 'Failed to apply coupon', 2000);
+                showAlert('error', 'Error', error.message || 'Failed to apply coupon', 2000);
             }
         }
 
@@ -504,160 +330,78 @@
                 showLoading();
                 const data = await apiCall('/checkout/remove-coupon', 'POST');
                 closeLoading();
-
                 if (data.status === 'ok') {
                     state.appliedCoupon = false;
-                    state.discount = 0;
+                    state.couponDiscount = 0;
+                    state.totalDiscount = data.total_discount || state.offerDiscount;
                     state.finalTotal = data.final_price || state.finalTotal;
-
                     els.couponDiscountRow.style.display = 'none';
+                    els.totalDiscount.textContent = `-$${state.totalDiscount.toFixed(2)}`;
                     els.finalTotal.textContent = `$${state.finalTotal.toFixed(2)}`;
                     els.couponContainer.innerHTML = `
                         <div class="flex flex-col sm:flex-row gap-3">
-                            <input type="text" id="couponCode" placeholder="Enter coupon code" 
-                                class="input-field" aria-label="Coupon code">
+                            <input type="text" id="couponCode" placeholder="Enter coupon code" class="input-field" aria-label="Coupon code">
                             <button onclick="applyCoupon()" class="btn-primary whitespace-nowrap">Apply Coupon</button>
                         </div>
-                        <p id="couponMessage" class="mt-2 text-xs sm:text-sm text-gray-600 hidden"></p>
-                    `;
-                    
-                    // Update DOM elements after HTML changes
+                        <p id="couponMessage" class="mt-2 text-xs sm:text-sm text-gray-600 hidden"></p>`;
                     els.couponCode = document.getElementById('couponCode');
                     els.couponMessage = document.getElementById('couponMessage');
-                    
-                    // Show success alert
                     showAlert('success', 'Coupon Removed', 'Coupon removed successfully!', 2000);
-                    
-                    // Also update the coupon message
-                    if (els.couponMessage) {
-                        els.couponMessage.textContent = 'Coupon removed successfully!';
-                        els.couponMessage.classList.remove('hidden', 'text-red-600');
-                        els.couponMessage.classList.add('text-green-600');
-                        els.couponMessage.style.display = 'block';
-                    }
-
                     await fetchCoupons();
                 } else {
-                    // Show error alert
                     showAlert('error', 'Error', data.message || 'Failed to remove coupon', 2000);
-                    
-                    // Update message element
-                    if (els.couponMessage) {
-                        els.couponMessage.textContent = data.message || 'Failed to remove coupon';
-                        els.couponMessage.classList.remove('hidden', 'text-green-600');
-                        els.couponMessage.classList.add('text-red-600');
-                        els.couponMessage.style.display = 'block';
-                    }
                 }
             } catch (error) {
-                console.error('RemoveCoupon Error:', error);
                 closeLoading();
-                
-                // Show error alert
-                showAlert('error', 'System Error', error.message || 'Failed to remove coupon', 2000);
-                
-                // Update message element
-                if (els.couponMessage) {
-                    els.couponMessage.textContent = error.message || 'Failed to remove coupon';
-                    els.couponMessage.classList.remove('hidden', 'text-green-600');
-                    els.couponMessage.classList.add('text-red-600');
-                    els.couponMessage.style.display = 'block';
-                }
+                showAlert('error', 'Error', error.message || 'Failed to remove coupon', 2000);
             }
         }
 
-        // Address Functions
         async function selectAddress(id) {
             if (!id) {
                 state.selectedAddressId = null;
                 return;
             }
             state.selectedAddressId = parseInt(id, 10);
-            if (isNaN(state.selectedAddressId)) {
-                showAlert('error', 'Invalid Address', 'Selected address ID is invalid.', 2000);
-                return;
-            }
             try {
                 showLoading();
                 const data = await apiCall(`/profile/set-default-address/${state.selectedAddressId}`, 'POST');
                 closeLoading();
-                showAlert(
-                    data.status === 'ok' ? 'success' : 'error',
-                    data.status === 'ok' ? 'Address Selected' : 'Error',
-                    data.status === 'ok' ? 'This address is set for delivery.' : data.message || 'Failed to set address',
-                    1500
-                );
+                showAlert(data.status === 'ok' ? 'success' : 'error', data.status === 'ok' ? 'Address Selected' : 'Error', data.status === 'ok' ? 'This address is set for delivery.' : data.message || 'Failed to set address', 1500);
             } catch (error) {
-                console.error('SelectAddress Error:', error);
                 closeLoading();
-                showAlert('error', 'Connection Error', 'Could not connect to the server.', 2000);
+                showAlert('error', 'Error', 'Could not connect to the server.', 2000);
             }
         }
 
         async function showAddressModal(addressId = null) {
             const isEdit = !!addressId;
             let formValues = {};
-
-            if (isEdit && !addressId) {
-                showAlert('warning', 'No Address Selected', 'Please select an address to edit.', 2000);
-                return;
-            }
-
             if (isEdit) {
                 try {
                     const response = await apiCall(`/profile/get-address/${addressId}`, 'GET');
                     if (response.status !== 'ok') throw new Error(response.message || 'Failed to fetch address');
                     formValues = response.address;
                 } catch (error) {
-                    console.error('ShowAddressModal Error:', error);
                     showAlert('error', 'Error', error.message || 'Could not connect to the server.', 2000);
                     return;
                 }
             }
-
             Swal.fire({
                 title: `<span class="text-indigo-600">${isEdit ? 'Edit' : 'Add New'} Address</span>`,
                 html: `
                     <form id="addressForm" class="space-y-4 modal-form">
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label for="address_type">Address Type</label>
-                                <select id="address_type" name="address_type" required>
-                                    <option value="Home">Home</option>
-                                    <option value="Work">Work</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label for="name">Name</label>
-                                <input type="text" id="name" name="name" required>
-                            </div>
-                            <div>
-                                <label for="city">City</label>
-                                <input type="text" id="city" name="city" required>
-                            </div>
-                            <div>
-                                <label for="state">State</label>
-                                <input type="text" id="state" name="state" required>
-                            </div>
-                            <div>
-                                <label for="pincode">Pincode</label>
-                                <input type="text" id="pincode" name="pincode" required>
-                            </div>
-                            <div>
-                                <label for="phone">Phone</label>
-                                <input type="tel" id="phone" name="phone" maxlength="10" pattern="[0-9]{10}" required>
-                            </div>
-                            <div>
-                                <label for="alternate_phone">Alternate Phone (Optional)</label>
-                                <input type="tel" id="alternate_phone" name="alternate_phone" maxlength="10">
-                            </div>
-                            <div class="col-span-2">
-                                <label for="landmark">Landmark (Optional)</label>
-                                <input type="text" id="landmark" name="landmark">
-                            </div>
+                            <div><label for="address_type">Address Type</label><select id="address_type" name="address_type" required><option value="Home">Home</option><option value="Work">Work</option></select></div>
+                            <div><label for="name">Name</label><input type="text" id="name" name="name" required></div>
+                            <div><label for="city">City</label><input type="text" id="city" name="city" required></div>
+                            <div><label for="state">State</label><input type="text" id="state" name="state" required></div>
+                            <div><label for="pincode">Pincode</label><input type="text" id="pincode" name="pincode" required></div>
+                            <div><label for="phone">Phone</label><input type="tel" id="phone" name="phone" maxlength="10" pattern="[0-9]{10}" required></div>
+                            <div><label for="alternate_phone">Alternate Phone (Optional)</label><input type="tel" id="alternate_phone" name="alternate_phone" maxlength="10"></div>
+                            <div class="col-span-2"><label for="landmark">Landmark (Optional)</label><input type="text" id="landmark" name="landmark"></div>
                         </div>
-                    </form>
-                `,
+                    </form>`,
                 showCancelButton: true,
                 confirmButtonText: isEdit ? 'Update Address' : 'Add Address',
                 confirmButtonColor: '#4f46e5',
@@ -692,18 +436,12 @@
                         const data = await apiCall(url, 'POST', result.value);
                         closeLoading();
                         if (data.status === 'ok') {
-                            showAlert(
-                                'success',
-                                isEdit ? 'Address Updated!' : 'Address Added!',
-                                `Your address has been ${isEdit ? 'updated' : 'added'} successfully.`,
-                                1500
-                            );
-  window.location.reload();
+                            showAlert('success', isEdit ? 'Address Updated!' : 'Address Added!', `Your address has been ${isEdit ? 'updated' : 'added'} successfully.`, 1500);
+                            window.location.reload();
                         } else {
                             showAlert('error', 'Failed', data.message || 'Something went wrong', 2000);
                         }
                     } catch (error) {
-                        console.error('AddressModal Submit Error:', error);
                         closeLoading();
                         showAlert('error', 'Error', error.message || 'Could not connect to the server.', 2000);
                     }
@@ -711,13 +449,7 @@
             });
         }
 
-        // Order Functions
         async function placeOrder() {
-            console.log('Place Order button clicked', {
-                selectedAddressId: state.selectedAddressId,
-                paymentMethod: els.paymentMethod.value
-            });
-
             if (!state.selectedAddressId || !els.addressSelect.value) {
                 showAlert('warning', 'No Address Selected', 'Please select a delivery address.', 2000);
                 return;
@@ -729,84 +461,48 @@
                     payment_method: els.paymentMethod.value
                 });
                 closeLoading();
-
-                console.log('Place Order response:', data);
-
-                if (data.status === 'payment_required') {
-                    if (els.paymentMethod.value === 'COD') {
-                        showAlert('success', 'Order Placed!', 'Your order has been successfully placed.', 1500);
-                        window.location.href = `/order/success?order_id=${data.order_id}`;
-                    } else {
-                        if (typeof Razorpay === 'undefined') {
-                            console.error('Razorpay SDK not loaded');
-                            showAlert('error', 'Payment Error', 'Razorpay payment system is unavailable. Please try again later.', 2000);
-                            return;
-                        }
-                        if (!data.razorpay_order_id || !data.amount || !data.order_id) {
-                            console.error('Invalid Razorpay response:', data);
-                            showAlert('error', 'Payment Error', 'Invalid payment data from server.', 2000);
-                            return;
-                        }
-                        try {
-                            const razorpayKey = "{{.RazorpayKey}}" || '';
-                            if (!razorpayKey) {
-                                showAlert('error', 'Payment Error', 'Payment configuration is missing.', 2000);
-                                return;
-                            }
-                            const razorpayInstance = new Razorpay({
-                                key: razorpayKey,
-                                amount: data.amount,
-                                currency: 'INR',
-                                name: 'Silver E-commerce',
-                                description: 'Order Payment',
-                                order_id: data.razorpay_order_id,
-                                handler: verifyPayment,
-                                prefill: {
-                                    name: "{{.UserName}}" || 'Guest',
-                                    email: "{{.UserEmail}}" || '',
-                                    contact: "{{.UserPhone}}" || ''
-                                },
-                                theme: { color: '#4f46e5' },
-                                methods: {
-                                    card: true,
-                                    netbanking: true,
-                                    upi: true,
-                                    wallet: true,
-                                    emi: true,
-                                    paylater: true
-                                },
-                                modal: {
-                                    ondismiss: () => {
-                                        showAlert('warning', 'Payment Cancelled', 'Payment was cancelled by the user.', 2000);
-                                        window.location.href = `/order/failure?order_id=${data.order_id}&error=${encodeURIComponent('Payment was cancelled')}`;
-                                    }
-                                }
-                            });
-                            razorpayInstance.on('payment.failed', response => {
-                                showAlert('error', 'Payment Failed', `Payment failed: ${response.error.description || 'Unknown error'}`, 2000);
-                                window.location.href = `/order/failure?order_id=${data.order_id}&error=${encodeURIComponent(response.error.description || 'Payment failed')}`;
-                            });
-                            razorpayInstance.on('payment.error', response => {
-                                showAlert('error', 'Payment Error', `Payment error: ${response.error.description || 'Unknown error'}`, 2000);
-                            });
-                            razorpayInstance.open();
-                        } catch (error) {
-                            console.error('Razorpay Initialization Error:', error);
-                            showAlert('error', 'Payment Error', 'Failed to initialize payment. Please try again or contact support.', 2000);
-                        }
+                if (data.status === 'ok' && els.paymentMethod.value === 'COD') {
+                    showAlert('success', 'Order Placed!', 'Your order has been successfully placed.', 1500);
+                    window.location.replace(data.redirect || `/order/success?order_id=${data.order_id}`);
+                } else if (data.status === 'payment_required' && els.paymentMethod.value === 'ONLINE') {
+                    const razorpayKey = "{{.RazorpayKey}}";
+                    if (!razorpayKey) {
+                        showAlert('error', 'Payment Error', 'Payment configuration is missing.', 2000);
+                        return;
                     }
+                    const razorpayInstance = new Razorpay({
+                        key: razorpayKey,
+                        amount: data.amount,
+                        currency: 'INR',
+                        name: 'Silver E-commerce',
+                        description: 'Order Payment',
+                        order_id: data.razorpay_order_id,
+                        handler: verifyPayment,
+                        prefill: { name: "{{.UserName}}", email: "{{.UserEmail}}", contact: "{{.UserPhone}}" },
+                        theme: { color: '#4f46e5' },
+                        methods: { card: true, netbanking: true, upi: true, wallet: true, emi: true, paylater: true },
+                        modal: {
+                            ondismiss: () => {
+                                showAlert('warning', 'Payment Cancelled', 'Payment was cancelled by the user.', 2000);
+                                window.location.href = `/order/failure?order_id=${data.order_id}&error=${encodeURIComponent('Payment was cancelled')}`;
+                            }
+                        }
+                    });
+                    razorpayInstance.on('payment.failed', response => {
+                        showAlert('error', 'Payment Failed', `Payment failed: ${response.error.description || 'Unknown error'}`, 2000);
+                        window.location.href = `/order/failure?order_id=${data.order_id}&error=${encodeURIComponent(response.error.description || 'Payment failed')}`;
+                    });
+                    razorpayInstance.open();
                 } else {
                     showAlert('error', 'Order Failed', data.message || 'Something went wrong with the order.', 2000);
                 }
             } catch (error) {
-                console.error('PlaceOrder Error:', error);
                 closeLoading();
-                showAlert('error', 'Connection Error', 'Could not connect to the server. Please check your internet or try again later.', 2000);
+                showAlert('error', 'Connection Error', 'Could not connect to the server.', 2000);
             }
         }
 
         async function verifyPayment(response) {
-            console.log('Payment response:', response);
             try {
                 showLoading();
                 const data = await apiCall('/checkout/verify-payment', 'POST', {
@@ -814,19 +510,14 @@
                     razorpay_payment_id: response.razorpay_payment_id,
                     razorpay_signature: response.razorpay_signature
                 });
-
-                console.log('Verification response:', data);
-
+                closeLoading();
                 if (data.status === 'ok') {
-                    // Redirect to success page with order ID
                     window.location.href = data.redirect || `/order/success?order_id=${data.order_id}`;
                 } else {
-                    closeLoading();
                     showAlert('error', 'Payment Failed', data.message || 'Payment verification failed', 2000);
                     window.location.href = `/order/failure?order_id=${data.order_id}&error=${encodeURIComponent(data.message || 'Payment verification failed')}`;
                 }
             } catch (error) {
-                console.error('VerifyPayment Error:', error);
                 closeLoading();
                 showAlert('error', 'Error', error.message || 'Payment verification failed', 2000);
                 window.location.href = `/order/failure?error=${encodeURIComponent(error.message || 'Payment verification failed')}`;
@@ -834,5 +525,4 @@
         }
     </script>
 </body>
-
 </html>

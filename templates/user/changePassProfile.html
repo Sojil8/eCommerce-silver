@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Profile - Change Password</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+    <style>
+        .profile-input:focus {
+            border-color: #4f46e5;
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.2);
+        }
+        .swal2-container {
+            z-index: 9999;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .tab-button {
+            transition: all 0.3s ease;
+        }
+        .tab-button.active {
+            background-color: #4f46e5;
+            color: white;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 flex flex-col min-h-screen">
+  {{template "navbar.html" .}}
+
+
+    <!-- Main Content -->
+    <div class="container mx-auto p-6 flex-grow">
+        <div class="flex flex-col md:flex-row gap-6">
+            <!-- Sidebar Navigation -->
+            {{template "userSideBar.html" .}}
+
+            <!-- Main Content Area -->
+            <div class="flex-1">
+                <!-- Change Password Tab -->
+                <div id="password-tab" class="tab-content active bg-white rounded-xl shadow-md p-6">
+                    <h3 class="text-2xl font-semibold text-gray-900 mb-6">Change Password</h3>
+                    
+                    <div class="max-w-lg">
+                        <div class="space-y-4">
+                            <div class="relative">
+                                <label for="current_password_view" class="block text-sm font-medium text-gray-700 mb-1">Current Password</label>
+                                <div class="flex items-center">
+                                    <input type="password" id="current_password_view" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+                                    <button type="button" onclick="togglePasswordVisibility('current_password_view')" class="absolute right-3 text-gray-500">
+                                        <i id="current_password_view_icon" class="fas fa-eye"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div class="relative">
+                                <label for="new_password_view" class="block text-sm font-medium text-gray-700 mb-1">New Password</label>
+                                <div class="flex items-center">
+                                    <input type="password" id="new_password_view" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+                                    <button type="button" onclick="togglePasswordVisibility('new_password_view')" class="absolute right-3 text-gray-500">
+                                        <i id="new_password_view_icon" class="fas fa-eye"></i>
+                                    </button>
+                                </div>
+                                <div id="password-strength-view" class="mt-1 h-1 w-full bg-gray-200 rounded"></div>
+                                <p id="password-feedback-view" class="text-xs text-left mt-1 text-gray-500"></p>
+                            </div>
+                            
+                            <div class="relative">
+                                <label for="confirm_password_view" class="block text-sm font-medium text-gray-700 mb-1">Confirm Password</label>
+                                <div class="flex items-center">
+                                    <input type="password" id="confirm_password_view" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+                                    <button type="button" onclick="togglePasswordVisibility('confirm_password_view')" class="absolute right-3 text-gray-500">
+                                        <i id="confirm_password_view_icon" class="fas fa-eye"></i>
+                                    </button>
+                                </div>
+                                <p id="confirm-feedback-view" class="text-xs text-left mt-1 text-gray-500"></p>
+                            </div>
+                            
+                            <button onclick="changePasswordFromView()" class="mt-4 bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700 transition-colors">Update Password</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-gray-900 text-white p-6 mt-auto">
+        <div class="container mx-auto flex flex-col md:flex-row justify-between items-center">
+            <p class="text-sm">© 2025 Silver. All rights reserved.</p>
+            <div class="mt-4 md:mt-0 space-x-6">
+                <a href="#" class="text-gray-300 hover:text-white transition-colors duration-200">Privacy Policy</a>
+                <a href="#" class="text-gray-300 hover:text-white transition-colors duration-200">Terms of Service</a>
+            </div>
+        </div>
+    </footer>
+
+    <!-- JavaScript -->
+    <script>
+        function changePasswordFromView() {
+    const current = document.getElementById('current_password_view').value;
+    const newPass = document.getElementById('new_password_view').value;
+    const confirm = document.getElementById('confirm_password_view').value;
+    
+    if (!current || !newPass || !confirm) {
+        Swal.fire({ icon: 'error', title: 'Error', text: 'Please fill in all fields', confirmButtonColor: '#4f46e5' });
+        return;
+    }
+    if (newPass.length < 8) {
+        Swal.fire({ icon: 'error', title: 'Error', text: 'Password must be at least 8 characters', confirmButtonColor: '#4f46e5' });
+        return;
+    }
+    if (newPass !== confirm) {
+        Swal.fire({ icon: 'error', title: 'Error', text: 'Passwords do not match', confirmButtonColor: '#4f46e5' });
+        return;
+    }
+    
+    Swal.fire({ 
+        title: 'Updating Password', 
+        text: 'Please wait...', 
+        allowOutsideClick: false, 
+        didOpen: () => Swal.showLoading() 
+    });
+    
+    const formData = new FormData();
+    formData.append('current_password', current);
+    formData.append('new_password', newPass);
+    formData.append('confirm_password', confirm);
+    
+    fetch('/profile/change-password', {
+        method: 'POST',
+        body: formData,
+        credentials: 'include'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            Swal.fire({ 
+                icon: 'success', 
+                title: 'Password Updated!', 
+                text: 'Your password has been changed successfully.', 
+                confirmButtonColor: '#4f46e5' 
+            }).then(() => {
+                document.getElementById('current_password_view').value = '';
+                document.getElementById('new_password_view').value = '';
+                document.getElementById('confirm_password_view').value = '';
+            });
+        } else {
+            Swal.fire({ 
+                icon: 'error', 
+                title: 'Unable to Change Password', 
+                text: data.message || 'Please check your current password.', 
+                confirmButtonColor: '#4f46e5' 
+            });
+        }
+    })
+    .catch(error => {
+        Swal.fire({ 
+            icon: 'error', 
+            title: 'Error', 
+            text: 'Could not connect to the server.', 
+            confirmButtonColor: '#4f46e5' 
+        });
+    });
+}
+
+        // Utility Functions
+        function togglePasswordVisibility(inputId) {
+            const input = document.getElementById(inputId);
+            const icon = document.getElementById(`${inputId}_icon`);
+            if (input.type === "password") {
+                input.type = "text";
+                icon.classList.remove("fa-eye");
+                icon.classList.add("fa-eye-slash");
+            } else {
+                input.type = "password";
+                icon.classList.remove("fa-eye-slash");
+                icon.classList.add("fa-eye");
+            }
+        }
+
+        // Password strength checker for view
+        document.getElementById('new_password_view')?.addEventListener('input', function() {
+            const password = this.value;
+            const strengthBar = document.getElementById('password-strength-view');
+            const feedback = document.getElementById('password-feedback-view');
+            strengthBar.className = 'mt-1 h-1 w-full rounded';
+            feedback.textContent = '';
+            
+            if (password.length === 0) {
+                strengthBar.classList.add('bg-gray-200');
+                return;
+            }
+            
+            let strength = 0;
+            if (password.length >= 8) strength += 1;
+            if (password.match(/[a-z]/) && password.match(/[A-Z]/)) strength += 1;
+            if (password.match(/\d/)) strength += 1;
+            if (password.match(/[^a-zA-Z\d]/)) strength += 1;
+            
+            switch (strength) {
+                case 0:
+                case 1:
+                    strengthBar.classList.add('bg-red-500');
+                    feedback.textContent = 'Weak password';
+                    feedback.className = 'text-xs text-left mt-1 text-red-500';
+                    break;
+                case 2:
+                    strengthBar.classList.add('bg-yellow-500');
+                    feedback.textContent = 'Medium strength';
+                    feedback.className = 'text-xs text-left mt-1 text-yellow-600';
+                    break;
+                case 3:
+                    strengthBar.classList.add('bg-green-500');
+                    feedback.textContent = 'Strong password';
+                    feedback.className = 'text-xs text-left mt-1 text-green-600';
+                    break;
+                case 4:
+                    strengthBar.classList.add('bg-green-600');
+                    feedback.textContent = 'Very strong password';
+                    feedback.className = 'text-xs text-left mt-1 text-green-600';
+                    break;
+            }
+        });
+
+        // Password match checker for view
+        document.getElementById('confirm_password_view')?.addEventListener('input', function() {
+            const newPassword = document.getElementById('new_password_view').value;
+            const confirmPassword = this.value;
+            const feedback = document.getElementById('confirm-feedback-view');
+            
+            if (confirmPassword.length === 0) {
+                feedback.textContent = '';
+                return;
+            }
+            
+            if (newPassword === confirmPassword) {
+                feedback.textContent = 'Passwords match';
+                feedback.className = 'text-xs text-left mt-1 text-green-600';
+            } else {
+                feedback.textContent = 'Passwords do not match';
+                feedback.className = 'text-xs text-left mt-1 text-red-500';
+            }
+        });
+    </script>
+</body>
+</html>

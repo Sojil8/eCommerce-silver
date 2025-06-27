@@ -92,6 +92,9 @@ func UpdateOrderStatus(c *gin.Context) {
 				}
 			}
 		}
+		if req.Status == "Delivered"{
+			order.Status = "Paid"
+		}
 		order.Status = req.Status
 		return tx.Save(&order).Error
 	})

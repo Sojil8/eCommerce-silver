@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <style>
-        /* Custom styles for enhanced UI */
+        /* Custom styles unchanged */
         .status-badge {
             display: inline-flex;
             align-items: center;
@@ -67,7 +67,6 @@
         .progress-line.completed {
             background-color: #10b981;
         }
-        /* Modal styles */
         .modal {
             display: none;
             position: fixed;
@@ -107,7 +106,7 @@
     </style>
 </head>
 <body class="bg-gray-50 font-sans">
-    <!-- Navigation -->
+    <!-- Navigation unchanged -->
     <nav class="bg-white shadow-md sticky top-0 z-50">
         <div class="container mx-auto px-4 sm:px-6 py-4">
             <div class="flex justify-between items-center">
@@ -136,7 +135,7 @@
 
     <!-- Main Content -->
     <div class="container mx-auto px-4 sm:px-6 py-8">
-        <!-- Breadcrumb -->
+        <!-- Breadcrumb unchanged -->
         <nav class="flex mb-6" aria-label="Breadcrumb">
             <ol class="inline-flex items-center space-x-2 text-sm text-gray-600">
                 <li><a href="/" class="hover:text-indigo-600"><i class="fas fa-home mr-2"></i>Home</a></li>
@@ -151,7 +150,7 @@
             </ol>
         </nav>
 
-        <!-- Order Header -->
+        <!-- Order Header unchanged -->
         <div class="bg-white shadow-lg rounded-lg mb-8">
             <div class="px-6 py-5 flex flex-col sm:flex-row justify-between items-center">
                 <div>
@@ -162,7 +161,7 @@
                     <i class="fas fa-download mr-2"></i>Download Invoice
                 </a>
             </div>
-            <!-- Order Status Progress -->
+            <!-- Order Status Progress unchanged -->
             <div class="px-6 py-5 border-t border-gray-200">
                 <div class="order-progress">
                     <div class="progress-line {{ if or (eq .Order.Status "Confirmed") (eq .Order.Status "Processing") (eq .Order.Status "Delivered") }}completed{{ end }}"></div>
@@ -187,7 +186,7 @@
         </div>
 
         <div class="flex flex-col lg:flex-row gap-8">
-            <!-- Order Items -->
+            <!-- Order Items unchanged -->
             <div class="lg:w-2/3">
                 <div class="bg-white shadow-lg rounded-lg">
                     <div class="collapsible-header px-6 py-5 flex justify-between items-center" onclick="toggleSection('order-items')">
@@ -216,21 +215,31 @@
                                 <p class="text-sm text-green-600">Offer: {{ .OfferName }}</p>
                                 {{ end }}
                             </div>
-                            <div class="text-right">
-                                <p class="text-base font-semibold text-gray-900">${{ printf "%.2f" .ItemTotal }}</p>
-                                <p class="text-sm text-gray-500">Unit: ${{ printf "%.2f" .UnitPrice }}</p>
+                           <div class="text-right">
+                                <!-- Original Price (strikethrough) -->
+                                <p class="text-base font-semibold text-gray-700 line-through">
+                                    ${{ printf "%.2f" (add .Product.Price .Variants.ExtraPrice) }}
+                                </p>
+
+                                <!-- Discounted Price (green) -->
+                                <p class="text-base font-semibold text-green-600">
+                                    ${{ printf "%.2f" .UnitPrice }}
+                                </p>
+
                                 {{ if and (or (eq .Status "Active") (eq .Status "")) (or (eq $.Order.Status "Pending") (eq $.Order.Status "Confirmed")) }}
                                 <button onclick="openModal('cancel-item', '/orders/cancel-item/{{ $.Order.OrderIdUnique }}/{{ .ID }}')"
                                     class="text-sm text-red-600 hover:text-red-800 transition mt-2">Cancel Item</button>
                                 {{ end }}
                             </div>
+
+
                         </div>
                         {{ else }}
                         <p class="py-4 text-sm text-gray-500">No items found in this order.</p>
                         {{ end }}
                     </div>
                 </div>
-                <!-- Order Actions -->
+                <!-- Order Actions unchanged -->
                 {{ if and (ne .Order.Status "Delivered") (ne .Order.Status "Cancelled") (ne .Order.Status "Return Requested") }}
                 <div class="mt-6 flex justify-end">
                     <button onclick="openModal('cancel-order', '/orders/cancel/{{ .Order.OrderIdUnique }}')"
@@ -274,12 +283,6 @@
                             <span class="text-green-600">-${{ printf "%.2f" .Order.CouponDiscount }}</span>
                         </div>
                         {{ end }}
-                        {{ if .Order.CouponCode }}
-                        <div class="flex justify-between text-sm">
-                            <span class="font-medium text-green-600">Coupon Code</span>
-                            <span class="text-green-600">{{ .Order.CouponCode }}</span>
-                        </div>
-                        {{ end }}
                         <div class="flex justify-between text-sm">
                             <span class="font-medium text-gray-700">Shipping</span>
                             <span>${{ printf "%.2f" .Order.ShippingCost }}</span>
@@ -291,7 +294,7 @@
                     </div>
                 </div>
 
-                <!-- Shipping Address -->
+                <!-- Shipping Address unchanged -->
                 <div class="bg-white shadow-lg rounded-lg">
                     <div class="collapsible-header px-6 py-5 flex justify-between items-center" onclick="toggleSection('shipping-address')">
                         <h2 class="text-xl font-semibold text-gray-900">Shipping Address</h2>
@@ -313,7 +316,7 @@
             </div>
         </div>
 
-        <!-- Modal for Cancellation/Return -->
+        <!-- Modal for Cancellation/Return unchanged -->
         <div id="action-modal" class="modal">
             <div class="modal-content">
                 <h2 id="modal-title" class="text-lg font-semibold text-gray-900 mb-4"></h2>
@@ -327,7 +330,7 @@
         </div>
     </div>
 
-    <!-- JavaScript for Collapsible Sections and Modal -->
+    <!-- JavaScript unchanged -->
     <script>
         function toggleSection(sectionId) {
             const section = document.getElementById(sectionId);
@@ -397,7 +400,6 @@
             modal.style.display = 'none';
         }
 
-        // Close modal when clicking outside
         document.getElementById('action-modal').addEventListener('click', function(event) {
             if (event.target === this) {
                 closeModal();

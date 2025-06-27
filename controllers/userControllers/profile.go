@@ -231,6 +231,12 @@ var changePasswordRequest struct {
 	ConfirmPassword string `form:"confirm_password" binding:"required"`
 }
 
+func ShowChangePassword(c *gin.Context){
+	c.HTML(http.StatusOK,"changePassProfile.html",gin.H{
+		"status":"ok",
+	})
+}
+
 func ChangePassword(c *gin.Context) {
 	userID, _ := c.Get("id")
 	var user userModels.Users
@@ -240,6 +246,11 @@ func ChangePassword(c *gin.Context) {
 	}
 	if err := c.ShouldBind(&changePasswordRequest); err != nil {
 		helper.ResponseWithErr(c, http.StatusBadRequest, "Invalid input", "Please check all fields", "")
+		return
+	}
+	
+	if user.Password == ""{
+		helper.ResponseWithErr(c,http.StatusInternalServerError,"NO password","Password changes are only available for accounts created with email and password.","")
 		return
 	}
 
@@ -281,19 +292,24 @@ var addressRequest struct {
 	AlternatePhone string `json:"alternate_phone"`
 }
 
-func AddAddress(c *gin.Context) {
-	userID, _ := c.Get("id")
-	var addressRequest struct {
-		AddressType    string `json:"address_type" binding:"required"`
-		Name           string `json:"name" binding:"required"`
-		City           string `json:"city" binding:"required"`
-		Landmark       string `json:"landmark"`
-		State          string `json:"state" binding:"required"`
-		Pincode        string `json:"pincode" binding:"required"`
-		Phone          string `json:"phone" binding:"required"`
-		AlternatePhone string `json:"alternate_phone"`
+func GetAddressProfile(c *gin.Context){
+	uuid,_:= c.Get("id")
+
+	var addressess []userModels.Address
+	if err:=database.DB.Where("user_id = ?",uuid).Find(&addressess).Error;err!=nil{
+		helper.ResponseWithErr(c, http.StatusNotFound, "Not found the address", err.Error(), "")
 	}
 
+
+	c.HTML(http.StatusOK,"addressProfile.html",gin.H{
+		"status":"ok",
+		"Addresses" : addressess,
+	})
+}
+
+func AddAddress(c *gin.Context) {
+	userID, _ := c.Get("id")
+	
 	if err := c.ShouldBindJSON(&addressRequest); err != nil {
 		helper.ResponseWithErr(c, http.StatusBadRequest, "Invalid input", err.Error(), "")
 		return
@@ -326,17 +342,7 @@ func EditAddress(c *gin.Context) {
 	userID, _ := c.Get("id")
 	addressID := c.Param("address_id")
 
-	var addressRequest struct {
-		AddressType    string `json:"address_type" binding:"required"`
-		Name           string `json:"name" binding:"required"`
-		City           string `json:"city" binding:"required"`
-		Landmark       string `json:"landmark"`
-		State          string `json:"state" binding:"required"`
-		Pincode        string `json:"pincode" binding:"required"`
-		Phone          string `json:"phone" binding:"required"`
-		AlternatePhone string `json:"alternate_phone"`
-	}
-
+	
 	if err := c.ShouldBindJSON(&addressRequest); err != nil {
 		helper.ResponseWithErr(c, http.StatusBadRequest, "Invalid input", err.Error(), "")
 		return
@@ -389,7 +395,7 @@ func DeleteAddress(c *gin.Context) {
 	})
 }
 
-func GetAddress(c *gin.Context) {
+func GetEditAddress(c *gin.Context) {
 	userID, _ := c.Get("id")
 	addressID := c.Param("address_id")
 
@@ -439,7 +445,7 @@ func ShowWallet(c *gin.Context) {
 		cartCount = 0
 	}
 
-	c.HTML(http.StatusOK, "profileNew.html", gin.H{
+	c.HTML(http.StatusOK, "wallets.html", gin.H{
 		"Wallet": wallet,
 
 		"UserName":      userNameStr,

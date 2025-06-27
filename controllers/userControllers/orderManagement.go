@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/Sojil8/eCommerce-silver/database"
 	"github.com/Sojil8/eCommerce-silver/helper"
@@ -15,7 +15,6 @@ import (
 	"github.com/Sojil8/eCommerce-silver/models/userModels"
 	"github.com/gin-gonic/gin"
 	"github.com/jung-kurt/gofpdf"
-	"github.com/razorpay/razorpay-go"
 	"gorm.io/gorm"
 )
 
@@ -77,7 +76,8 @@ func CancelOrder(c *gin.Context) {
 
 	err := database.DB.Transaction(func(tx *gorm.DB) error {
 		var order userModels.Orders
-		if err := tx.Where("user_id = ? AND order_id_unique = ?", userID, orderID).Preload("OrderItems").First(&order).Error; err != nil {
+		if err := tx.Where("user_id = ? AND order_id_unique = ?", userID, orderID).
+			Preload("OrderItems").First(&order).Error; err != nil {
 			return err
 		}
 		if order.Status != "Pending" && order.Status != "Confirmed" {
@@ -90,7 +90,8 @@ func CancelOrder(c *gin.Context) {
 
 		if order.PaymentMethod == "ONLINE" {
 			var payment adminModels.PaymentDetails
-			if err := tx.Where("order_id = ? AND status = ?", order.ID, "Success").First(&payment).Error; err != nil {
+			if err := tx.Where("order_id = ? AND status IN ?", order.ID, []string{"Paid", "PartiallyRefundedToWallet"}).
+				First(&payment).Error; err != nil {
 				return fmt.Errorf("payment details not found: %v", err)
 			}
 
@@ -98,9 +99,9 @@ func CancelOrder(c *gin.Context) {
 			if err != nil {
 				return err
 			}
-			//coupon logic impliment here
 
-			wallet.Balance += payment.Amount
+			refundAmount := order.TotalPrice
+			wallet.Balance += refundAmount
 			if err := tx.Save(&wallet).Error; err != nil {
 				return fmt.Errorf("failed to update wallet balance: %v", err)
 			}
@@ -121,9 +122,42 @@ func CancelOrder(c *gin.Context) {
 				if err := tx.Save(&item).Error; err != nil {
 					return err
 				}
+
+				var products adminModels.Product
+				if err := tx.First(&products, item.ProductID).Error; err != nil {
+					return fmt.Errorf("failed to fetch product: %v", err)
+				}
+
+				var totalStock uint
+				var variants []adminModels.Variants
+				if err := tx.Where("product_id = ?", item.ProductID).Find(&variants).Error; err != nil {
+					return fmt.Errorf("failed to find variants for product %d: %v", item.ProductID, err)
+				}
+				for _, variant := range variants {
+					totalStock += variant.Stock
+				}
+
+				products.InStock = totalStock > 0
+				if err := tx.Save(&products).Error; err != nil {
+					return fmt.Errorf("failed to update product stock status: %v", err)
+				}
 			}
 		}
+		var coupons adminModels.Coupons
+		if coupons.ID != 0 {
+			if err := tx.First(&coupons, order.CouponID).Error; err != nil {
+				return fmt.Errorf("failed to get the coupon detials: %v", err)
+			}
+			if !time.Now().Before(coupons.ExpiryDate) {
+				coupons.UsedCount++
+			}
+			if err := tx.Save(coupons).Error; err != nil {
+				return fmt.Errorf("failed to update coupon used count: %v", err)
+			}
 
+		}
+
+		order.PaymentStatus = "RefundedToWallet"
 		order.Status = "Cancelled"
 		if err := tx.Save(&order).Error; err != nil {
 			return err
@@ -155,14 +189,15 @@ func CancelOrderItem(c *gin.Context) {
 
 	err := database.DB.Transaction(func(tx *gorm.DB) error {
 		var order userModels.Orders
-		if err := tx.Where("user_id = ? AND order_id_unique = ?", userID, orderID).Preload("OrderItems").First(&order).Error; err != nil {
+		if err := tx.Where("user_id = ? AND order_id_unique = ?", userID, orderID).Preload("OrderItems.Product").
+			Preload("OrderItems.Variants").First(&order).Error; err != nil {
 			return err
 		}
 
 		if order.Status != "Pending" && order.Status != "Confirmed" {
 			return gin.Error{Meta: gin.H{"error": "Only pending or confirmed orders can be modified"}}
 		}
-
+		
 		if order.Status == "Cancelled" {
 			return gin.Error{Meta: gin.H{"error": "Order is already cancelled"}}
 		}
@@ -172,102 +207,170 @@ func CancelOrderItem(c *gin.Context) {
 			return fmt.Errorf("invalid item ID: %v", err)
 		}
 
+		var cancelItem *userModels.OrderItem
 		for i, item := range order.OrderItems {
 			if item.ID == uint(itemIDUint) {
 				if item.Status != "Active" {
 					return gin.Error{Meta: gin.H{"error": "Item is already cancelled or not active"}}
 				}
+				cancelItem = &order.OrderItems[i]
+				break
+			}
+		}
+		if cancelItem == nil {
+			return gin.Error{Meta: gin.H{"error": "Item not found"}}
+		}
 
-				if order.PaymentMethod == "ONLINE" {
-					var payment adminModels.PaymentDetails
-					if err := tx.Where("order_id = ? AND status = ?", order.ID, "Success").First(&payment).Error; err != nil {
-						return fmt.Errorf("payment details not found: %v", err)
-					}
+		//bug area watch out........................................
 
-					refundAmount := item.UnitPrice * float64(item.Quantity)
+		remainingSubtotal := order.Subtotal - (cancelItem.UnitPrice+cancelItem.DiscountAmount/float64(cancelItem.Quantity))*float64(cancelItem.Quantity)
+		log.Printf("CancelItem: ItemID=%d, Subtotal=%.2f, CancelItemTotal=%.2f, RemainingSubtotal=%.2f",
+			cancelItem.ID, order.Subtotal, cancelItem.ItemTotal, remainingSubtotal)
 
+		var coupon adminModels.Coupons
+		couponDiscount := order.CouponDiscount
+		var couponAdjustemnt float64
+
+		if order.CouponID != 0 {
+			if err := tx.First(&coupon, order.CouponID).Error; err != nil {
+				if remainingSubtotal < coupon.MinPurchaseAmount {
+					couponAdjustemnt = order.CouponDiscount
+					order.CouponCode = ""
+					order.CouponID = 0
+					order.CouponID = 0
+					log.Printf("Coupon %s removed: RemainingSubtotal=%.2f < MinPurchaseAmount=%.2f",
+						coupon.CouponCode, remainingSubtotal, coupon.MinPurchaseAmount)
+				} else {
+					couponDiscount = remainingSubtotal * (coupon.DiscountPercentage / 100)
+					couponAdjustemnt = order.CouponDiscount - couponDiscount
+					log.Printf("Coupon %s adjusted: OldDiscount=%.2f, NewDiscount=%.2f",
+						coupon.CouponCode, order.CouponDiscount, couponDiscount)
+				}
+			} else {
+				log.Printf("Coupon ID %d not found: %v", order.CouponID, err)
+				couponAdjustemnt = order.CouponDiscount
+				couponDiscount = 0
+				order.CouponID = 0
+				order.CouponCode = ""
+			}
+		}
+
+		refundAmount := cancelItem.ItemTotal
+		if order.PaymentMethod == "ONLINE" {
+			var payment adminModels.PaymentDetails
+			if err := tx.Where("order_id = ? AND status IN ?", order.ID, []string{"Paid", "PartiallyRefundedToWallet"}).
+				First(&payment).Error; err != nil {
+				return fmt.Errorf("payment details not found: %v", err)
+			}
+
+			refundAmount -= couponAdjustemnt
+			if refundAmount < 0 {
+				log.Printf("Refund capped at 0: ItemTotal=%.2f, CouponAdjustment=%.2f", cancelItem.ItemTotal, couponAdjustemnt)
+				refundAmount = 0
+			}
+
+			if refundAmount > 0 {
+				wallet, err := EnshureWallet(tx, uint(userID.(uint)))
+				if err != nil {
+					return err
+				}
+				wallet.Balance += refundAmount
+				if err := tx.Save(&wallet).Error; err != nil {
+					return fmt.Errorf("failed to update wallet balance: %v", err)
+				}
+
+				payment.Amount -= refundAmount
+				if payment.Amount <= 0 {
+					payment.Status = "RefundedToWallet"
+				} else {
+					payment.Status = "PartiallyRefundedToWallet"
+				}
+				if err := tx.Save(&payment).Error; err != nil {
+					return fmt.Errorf("failed to update payment amount: %v", err)
+				}
+			}
+		}
+
+		order.Subtotal = remainingSubtotal
+		order.CouponDiscount = couponDiscount
+		order.TotalPrice = order.Subtotal - couponDiscount - order.OfferDiscount + order.ShippingCost
+		if err := tx.Save(&order).Error; err != nil {
+			return fmt.Errorf("failed to update order: %v", err)
+		}
+
+		if err := incrementStock(tx, cancelItem.VariantsID, cancelItem.Quantity); err != nil {
+			return err
+		}
+
+		var product adminModels.Product
+		if err := tx.First(&product, cancelItem.ProductID).Error; err != nil {
+			return fmt.Errorf("failed to find product %d: %v", cancelItem.ProductID, err)
+		}
+
+		var totalStock uint
+		for _, variant := range product.Variants {
+			totalStock += variant.Stock
+		}
+		product.InStock = totalStock > 0
+		if err := tx.Save(&product).Error; err != nil {
+			return fmt.Errorf("failed to update product %d InStock: %v", cancelItem.ProductID, err)
+		}
+
+		cancelItem.Status = "Cancelled"
+		if err := tx.Save(cancelItem).Error; err != nil {
+			return err
+		}
+
+		cancellation := userModels.Cancellation{OrderID: order.ID, ItemID: &cancelItem.ID, Reason: req.Reason}
+		if err := tx.Save(&cancellation).Error; err != nil {
+			return err
+		}
+
+		allCancelled := true
+		for _, item := range order.OrderItems {
+			if item.Status != "Cancelled" {
+				allCancelled = false
+				break
+			}
+		}
+
+		if allCancelled {
+			if order.PaymentMethod == "ONLINE" {
+				var payment adminModels.PaymentDetails
+				if err := tx.Where("order_id = ? AND status IN ?", order.ID, []string{"Success", "PartiallyRefundedToWallet"}).
+					First(&payment).Error; err != nil {
+					return fmt.Errorf("payment details not found: %v", err)
+				}
+				if payment.Amount > 0 {
 					wallet, err := EnshureWallet(tx, uint(userID.(uint)))
 					if err != nil {
 						return err
 					}
-
-					wallet.Balance += refundAmount
+					wallet.Balance += payment.Amount
 					if err := tx.Save(&wallet).Error; err != nil {
 						return fmt.Errorf("failed to update wallet balance: %v", err)
 					}
-
-					payment.Amount -= refundAmount
-					if payment.Amount <= 0 {
-						payment.Status = "RefundedToWallet"
-					} else {
-						payment.Status = "PartiallyRefundedToWallet"
-					}
+					payment.Status = "RefundedToWallet"
+					payment.Amount = 0
 					if err := tx.Save(&payment).Error; err != nil {
-						return fmt.Errorf("failed to update payment amount: %v", err)
+						return fmt.Errorf("failed to update payment status: %v", err)
 					}
 				}
+			}
 
-				if err := incrementStock(tx, item.VariantsID, item.Quantity); err != nil {
-					return err
-				}
-				order.OrderItems[i].Status = "Cancelled"
-				if err := tx.Save(&order.OrderItems[i]).Error; err != nil {
-					return err
-				}
-				cancellation := userModels.Cancellation{OrderID: order.ID, ItemID: &order.OrderItems[i].ID, Reason: req.Reason}
-				if err := tx.Create(&cancellation).Error; err != nil {
-					return err
-				}
+			order.Status = "Cancelled"
+			if err := tx.Save(&order).Error; err != nil {
+				return err
+			}
 
-				allCancelled := true
-				for _, item := range order.OrderItems {
-					if item.Status != "Cancelled" {
-						allCancelled = false
-						break
-					}
-				}
-
-				if allCancelled {
-					if order.PaymentMethod == "ONLINE" {
-						var payment adminModels.PaymentDetails
-						if err := tx.Where("order_id = ? AND status = ?", order.ID, "Success").First(&payment).Error; err != nil {
-							return fmt.Errorf("payment details not found: %v", err)
-						}
-						if payment.Amount > 0 {
-							client := razorpay.NewClient(os.Getenv("RAZORPAY_KEY_ID"), os.Getenv("RAZORPAY_KEY_SECRET"))
-							data := map[string]interface{}{
-								"payment_id": payment.RazorpayPaymentID,
-								"amount":     int(payment.Amount * 100),
-								"speed":      "normal",
-							}
-							options := map[string]string{}
-							_, err := client.Refund.Create(data, options)
-							if err != nil {
-								return fmt.Errorf("failed to initiate final refund: %v", err)
-							}
-							payment.Status = "Refunded"
-							payment.Amount = 0
-							if err := tx.Save(&payment).Error; err != nil {
-								return fmt.Errorf("failed to update payment status: %v", err)
-							}
-						}
-					}
-
-					order.Status = "Cancelled"
-					if err := tx.Save(&order).Error; err != nil {
-						return err
-					}
-
-					orderCancellation := userModels.Cancellation{OrderID: order.ID, Reason: req.Reason}
-					if err := tx.Create(&orderCancellation).Error; err != nil {
-						return err
-					}
-				}
-
-				return nil
+			orderCancellation := userModels.Cancellation{OrderID: order.ID, Reason: req.Reason}
+			if err := tx.Create(&orderCancellation).Error; err != nil {
+				return err
 			}
 		}
-		return gin.Error{Meta: gin.H{"error": "Item not found"}}
+
+		return nil
+
 	})
 	if err != nil {
 		if ginErr, ok := err.(gin.Error); ok && ginErr.Meta != nil {
@@ -326,7 +429,7 @@ func ShowOrderDetails(c *gin.Context) {
 		return
 	}
 	uid, ok := userID.(uint)
-	if !ok {	
+	if !ok {
 		log.Printf("Invalid user ID type")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
 		return
@@ -481,5 +584,6 @@ func incrementStock(tx *gorm.DB, variantID, quantity uint) error {
 		return err
 	}
 	variant.Stock += quantity
+
 	return tx.Save(&variant).Error
 }
