@@ -115,31 +115,22 @@ func CancelOrder(c *gin.Context) {
 
 		for _, item := range order.OrderItems {
 			if item.Status == "Active" {
-				if err := incrementStock(tx, item.VariantsID, item.Quantity); err != nil {
+				var variant adminModels.Variants
+				if err := tx.First(&variant, item.VariantsID).Error; err != nil {
 					return err
 				}
+				variant.Stock += item.Quantity
+				if err := tx.Save(&variant).Error; err != nil {
+					return err
+				}
+
+				if err := helper.UpdateProductStock(tx, item.ProductID); err != nil {
+					return err
+				}
+
 				item.Status = "Cancelled"
 				if err := tx.Save(&item).Error; err != nil {
 					return err
-				}
-
-				var products adminModels.Product
-				if err := tx.First(&products, item.ProductID).Error; err != nil {
-					return fmt.Errorf("failed to fetch product: %v", err)
-				}
-
-				var totalStock uint
-				var variants []adminModels.Variants
-				if err := tx.Where("product_id = ?", item.ProductID).Find(&variants).Error; err != nil {
-					return fmt.Errorf("failed to find variants for product %d: %v", item.ProductID, err)
-				}
-				for _, variant := range variants {
-					totalStock += variant.Stock
-				}
-
-				products.InStock = totalStock > 0
-				if err := tx.Save(&products).Error; err != nil {
-					return fmt.Errorf("failed to update product stock status: %v", err)
 				}
 			}
 		}
@@ -147,12 +138,14 @@ func CancelOrder(c *gin.Context) {
 		if coupons.ID != 0 {
 			if err := tx.First(&coupons, order.CouponID).Error; err != nil {
 				return fmt.Errorf("failed to get the coupon detials: %v", err)
-			}
-			if !time.Now().Before(coupons.ExpiryDate) {
-				coupons.UsedCount++
-			}
-			if err := tx.Save(coupons).Error; err != nil {
-				return fmt.Errorf("failed to update coupon used count: %v", err)
+			} else {
+				if !time.Now().Before(coupons.ExpiryDate) {
+					coupons.UsedCount++
+
+					if err := tx.Save(coupons).Error; err != nil {
+						return fmt.Errorf("failed to update coupon used count: %v", err)
+					}
+				}
 			}
 
 		}
@@ -197,7 +190,7 @@ func CancelOrderItem(c *gin.Context) {
 		if order.Status != "Pending" && order.Status != "Confirmed" {
 			return gin.Error{Meta: gin.H{"error": "Only pending or confirmed orders can be modified"}}
 		}
-		
+
 		if order.Status == "Cancelled" {
 			return gin.Error{Meta: gin.H{"error": "Order is already cancelled"}}
 		}
@@ -222,6 +215,14 @@ func CancelOrderItem(c *gin.Context) {
 		}
 
 		//bug area watch out........................................
+		var variant adminModels.Variants
+		if err := tx.First(&variant, cancelItem.VariantsID).Error; err != nil {
+			return err
+		}
+		variant.Stock += cancelItem.Quantity
+		if err := tx.Save(&variant).Error; err != nil {
+			return err
+		}
 
 		remainingSubtotal := order.Subtotal - (cancelItem.UnitPrice+cancelItem.DiscountAmount/float64(cancelItem.Quantity))*float64(cancelItem.Quantity)
 		log.Printf("CancelItem: ItemID=%d, Subtotal=%.2f, CancelItemTotal=%.2f, RemainingSubtotal=%.2f",
@@ -233,10 +234,15 @@ func CancelOrderItem(c *gin.Context) {
 
 		if order.CouponID != 0 {
 			if err := tx.First(&coupon, order.CouponID).Error; err != nil {
+				log.Printf("Coupon ID %d not found: %v", order.CouponID, err)
+				couponAdjustemnt = order.CouponDiscount
+				couponDiscount = 0
+				order.CouponID = 0
+				order.CouponCode = ""
+			} else {
 				if remainingSubtotal < coupon.MinPurchaseAmount {
 					couponAdjustemnt = order.CouponDiscount
 					order.CouponCode = ""
-					order.CouponID = 0
 					order.CouponID = 0
 					log.Printf("Coupon %s removed: RemainingSubtotal=%.2f < MinPurchaseAmount=%.2f",
 						coupon.CouponCode, remainingSubtotal, coupon.MinPurchaseAmount)
@@ -246,14 +252,8 @@ func CancelOrderItem(c *gin.Context) {
 					log.Printf("Coupon %s adjusted: OldDiscount=%.2f, NewDiscount=%.2f",
 						coupon.CouponCode, order.CouponDiscount, couponDiscount)
 				}
-			} else {
-				log.Printf("Coupon ID %d not found: %v", order.CouponID, err)
-				couponAdjustemnt = order.CouponDiscount
-				couponDiscount = 0
-				order.CouponID = 0
-				order.CouponCode = ""
 			}
-		}
+		} 
 
 		refundAmount := cancelItem.ItemTotal
 		if order.PaymentMethod == "ONLINE" {
@@ -298,7 +298,7 @@ func CancelOrderItem(c *gin.Context) {
 			return fmt.Errorf("failed to update order: %v", err)
 		}
 
-		if err := incrementStock(tx, cancelItem.VariantsID, cancelItem.Quantity); err != nil {
+		if err := helper.UpdateProductStock(tx, cancelItem.ProductID); err != nil {
 			return err
 		}
 
@@ -311,6 +311,8 @@ func CancelOrderItem(c *gin.Context) {
 		for _, variant := range product.Variants {
 			totalStock += variant.Stock
 		}
+
+		//is not working
 		product.InStock = totalStock > 0
 		if err := tx.Save(&product).Error; err != nil {
 			return fmt.Errorf("failed to update product %d InStock: %v", cancelItem.ProductID, err)

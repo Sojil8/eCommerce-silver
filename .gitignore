@@ -1,5 +1,4 @@
 .env
 package-lock.json
 package.json
-makefile
 .vscode
