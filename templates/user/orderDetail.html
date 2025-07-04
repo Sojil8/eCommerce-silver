@@ -106,7 +106,6 @@
     </style>
 </head>
 <body class="bg-gray-50 font-sans">
-    <!-- Navigation unchanged -->
     <nav class="bg-white shadow-md sticky top-0 z-50">
         <div class="container mx-auto px-4 sm:px-6 py-4">
             <div class="flex justify-between items-center">
@@ -133,9 +132,7 @@
         </div>
     </nav>
 
-    <!-- Main Content -->
     <div class="container mx-auto px-4 sm:px-6 py-8">
-        <!-- Breadcrumb unchanged -->
         <nav class="flex mb-6" aria-label="Breadcrumb">
             <ol class="inline-flex items-center space-x-2 text-sm text-gray-600">
                 <li><a href="/" class="hover:text-indigo-600"><i class="fas fa-home mr-2"></i>Home</a></li>
@@ -150,7 +147,6 @@
             </ol>
         </nav>
 
-        <!-- Order Header unchanged -->
         <div class="bg-white shadow-lg rounded-lg mb-8">
             <div class="px-6 py-5 flex flex-col sm:flex-row justify-between items-center">
                 <div>
@@ -161,7 +157,6 @@
                     <i class="fas fa-download mr-2"></i>Download Invoice
                 </a>
             </div>
-            <!-- Order Status Progress unchanged -->
             <div class="px-6 py-5 border-t border-gray-200">
                 <div class="order-progress">
                     <div class="progress-line {{ if or (eq .Order.Status "Confirmed") (eq .Order.Status "Processing") (eq .Order.Status "Delivered") }}completed{{ end }}"></div>
@@ -186,7 +181,6 @@
         </div>
 
         <div class="flex flex-col lg:flex-row gap-8">
-            <!-- Order Items unchanged -->
             <div class="lg:w-2/3">
                 <div class="bg-white shadow-lg rounded-lg">
                     <div class="collapsible-header px-6 py-5 flex justify-between items-center" onclick="toggleSection('order-items')">
@@ -216,12 +210,10 @@
                                 {{ end }}
                             </div>
                            <div class="text-right">
-                                <!-- Original Price (strikethrough) -->
                                 <p class="text-base font-semibold text-gray-700 line-through">
                                     ${{ printf "%.2f" (add .Product.Price .Variants.ExtraPrice) }}
                                 </p>
 
-                                <!-- Discounted Price (green) -->
                                 <p class="text-base font-semibold text-green-600">
                                     ${{ printf "%.2f" .UnitPrice }}
                                 </p>
@@ -239,7 +231,6 @@
                         {{ end }}
                     </div>
                 </div>
-                <!-- Order Actions unchanged -->
                 {{ if and (ne .Order.Status "Delivered") (ne .Order.Status "Cancelled") (ne .Order.Status "Return Requested") }}
                 <div class="mt-6 flex justify-end">
                     <button onclick="openModal('cancel-order', '/orders/cancel/{{ .Order.OrderIdUnique }}')"
@@ -258,43 +249,65 @@
                 {{ end }}
             </div>
 
-            <!-- Order Summary and Shipping Address -->
             <div class="lg:w-1/3 space-y-6">
-                <!-- Order Summary -->
                 <div class="bg-white shadow-lg rounded-lg">
                     <div class="collapsible-header px-6 py-5 flex justify-between items-center" onclick="toggleSection('order-summary')">
                         <h2 class="text-xl font-semibold text-gray-900">Order Summary</h2>
                         <i class="fas fa-chevron-down transition-transform duration-200" id="order-summary-toggle"></i>
                     </div>
                     <div id="order-summary" class="border-t border-gray-200 px-6 py-5 space-y-4">
-                        <div class="flex justify-between text-sm">
-                            <span class="font-medium text-gray-700">Subtotal</span>
-                            <span>${{ printf "%.2f" .Order.Subtotal }}</span>
-                        </div>
-                        {{ if gt .TotalOfferDiscount 0.0 }}
-                        <div class="flex justify-between text-sm">
-                            <span class="font-medium text-green-600">Offer Discounts</span>
-                            <span class="text-green-600">-${{ printf "%.2f" .TotalOfferDiscount }}</span>
-                        </div>
+                        {{ if or (eq .Order.Status "Cancelled") .AllItemsCancelled }}
+                            <p class="text-sm text-red-600 font-semibold mb-2">This order has been cancelled.</p>
+                            {{ if .HasBackup }}
+                                <div class="text-sm text-gray-700 italic">Original values at time of order:</div>
+                                <div class="flex justify-between text-sm">
+                                    <span class="font-medium text-gray-700">Original Total Price</span>
+                                    <span>${{ printf "%.2f" .OrderBackup.Subtotal }}</span>
+                                </div>
+                                <div class="flex justify-between text-sm">
+                                    <span class="font-medium text-green-600">Original Offer Discounts</span>
+                                    <span class="text-green-600">-${{ printf "%.2f" .OrderBackup.OfferDiscount }}</span>
+                                </div>
+                                <div class="flex justify-between text-sm">
+                                    <span class="font-medium text-green-600">ShippingCost</span>
+                                    <span class="text-green-600">-${{ printf "%.2f" .OrderBackup.ShippingCost }}</span>
+                                </div>
+                                <div class="flex justify-between text-lg font-bold border-t pt-4">
+                                    <span class="text-gray-900">Final Amount Paid (approx.)</span>
+                                    <span class="text-indigo-600">${{ printf "%.2f" .OrderBackup.TotalPrice }}</span>
+                                </div>
+                            {{ else }}
+                                <p class="text-sm text-gray-500">Original order details are unavailable.</p>
+                            {{ end }}
+                        {{ else }}
+                            <div class="flex justify-between text-sm">
+                                <span class="font-medium text-gray-700">Subtotal</span>
+                                <span>${{ printf "%.2f" .Order.Subtotal }}</span>
+                            </div>
+                            {{ if gt .CurrentTotalOfferDiscount 0.0 }}
+                            <div class="flex justify-between text-sm">
+                                <span class="font-medium text-green-600">Offer Discounts</span>
+                                <span class="text-green-600">-${{ printf "%.2f" .CurrentTotalOfferDiscount }}</span>
+                            </div>
+                            {{ end }}
+                            {{ if gt .Order.CouponDiscount 0.0 }}
+                            <div class="flex justify-between text-sm">
+                                <span class="font-medium text-green-600">Coupon Discount</span>
+                                <span class="text-green-600">-${{ printf "%.2f" .Order.CouponDiscount }}</span>
+                            </div>
+                            {{ end }}
+                            <div class="flex justify-between text-sm">
+                                <span class="font-medium text-gray-700">Shipping</span>
+                                <span>${{ printf "%.2f" .Order.ShippingCost }}</span>
+                            </div>
+                            <div class="flex justify-between text-lg font-bold border-t pt-4">
+                                <span class="text-gray-900">Grand Total</span>
+                                <span class="text-indigo-600">${{ printf "%.2f" .Order.TotalPrice }}</span>
+                            </div>
                         {{ end }}
-                        {{ if gt .Order.CouponDiscount 0.0 }}
-                        <div class="flex justify-between text-sm">
-                            <span class="font-medium text-green-600">Coupon Discount</span>
-                            <span class="text-green-600">-${{ printf "%.2f" .Order.CouponDiscount }}</span>
-                        </div>
-                        {{ end }}
-                        <div class="flex justify-between text-sm">
-                            <span class="font-medium text-gray-700">Shipping</span>
-                            <span>${{ printf "%.2f" .Order.ShippingCost }}</span>
-                        </div>
-                        <div class="flex justify-between text-lg font-bold border-t pt-4">
-                            <span class="text-gray-900">Grand Total</span>
-                            <span class="text-indigo-600">${{ printf "%.2f" .Order.TotalPrice }}</span>
-                        </div>
                     </div>
                 </div>
 
-                <!-- Shipping Address unchanged -->
                 <div class="bg-white shadow-lg rounded-lg">
                     <div class="collapsible-header px-6 py-5 flex justify-between items-center" onclick="toggleSection('shipping-address')">
                         <h2 class="text-xl font-semibold text-gray-900">Shipping Address</h2>
@@ -316,7 +329,6 @@
             </div>
         </div>
 
-        <!-- Modal for Cancellation/Return unchanged -->
         <div id="action-modal" class="modal">
             <div class="modal-content">
                 <h2 id="modal-title" class="text-lg font-semibold text-gray-900 mb-4"></h2>
@@ -330,7 +342,6 @@
         </div>
     </div>
 
-    <!-- JavaScript unchanged -->
     <script>
         function toggleSection(sectionId) {
             const section = document.getElementById(sectionId);

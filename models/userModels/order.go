@@ -58,7 +58,16 @@ type Cancellation struct {
 type Return struct {
 	gorm.Model
 	OrderID uint   `json:"order_id"`
-	Order   Orders `gorm:"foreignKey:OrderID" json:"order"`
+	Order   Orders `gorm:"foreig	nKey:OrderID" json:"order"`
 	Reason  string `json:"reason"`
 	Status  string `json:"status"`
+}
+
+type OrderBackUp struct {
+	gorm.Model
+	Subtotal      float64 `json:"subtotal"`
+	ShippingCost  float64 `json:"shipping_cost"`
+	OrderIdUnique string  `gorm:"type:varchar(255);unique"`
+	TotalPrice    float64 `json:"total_price"`
+	OfferDiscount float64 `json:"offer_discount"`
 }

@@ -179,7 +179,6 @@ func CancelOrderItem(c *gin.Context) {
 		helper.ResponseWithErr(c, http.StatusBadRequest, "Invalid request", "Please provide valid data", "")
 		return
 	}
-
 	err := database.DB.Transaction(func(tx *gorm.DB) error {
 		var order userModels.Orders
 		if err := tx.Where("user_id = ? AND order_id_unique = ?", userID, orderID).Preload("OrderItems.Product").
@@ -234,15 +233,10 @@ func CancelOrderItem(c *gin.Context) {
 
 		if order.CouponID != 0 {
 			if err := tx.First(&coupon, order.CouponID).Error; err != nil {
-				log.Printf("Coupon ID %d not found: %v", order.CouponID, err)
-				couponAdjustemnt = order.CouponDiscount
-				couponDiscount = 0
-				order.CouponID = 0
-				order.CouponCode = ""
-			} else {
 				if remainingSubtotal < coupon.MinPurchaseAmount {
 					couponAdjustemnt = order.CouponDiscount
 					order.CouponCode = ""
+					order.CouponID = 0
 					order.CouponID = 0
 					log.Printf("Coupon %s removed: RemainingSubtotal=%.2f < MinPurchaseAmount=%.2f",
 						coupon.CouponCode, remainingSubtotal, coupon.MinPurchaseAmount)
@@ -252,10 +246,17 @@ func CancelOrderItem(c *gin.Context) {
 					log.Printf("Coupon %s adjusted: OldDiscount=%.2f, NewDiscount=%.2f",
 						coupon.CouponCode, order.CouponDiscount, couponDiscount)
 				}
+			} else {
+				log.Printf("Coupon ID %d not found: %v", order.CouponID, err)
+				couponAdjustemnt = order.CouponDiscount
+				couponDiscount = 0
+				order.CouponID = 0
+				order.CouponCode = ""
 			}
-		} 
+		}
 
 		refundAmount := cancelItem.ItemTotal
+		refundAmount -= couponAdjustemnt
 		if order.PaymentMethod == "ONLINE" {
 			var payment adminModels.PaymentDetails
 			if err := tx.Where("order_id = ? AND status IN ?", order.ID, []string{"Paid", "PartiallyRefundedToWallet"}).
@@ -263,7 +264,6 @@ func CancelOrderItem(c *gin.Context) {
 				return fmt.Errorf("payment details not found: %v", err)
 			}
 
-			refundAmount -= couponAdjustemnt
 			if refundAmount < 0 {
 				log.Printf("Refund capped at 0: ItemTotal=%.2f, CouponAdjustment=%.2f", cancelItem.ItemTotal, couponAdjustemnt)
 				refundAmount = 0
@@ -293,29 +293,13 @@ func CancelOrderItem(c *gin.Context) {
 
 		order.Subtotal = remainingSubtotal
 		order.CouponDiscount = couponDiscount
-		order.TotalPrice = order.Subtotal - couponDiscount - order.OfferDiscount + order.ShippingCost
+		order.TotalPrice = order.Subtotal - couponAdjustemnt - order.OfferDiscount + order.ShippingCost
 		if err := tx.Save(&order).Error; err != nil {
 			return fmt.Errorf("failed to update order: %v", err)
 		}
 
 		if err := helper.UpdateProductStock(tx, cancelItem.ProductID); err != nil {
 			return err
-		}
-
-		var product adminModels.Product
-		if err := tx.First(&product, cancelItem.ProductID).Error; err != nil {
-			return fmt.Errorf("failed to find product %d: %v", cancelItem.ProductID, err)
-		}
-
-		var totalStock uint
-		for _, variant := range product.Variants {
-			totalStock += variant.Stock
-		}
-
-		//is not working
-		product.InStock = totalStock > 0
-		if err := tx.Save(&product).Error; err != nil {
-			return fmt.Errorf("failed to update product %d InStock: %v", cancelItem.ProductID, err)
 		}
 
 		cancelItem.Status = "Cancelled"
@@ -339,11 +323,10 @@ func CancelOrderItem(c *gin.Context) {
 		if allCancelled {
 			if order.PaymentMethod == "ONLINE" {
 				var payment adminModels.PaymentDetails
-				if err := tx.Where("order_id = ? AND status IN ?", order.ID, []string{"Success", "PartiallyRefundedToWallet"}).
+				if err := tx.Where("order_id = ? AND status IN ?", order.ID, []string{"Paid", "PartiallyRefundedToWallet"}).
 					First(&payment).Error; err != nil {
-					return fmt.Errorf("payment details not found: %v", err)
-				}
-				if payment.Amount > 0 {
+					log.Printf("Payment details not found for order ID %d or not in refundable state: %v", order.ID, err)
+				} else if payment.Amount > 0 {
 					wallet, err := EnshureWallet(tx, uint(userID.(uint)))
 					if err != nil {
 						return err
@@ -369,6 +352,12 @@ func CancelOrderItem(c *gin.Context) {
 			if err := tx.Create(&orderCancellation).Error; err != nil {
 				return err
 			}
+
+			order.Status = "Cancelled"
+			if err := tx.Save(&order).Error; err != nil {
+				return err
+			}
+
 		}
 
 		return nil
@@ -422,100 +411,137 @@ func ReturnOrder(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"status": "ok", "message": "Return requested successfully"})
 }
 
+
+
 func ShowOrderDetails(c *gin.Context) {
-	// 1. Extract user ID
-	userID, exists := c.Get("id")
-	if !exists {
-		log.Printf("No user ID found in context")
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
-		return
-	}
-	uid, ok := userID.(uint)
-	if !ok {
-		log.Printf("Invalid user ID type")
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
-		return
-	}
+    // 1. Extract user ID
+    userID, exists := c.Get("id")
+    if !exists {
+        log.Printf("No user ID found in context")
+        c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+        return
+    }
+    uid, ok := userID.(uint)
+    if !ok {
+        log.Printf("Invalid user ID type")
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+        return
+    }
 
-	// 2. Get order ID from URL parameter
-	orderID := c.Param("order_id")
-	if orderID == "" {
-		log.Printf("No order ID provided")
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Order ID is required"})
-		return
-	}
+    // 2. Get order ID from URL parameter (this is the unique string ID)
+    orderIDUnique := c.Param("order_id") // Renamed for clarity with unique ID
+    if orderIDUnique == "" {
+        log.Printf("No order ID provided")
+        c.JSON(http.StatusBadRequest, gin.H{"error": "Order ID is required"})
+        return
+    }
 
-	// 3. Fetch order with related data
-	var order userModels.Orders
-	if err := database.DB.Where("order_id_unique = ? AND user_id = ?", orderID, uid).
-		Preload("OrderItems.Product").
-		Preload("OrderItems.Variants").
-		First(&order).Error; err != nil {
-		log.Printf("Order not found for order_id=%s, user_id=%d: %v", orderID, uid, err)
-		c.JSON(http.StatusNotFound, gin.H{"error": "Order not found"})
-		return
-	}
+    // 3. Fetch order with related data
+    var order userModels.Orders
+    if err := database.DB.Where("order_id_unique = ? AND user_id = ?", orderIDUnique, uid).
+        Preload("OrderItems.Product").
+        Preload("OrderItems.Variants").
+        First(&order).Error; err != nil {
+        log.Printf("Order not found for order_id_unique=%s, user_id=%d: %v", orderIDUnique, uid, err)
+        c.JSON(http.StatusNotFound, gin.H{"error": "Order not found"})
+        return
+    }
 
-	// 4. Fetch shipping address
-	var address adminModels.ShippingAddress
-	if err := database.DB.Where("order_id = ? AND user_id = ?", orderID, uid).First(&address).Error; err != nil {
-		log.Printf("Shipping address not found for order_id=%s, user_id=%d: %v", orderID, uid, err)
-		c.JSON(http.StatusNotFound, gin.H{"error": "Shipping address not found"})
-		return
-	}
+    // 4. Fetch shipping address
+    var address adminModels.ShippingAddress
+    // Use order.OrderIdUnique for consistency with how it's stored in ShippingAddress (assuming it's stored by the unique ID)
+    if err := database.DB.Where("order_id = ? AND user_id = ?", order.OrderIdUnique, uid).First(&address).Error; err != nil {
+        log.Printf("Shipping address not found for order_id=%s, user_id=%d: %v", order.OrderIdUnique, uid, err)
+        c.JSON(http.StatusNotFound, gin.H{"error": "Shipping address not found"})
+        return
+    }
 
-	// 5. Calculate total offer discount from order items
-	totalOfferDiscount := 0.0
-	for _, item := range order.OrderItems {
-		totalOfferDiscount += item.DiscountAmount
-	}
+    // 5. Check if all items are cancelled and fetch backup data
+    allOrderItemsCancelled := true
+    for _, item := range order.OrderItems {
+        if item.Status != "Cancelled" {
+            allOrderItemsCancelled = false
+            break
+        }
+    }
 
-	// 6. Prepare user data
-	user, exists := c.Get("user")
-	userName, nameExists := c.Get("user_name")
-	if !exists || !nameExists {
-		c.HTML(http.StatusOK, "orderDetail.html", gin.H{
-			"status":             "success",
-			"Order":              order,
-			"ShippingAddress":    address,
-			"UserName":           "Guest",
-			"WishlistCount":      0,
-			"CartCount":          0,
-			"ProfileImage":       "",
-			"TotalOfferDiscount": totalOfferDiscount,
-		})
-		return
-	}
+    var orderBackup userModels.OrderBackUp
+    hasBackup := false
 
-	userData := user.(userModels.Users)
-	userNameStr := userName.(string)
+    // Fetch backup data only if all items are cancelled or the order itself is cancelled
+    // or if the current order's total price is zero (implies effective cancellation)
+    if allOrderItemsCancelled || order.Status == "Cancelled" || order.TotalPrice == 0 {
+        if err := database.DB.Where("order_id_unique = ?", order.OrderIdUnique).First(&orderBackup).Error; err != nil {
+            log.Printf("Order backup not found for order ID %d: %v", order.ID, err)
+            hasBackup = false
+        } else {
+            hasBackup = true
+        }
+    }
 
-	// 7. Fetch wishlist and cart counts
-	var wishlistCount, cartCount int64
-	if err := database.DB.Model(&userModels.Wishlist{}).Where("user_id = ?", userData.ID).Count(&wishlistCount).Error; err != nil {
-		log.Printf("Failed to fetch wishlist count for user_id=%d: %v", userData.ID, err)
-		wishlistCount = 0
-	}
-	if err := database.DB.Model(&userModels.CartItem{}).
-		Joins("JOIN carts ON carts.id = cart_items.cart_id").
-		Where("carts.user_id = ?", userData.ID).
-		Count(&cartCount).Error; err != nil {
-		log.Printf("Failed to fetch cart count for user_id=%d: %v", userData.ID, err)
-		cartCount = 0
-	}
+    // 6. Calculate total offer discount from active order items for CURRENT display
+    // If you want the original offer discount, use orderBackup.OfferDiscount when hasBackup is true.
+    currentTotalOfferDiscount := 0.0
+    for _, item := range order.OrderItems {
+        if item.Status == "Active" { // Only sum discount for items that are still active
+            currentTotalOfferDiscount += item.DiscountAmount
+        }
+    }
 
-	// 8. Render template
-	c.HTML(http.StatusOK, "orderDetail.html", gin.H{
-		"status":             "success",
-		"Order":              order,
-		"ShippingAddress":    address,
-		"UserName":           userNameStr,
-		"ProfileImage":       userData.ProfileImage,
-		"WishlistCount":      wishlistCount,
-		"CartCount":          cartCount,
-		"TotalOfferDiscount": totalOfferDiscount,
-	})
+
+    // 7. Prepare user data for template
+    user, exists := c.Get("user")
+    userName, nameExists := c.Get("user_name")
+    if !exists || !nameExists {
+        c.HTML(http.StatusOK, "orderDetail.html", gin.H{
+            "status":             "success",
+            "Order":              order,
+            "ShippingAddress":    address,
+            "UserName":           "Guest",
+            "WishlistCount":      0,
+            "CartCount":          0,
+            "ProfileImage":       "",
+            "CurrentTotalOfferDiscount": currentTotalOfferDiscount, // Renamed for clarity
+            "OrderBackup":        orderBackup,
+            "HasBackup":          hasBackup,
+            "AllItemsCancelled":  allOrderItemsCancelled, // Pass this flag to template
+        })
+        return
+    }
+
+    userData := user.(userModels.Users)
+    userNameStr := userName.(string)
+
+    // 8. Fetch wishlist and cart counts
+    var wishlistCount, cartCount int64
+    if err := database.DB.Model(&userModels.Wishlist{}).Where("user_id = ?", userData.ID).Count(&wishlistCount).Error; err != nil {
+        log.Printf("Failed to fetch wishlist count for user_id=%d: %v", userData.ID, err)
+        wishlistCount = 0
+    }
+    if err := database.DB.Model(&userModels.CartItem{}).
+        Joins("JOIN carts ON carts.id = cart_items.cart_id").
+        Where("carts.user_id = ?", userData.ID).
+        Count(&cartCount).Error; err != nil {
+        log.Printf("Failed to fetch cart count for user_id=%d: %v", userData.ID, err)
+        cartCount = 0
+    }
+
+    // 9. Render template
+    c.HTML(http.StatusOK, "orderDetail.html", gin.H{
+        "status":             "success",
+        "Order":              order,
+        "ShippingAddress":    address,
+        "UserName":           userNameStr,
+        "ProfileImage":       userData.ProfileImage,
+        "WishlistCount":      wishlistCount,
+        "CartCount":          cartCount,
+        "CurrentTotalOfferDiscount": currentTotalOfferDiscount, // Renamed for clarity
+        "OrderBackup":        orderBackup,
+        "HasBackup":          hasBackup,
+        "AllItemsCancelled":  allOrderItemsCancelled, // Pass this flag to template
+    })
 }
+
 
 func DownloadInvoice(c *gin.Context) {
 	userID, _ := c.Get("id")
@@ -580,12 +606,12 @@ func SearchOrders(c *gin.Context) {
 	c.JSON(http.StatusOK, filteredOrders)
 }
 
-func incrementStock(tx *gorm.DB, variantID, quantity uint) error {
-	var variant adminModels.Variants
-	if err := tx.First(&variant, variantID).Error; err != nil {
-		return err
-	}
-	variant.Stock += quantity
+// func incrementStock(tx *gorm.DB, variantID, quantity uint) error {
+// 	var variant adminModels.Variants
+// 	if err := tx.First(&variant, variantID).Error; err != nil {
+// 		return err
+// 	}
+// 	variant.Stock += quantity
 
-	return tx.Save(&variant).Error
-}
+// 	return tx.Save(&variant).Error
+// }

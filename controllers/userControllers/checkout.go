@@ -50,7 +50,7 @@ func ShowCheckout(c *gin.Context) {
 	offerDiscount := 0.0
 	originalTotalPrice := 0.0
 
-	for _, item := range cart.CartItems{
+	for _, item := range cart.CartItems {
 		var category adminModels.Category
 		var variant adminModels.Variants
 
@@ -158,9 +158,6 @@ func ShowCheckout(c *gin.Context) {
 		}
 	}
 
-	// Calculate total discount as sum of offer and coupon discounts
-	// totalDiscount := offerDiscount + couponDiscount
-
 	if finalPrice < minimumOrderAmount {
 		log.Printf("Order amount too low for user %v: finalPrice=%.2f, minimum=%.2f", userID, finalPrice, minimumOrderAmount)
 		helper.ResponseWithErr(c, http.StatusBadRequest, "Order amount too low",
@@ -181,9 +178,9 @@ func ShowCheckout(c *gin.Context) {
 			"FinalPrice":         finalPrice,
 			"Subtotal":           originalTotalPrice, // This should be the discounted subtotal
 			"OriginalTotalPrice": originalTotalPrice,
-			"TotalDiscount":      offerDiscount+couponDiscount,  // FIXED: Use totalDiscount instead of Discount
-			"OfferDiscount":      offerDiscount,  // Separate offer discount
-			"CouponDiscount":     couponDiscount, // Separate coupon discount
+			"TotalDiscount":      offerDiscount + couponDiscount, // FIXED: Use totalDiscount instead of Discount
+			"OfferDiscount":      offerDiscount,                  // Separate offer discount
+			"CouponDiscount":     couponDiscount,                 // Separate coupon discount
 			"CouponApplied":      couponApplied,
 			"AppliedCoupon":      appliedCoupon,
 			"UserEmail":          user.Email,
@@ -219,9 +216,9 @@ func ShowCheckout(c *gin.Context) {
 		"FinalPrice":         finalPrice,
 		"Subtotal":           originalTotalPrice,
 		"OriginalTotalPrice": originalTotalPrice,
-		"TotalDiscount":      offerDiscount+couponDiscount,  // FIXED: Use totalDiscount instead of Discount
-		"OfferDiscount":      offerDiscount,  // Separate offer discount
-		"CouponDiscount":     couponDiscount, // Separate coupon discount
+		"TotalDiscount":      offerDiscount + couponDiscount, // FIXED: Use totalDiscount instead of Discount
+		"OfferDiscount":      offerDiscount,                  // Separate offer discount
+		"CouponDiscount":     couponDiscount,                 // Separate coupon discount
 		"CouponApplied":      couponApplied,
 		"AppliedCoupon":      appliedCoupon,
 		"UserEmail":          user.Email,
@@ -276,7 +273,6 @@ func PlaceOrder(c *gin.Context) {
 	var coupon adminModels.Coupons
 	orderID := generateOrderID()
 	totalPrice := 0.0
-	totalDiscount := 0.0
 	err := database.DB.Transaction(func(tx *gorm.DB) error {
 
 		var originalTotalPrice float64
@@ -304,13 +300,14 @@ func PlaceOrder(c *gin.Context) {
 				item.DiscountedPrice = offerDetails.DiscountedPrice
 				item.OriginalPrice = offerDetails.OriginalPrice
 				item.DiscountPercentage = offerDetails.DiscountPercentage
-				totalDiscount += offerDetails.DiscountedPrice
 				item.OfferName = offerDetails.OfferName
 				item.IsOfferApplied = offerDetails.IsOfferApplied
 				item.ItemTotal = offerDetails.DiscountedPrice * float64(item.Quantity)
 				totalPrice += item.ItemTotal
 				originalTotalPrice += offerDetails.OriginalPrice * float64(item.Quantity)
-				offerDiscount += (offerDetails.OriginalPrice - offerDetails.DiscountedPrice) * float64(item.Quantity)
+
+				itemOfferDiscount := (offerDetails.OriginalPrice - offerDetails.DiscountedPrice) * float64(item.Quantity)
+				offerDiscount += itemOfferDiscount
 				validCartItems = append(validCartItems, item)
 			} else {
 				log.Printf("Skipping item: product_id=%d, variant_id=%d, product_listed=%v, product_in_stock=%v, variant_stock=%d, quantity=%d",
@@ -343,7 +340,6 @@ func PlaceOrder(c *gin.Context) {
 					couponDiscount = cart.OriginalTotalPrice * (coupon.DiscountPercentage / 100)
 					finalPrice -= couponDiscount
 					couponCode = coupon.CouponCode
-					totalDiscount += couponDiscount
 				} else {
 					log.Printf("Coupon %s invalid: active=%v, expired=%v, used=%d/%d, min=%.2f, cartTotal=%.2f",
 						coupon.CouponCode, coupon.IsActive, coupon.ExpiryDate.Before(time.Now()),
@@ -435,7 +431,6 @@ func PlaceOrder(c *gin.Context) {
 			Subtotal:        cart.OriginalTotalPrice,
 			CouponDiscount:  couponDiscount,
 			OfferDiscount:   offerDiscount,
-			TotalDiscount:   totalDiscount,
 			CouponID:        cart.CouponID,
 			CouponCode:      couponCode,
 			Status:          "Pending",
@@ -446,8 +441,19 @@ func PlaceOrder(c *gin.Context) {
 
 			CancellationStatus: "None",
 		}
+
 		if err := tx.Create(&order).Error; err != nil {
 			return fmt.Errorf("failed to create order: %v", err)
+		}
+		orderBackup := userModels.OrderBackUp{
+			ShippingCost: order.ShippingCost,
+			Subtotal: cart.OriginalTotalPrice,
+			TotalPrice:    finalPrice,
+			OfferDiscount: offerDiscount,
+			OrderIdUnique: orderID,
+		}
+		if err := tx.Create(&orderBackup).Error; err != nil {
+			return fmt.Errorf("failed to create orderbackup: %v", err)
 		}
 
 		for _, item := range validCartItems {
@@ -634,7 +640,7 @@ func VerifyPayment(c *gin.Context) {
 				offerDetails := helper.GetBestOfferForProduct(&item.Product, item.Variants.ExtraPrice)
 				item.Price = offerDetails.OriginalPrice
 				item.DiscountedPrice = offerDetails.DiscountedPrice
-				totalDiscount += offerDetails.DiscountedPrice
+				// totalDiscount += offerDetails.DiscountedPrice + couponDiscount
 				item.OriginalPrice = offerDetails.OriginalPrice
 				item.DiscountPercentage = offerDetails.DiscountPercentage
 				item.OfferName = offerDetails.OfferName
@@ -642,7 +648,8 @@ func VerifyPayment(c *gin.Context) {
 				item.ItemTotal = offerDetails.DiscountedPrice * float64(item.Quantity)
 				totalPrice += item.ItemTotal
 				originalTotalPrice += offerDetails.OriginalPrice * float64(item.Quantity)
-				offerDiscount += (offerDetails.OriginalPrice - offerDetails.DiscountedPrice) * float64(item.Quantity)
+				itemOfferDiscount := (offerDetails.OriginalPrice - offerDetails.DiscountedPrice) * float64(item.Quantity)
+				offerDiscount += itemOfferDiscount
 				validCartItems = append(validCartItems, item)
 			} else {
 				log.Printf("Skipping item: product_id=%d, variant_id=%d, product_listed=%v, product_in_stock=%v, variant_stock=%d, quantity=%d",
@@ -737,6 +744,17 @@ func VerifyPayment(c *gin.Context) {
 		}
 		if err := tx.Create(&order).Error; err != nil {
 			return fmt.Errorf("failed to create order: %v", err)
+		}
+
+		orderBackup := userModels.OrderBackUp{
+			ShippingCost: order.ShippingCost,
+			Subtotal:      cart.OriginalTotalPrice,
+			TotalPrice:    finalPrice,
+			OfferDiscount: offerDiscount,
+			OrderIdUnique: orderID,
+		}
+		if err := tx.Create(&orderBackup).Error; err != nil {
+			return fmt.Errorf("failed to create orderbackup: %v", err)
 		}
 
 		for _, item := range validCartItems {
