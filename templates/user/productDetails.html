@@ -1,354 +1,345 @@
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>{{ .Product.ProductName }} - Product Details</title>
-        <script src="https://cdn.tailwindcss.com"></script>
-        <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" rel="stylesheet">
-        <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-        <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
-        <style>
-            body { font-family: 'Poppins', sans-serif; }
-            
-            .img-zoom-container {
-                position: relative;
-                overflow: hidden;
-                border-radius: 0.75rem;
-            }
-            .main-img {
-                width: 100%;
-                transition: transform 0.3s ease;
-            }
-            .img-zoom-box {
-                position: absolute;
-                width: 150px;
-                height: 150px;
-                border: 2px solid #ddd;
-                background: white;
-                display: none;
-                overflow: hidden;
-                pointer-events: none;
-                z-index: 10;
-            }
-            .zoomed-img {
-                position: absolute;
-                max-width: none;
-            }
-            .img-zoom-container:hover .img-zoom-box {
-                display: block;
-            }
-            .quantity-control {
-                display: flex;
-                align-items: center;
-                border: 1px solid #e5e7eb;
-                border-radius: 0.375rem;
-                overflow: hidden;
-            }
-            .quantity-btn {
-                width: 2rem;
-                height: 2rem;
-                background: #f3f4f6;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                cursor: pointer;
-                transition: background 0.2s;
-            }
-            .quantity-btn:hover:not(:disabled) {
-                background: #e5e7eb;
-            }
-            .quantity-btn:disabled {
-                background: #d1d5db;
-                cursor: not-allowed;
-            }
-            .quantity-input {
-                width: 2.5rem;
-                height: 2rem;
-                border: none;
-                text-align: center;
-                -moz-appearance: textfield;
-            }
-            .quantity-input:disabled {
-                background: #d1d5db;
-                cursor: not-allowed;
-            }
-            .quantity-input::-webkit-outer-spin-button,
-            .quantity-input::-webkit-inner-spin-button {
-                -webkit-appearance: none;
-            }
-            .variant-btn.active {
-                background: #4f46e5;
-                color: white;
-                border-color: #4f46e5;
-            }
-            
-            /* Enhanced offer display styling */
-            .price-tag {
-                position: relative;
-                display: inline-block;
-            }
-            .offer-badge {
-                animation: pulse 2s infinite;
-            }
-            @keyframes pulse {
-                0% { transform: scale(1); }
-                50% { transform: scale(1.05); }
-                100% { transform: scale(1); }
-            }
-            .discount-pill {
-                transform: rotate(-2deg);
-                transition: all 0.3s ease;
-            }
-            .discount-pill:hover {
-                transform: rotate(0deg) scale(1.05);
-            }
-            .offer-timer {
-                font-size: 0.75rem;
-                font-weight: 600;
-                letter-spacing: 0.025em;
-            }
-            .offer-container {
-                transition: all 0.3s ease;
-            }
-            .offer-container:hover {
-                transform: translateY(-2px);
-            }
-            /* Enhanced offer timer styling */
-.countdown-wrapper {
-    display: inline-flex;
-    align-items: center;
-    font-family: 'Poppins', monospace;
-    font-weight: 600;
-    animation: fadeIn 0.5s ease-in;
-}
-
-.countdown-block {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 2.2rem;
-    font-feature-settings: "tnum";
-    font-variant-numeric: tabular-nums;
-    transition: all 0.3s ease;
-}
-
-.countdown-block small {
-    font-size: 0.6rem;
-    margin-left: 1px;
-    opacity: 0.8;
-}
-
-.countdown-block:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
-
-/* Existing offer display styling enhancements */
-.offer-container {
-    transition: all 0.5s ease;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-}
-
-.offer-container:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-}
-
-.offer-badge {
-    animation: pulse 2s infinite;
-}
-
-@keyframes pulse {
-    0% { transform: scale(1); }
-    50% { transform: scale(1.05); }
-    100% { transform: scale(1); }
-}
-
-@keyframes fadeIn {
-    0% { opacity: 0.5; }
-    100% { opacity: 1; }
-}
-
-/* Animation for urgent offers */
-.animate-pulse {
-    animation: urgentPulse 1.5s infinite;
-}
-
-@keyframes urgentPulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.8; }
-}
-        </style>
-    </head>
-    <body class="bg-gray-100 font-sans antialiased">
-        <!-- Navigation Bar -->
-        {{template "navbar.html" .}}
-
-        <!-- Breadcrumb -->
-        <div class="container mx-auto px-4 py-4">
-            {{ template "breadcrumbs.html" . }}
-        </div>
-
-        <!-- Product Detail Section -->
-        <section class="py-8 bg-white">
-            <div class="container mx-auto px-4">
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <!-- Product Images -->
-                    <div>
-                        <div class="img-zoom-container shadow-md relative">
-                            {{ if gt (len .Product.Images) 0 }}
-                            <img src="{{ index .Product.Images 0 }}" alt="{{ .Product.ProductName }}"
-                                class="main-img hover:scale-105" id="main-image">
-                            <div class="img-zoom-box">
-                                <img src="{{ index .Product.Images 0 }}" alt="{{ .Product.ProductName }}"
-                                    class="zoomed-img" id="zoomed-image">
-                            </div>
-                            <!-- Discount Badge -->
-                            {{ if .Product.IsOffer }}
-                            <div class="absolute top-3 left-3">
-                                <div class="discount-pill bg-gradient-to-r from-green-500 to-emerald-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-md">
-                                    {{ .Product.DiscountPercentage }}% OFF
-                                </div>
-                            </div>
-                            {{ end }}
-                            <!-- Out of Stock Badge -->
-                            {{ if not .HasStock }}
-    <div class="absolute top-3 right-3 bg-gradient-to-r from-red-500 to-red-600 text-white text-xs font-semibold px-3 py-1 rounded-full shadow-sm">
-        Out of Stock
-    </div>
-                            {{ end }}
-                            {{ else }}
-                            <img src="/static/default-product.jpg" alt="Default Image"
-                                class="main-img hover:scale-105" id="main-image">
-                            <div class="img-zoom-box">
-                                <img src="/static/default-product.jpg" alt="Default Image"
-                                    class="zoomed-img" id="zoomed-image">
-                            </div>
-                            {{ end }}
-                        </div>
-                        <div class="mt-3 flex space-x-2 overflow-x-auto">
-                            {{ range .Product.Images }}
-                            <img src="{{ . }}" alt="Thumbnail"
-                                class="w-16 h-16 object-cover rounded-md cursor-pointer hover:ring-2 hover:ring-indigo-500 thumbnail"
-                                data-src="{{ . }}">
-                            {{ end }}
-                        </div>
-                    </div>
-
-                    <!-- Product Info -->
-                    <div class="space-y-4">
-                        <h1 class="text-2xl font-bold text-gray-900">{{ .Product.ProductName }}</h1>
-
-          <!-- Enhanced Price and Offer Display -->
-<div class="price-tag">
-    {{ if .Product.IsOffer }}
-    <!-- Enhanced offer timer display with days remaining badge -->
-    <div class="offer-container bg-gradient-to-r from-green-50 to-emerald-50 p-3 rounded-lg border border-green-200 mb-3">
-        <div class="flex items-center space-x-2">
-            <span class="text-2xl font-bold text-red-600" id="current-price">${{ printf "%.2f" .Product.OfferPrice }}</span>
-            <span class="line-through text-gray-400 text-base">${{ printf "%.2f" .Product.OriginalPrice }}</span>
-            <span class="offer-badge bg-red-100 text-red-600 text-xs font-semibold px-2 py-1 rounded-md">
-                Save ${{ printf "%.2f" (sub .Product.OriginalPrice .Product.OfferPrice) }}
-            </span>
-        </div>
-        <p class="text-sm text-green-600 font-medium mt-1">{{ .Product.OfferName }}</p>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ .Product.ProductName }} - Product Details</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Poppins', sans-serif; }
         
-        <!-- Enhanced timer display with time blocks -->
-        <div class="mt-2 flex items-center justify-between">
-            <div class="offer-timer text-indigo-600 flex items-center"
-                 {{ if not .Product.OfferEndTime.IsZero }}
-                 data-end-time="{{ .Product.OfferEndTime.Format "2006-01-02T15:04:05Z07:00" }}"
-                 {{ end }}>
-                <i class="far fa-clock mr-1"></i>
-                {{ if .Product.OfferEndTime.IsZero }}
-                Limited time offer
-                {{ else }}
-                Loading offer time...
-                {{ end }}
-            </div>
-            
-            <!-- Days remaining badge -->
-            <div id="days-remaining-badge" class="ml-2 hidden bg-indigo-100 text-indigo-800 text-xs font-semibold px-2 py-1 rounded-full">
-            </div>
-        </div>
+        .img-zoom-container {
+            position: relative;
+            overflow: hidden;
+            border-radius: 0.75rem;
+        }
+        .main-img {
+            width: 100%;
+            transition: transform 0.3s ease;
+        }
+        .img-zoom-box {
+            position: absolute;
+            width: 150px;
+            height: 150px;
+            border: 2px solid #ddd;
+            background: white;
+            display: none;
+            overflow: hidden;
+            pointer-events: none;
+            z-index: 10;
+        }
+        .zoomed-img {
+            position: absolute;
+            max-width: none;
+        }
+        .img-zoom-container:hover .img-zoom-box {
+            display: block;
+        }
+        .quantity-control {
+            display: flex;
+            align-items: center;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.375rem;
+            overflow: hidden;
+        }
+        .quantity-btn {
+            width: 2rem;
+            height: 2rem;
+            background: #f3f4f6;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .quantity-btn:hover:not(:disabled) {
+            background: #e5e7eb;
+        }
+        .quantity-btn:disabled {
+            background: #d1d5db;
+            cursor: not-allowed;
+        }
+        .quantity-input {
+            width: 2.5rem;
+            height: 2rem;
+            border: none;
+            text-align: center;
+            -moz-appearance: textfield;
+        }
+        .quantity-input:disabled {
+            background: #d1d5db;
+            cursor: not-allowed;
+        }
+        .quantity-input::-webkit-outer-spin-button,
+        .quantity-input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+        }
+        .variant-btn.active {
+            background: #4f46e5;
+            color: white;
+            border-color: #4f46e5;
+        }
+        
+        /* Enhanced offer display styling */
+        .price-tag {
+            position: relative;
+            display: inline-block;
+        }
+        .offer-badge {
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        .discount-pill {
+            transform: rotate(-2deg);
+            transition: all 0.3s ease;
+        }
+        .discount-pill:hover {
+            transform: rotate(0deg) scale(1.05);
+        }
+        .offer-timer {
+            font-size: 0.75rem;
+            font-weight: 600;
+            letter-spacing: 0.025em;
+        }
+        .offer-container {
+            transition: all 0.3s ease;
+        }
+        .offer-container:hover {
+            transform: translateY(-2px);
+        }
+        /* Enhanced offer timer styling */
+        .countdown-wrapper {
+            display: inline-flex;
+            align-items: center;
+            font-family: 'Poppins', monospace;
+            font-weight: 600;
+            animation: fadeIn 0.5s ease-in;
+        }
+        .countdown-block {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 2.2rem;
+            font-feature-settings: "tnum";
+            font-variant-numeric: tabular-nums;
+            transition: all 0.3s ease;
+        }
+        .countdown-block small {
+            font-size: 0.6rem;
+            margin-left: 1px;
+            opacity: 0.8;
+        }
+        .countdown-block:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        /* Existing offer display styling enhancements */
+        .offer-container {
+            transition: all 0.5s ease;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .offer-container:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .offer-badge {
+            animation: pulse 2s infinite;
+        }
+        @keyframes fadeIn {
+            0% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        /* Animation for urgent offers */
+        .animate-pulse {
+            animation: urgentPulse 1.5s infinite;
+        }
+        @keyframes urgentPulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.8; }
+        }
+        /* Ensure related products are clickable */
+        .related-products .group {
+            z-index: 0;
+        }
+        .related-products .group:hover {
+            z-index: 10;
+        }
+        .related-products a {
+            pointer-events: auto !important;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 font-sans antialiased">
+    <!-- Navigation Bar -->
+    {{template "navbar.html" .}}
+
+    <!-- Breadcrumb -->
+    <div class="container mx-auto px-4 py-4">
+        {{ template "breadcrumbs.html" . }}
     </div>
-    {{ else }}
-    <span class="text-2xl font-bold text-indigo-600" id="current-price">${{ printf "%.2f" .Product.Price }}</span>
-    {{ end }}
-</div>
 
-                        <!-- Description -->
-                        <p class="text-gray-600">{{ .Product.Description }}</p>
-
-                        <!-- Variants -->
-                        {{ if .Product.Variants }}
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Select Variant</label>
-                            <div class="flex flex-wrap gap-2">
-                                {{ range .Product.Variants }}
-                                <button class="variant-btn px-3 py-1 bg-gray-100 rounded-md hover:bg-indigo-100 focus:ring-2 focus:ring-indigo-500"
-                                    data-variant-id="{{ .ID }}" data-color="{{ .Color }}"
-                                    data-extra-price="{{ .ExtraPrice }}" data-stock="{{ .Stock }}">
-                                    {{ .Color }}
-                                </button>
-                                {{ end }}
+    <!-- Product Detail Section -->
+    <section class="py-8 bg-white">
+        <div class="container mx-auto px-4">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- Product Images -->
+                <div>
+                    <div class="img-zoom-container shadow-md relative">
+                        {{ if gt (len .Product.Images) 0 }}
+                        <img src="{{ index .Product.Images 0 }}" alt="{{ .Product.ProductName }}"
+                            class="main-img hover:scale-105" id="main-image">
+                        <div class="img-zoom-box">
+                            <img src="{{ index .Product.Images 0 }}" alt="{{ .Product.ProductName }}"
+                                class="zoomed-img" id="zoomed-image">
+                        </div>
+                        <!-- Discount Badge -->
+                        {{ if .Product.IsOffer }}
+                        <div class="absolute top-3 left-3">
+                            <div class="discount-pill bg-gradient-to-r from-green-500 to-emerald-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-md">
+                                {{ .Product.DiscountPercentage }}% OFF
                             </div>
                         </div>
                         {{ end }}
-
-                        <!-- Quantity -->
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Quantity</label>
-                            <div class="quantity-control w-28">
-                                <div class="quantity-btn" id="quantity-down"><i class="fas fa-minus text-gray-600"></i></div>
-                                <input type="number" id="product-quantity" class="quantity-input" value="1" min="1"
-                                    {{ if .Product.Variants }}{{ with index .Product.Variants 0 }}max="{{ .Stock }}"{{ end }}{{ end }}>
-                                <div class="quantity-btn" id="quantity-up"><i class="fas fa-plus text-gray-600"></i></div>
-                            </div>
+                        <!-- Out of Stock Badge -->
+                        {{ if not .HasStock }}
+                        <div class="absolute top-3 right-3 bg-gradient-to-r from-red-500 to-red-600 text-white text-xs font-semibold px-3 py-1 rounded-full shadow-sm">
+                            Out of Stock
                         </div>
-
-                        <!-- Action Buttons -->
-                        <div class="flex space-x-3">
-                            <button id="add-to-cart" data-product-id="{{ .Product.ID }}"
-                                class="flex-1 bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 focus:ring-2 focus:ring-indigo-500">
-                                Add to Cart
-                            </button>
-                            <button id="add-to-wishlist" data-product-id="{{ .Product.ID }}"
-                                class="bg-gray-200 text-gray-700 p-2 rounded-md hover:bg-gray-300 focus:ring-2 focus:ring-gray-400">
-                                <i class="far fa-heart"></i>
-                            </button>
+                        {{ end }}
+                        {{ else }}
+                        <img src="/static/default-product.jpg" alt="Default Image"
+                            class="main-img hover:scale-105" id="main-image">
+                        <div class="img-zoom-box">
+                            <img src="/static/default-product.jpg" alt="Default Image"
+                                class="zoomed-img" id="zoomed-image">
                         </div>
-
-                        <!-- Stock Availability -->
-                        <div class="text-gray-700">
-                            <span class="font-medium">Availability:</span>
-                            <span id="availability" class="text-green-600">In Stock (<span id="stock-quantity">
-                                {{ if .Product.Variants }}{{ with index .Product.Variants 0 }}{{ .Stock }}{{ end }}{{ else }}0{{ end }}
-                            </span>)</span>
-                        </div>
-                        
-                        <!-- Additional Offer Information (if applicable) -->
-                        {{ if .Product.IsOffer }}
-                        <div class="mt-3 p-3 bg-indigo-50 rounded-md border border-indigo-100">
-                            <div class="flex items-center">
-                                <i class="fas fa-tag text-indigo-500 mr-2"></i>
-                                <p class="text-sm text-indigo-700">This offer is valid for a limited time only. Don't miss out!</p>
-                            </div>
-                        </div>
+                        {{ end }}
+                    </div>
+                    <div class="mt-3 flex space-x-2 overflow-x-auto">
+                        {{ range .Product.Images }}
+                        <img src="{{ . }}" alt="Thumbnail"
+                            class="w-16 h-16 object-cover rounded-md cursor-pointer hover:ring-2 hover:ring-indigo-500 thumbnail"
+                            data-src="{{ . }}">
                         {{ end }}
                     </div>
                 </div>
-            </div>
-        </section>
 
-        <!-- Related Products Section -->
-        <section class="py-8 bg-gray-50">
-            <div class="container mx-auto px-4">
-                <h2 class="text-xl font-bold text-gray-900 text-center mb-8">Related Products</h2>
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                    {{ range .RelatedProducts }}
-                    <div class="bg-white rounded-lg shadow-md hover:shadow-lg transition-all group relative">
+                <!-- Product Info -->
+                <div class="space-y-4">
+                    <h1 class="text-2xl font-bold text-gray-900">{{ .Product.ProductName }}</h1>
+
+                    <!-- Enhanced Price and Offer Display -->
+                    <div class="price-tag">
+                        {{ if .Product.IsOffer }}
+                        <div class="offer-container bg-gradient-to-r from-green-50 to-emerald-50 p-3 rounded-lg border border-green-200 mb-3">
+                            <div class="flex items-center space-x-2">
+                                <span class="text-2xl font-bold text-red-600" id="current-price">${{ printf "%.2f" .Product.OfferPrice }}</span>
+                                <span class="line-through text-gray-400 text-base">${{ printf "%.2f" .Product.OriginalPrice }}</span>
+                                <span class="offer-badge bg-red-100 text-red-600 text-xs font-semibold px-2 py-1 rounded-md">
+                                    Save ${{ printf "%.2f" (sub .Product.OriginalPrice .Product.OfferPrice) }}
+                                </span>
+                            </div>
+                            <p class="text-sm text-green-600 font-medium mt-1">{{ .Product.OfferName }}</p>
+                            <div class="mt-2 flex items-center justify-between">
+                                <div class="offer-timer text-indigo-600 flex items-center"
+                                     {{ if not .Product.OfferEndTime.IsZero }}
+                                     data-end-time="{{ .Product.OfferEndTime.Format "2006-01-02T15:04:05Z07:00" }}"
+                                     {{ end }}>
+                                    <i class="far fa-clock mr-1"></i>
+                                    {{ if .Product.OfferEndTime.IsZero }}
+                                    Limited time offer
+                                    {{ else }}
+                                    Loading offer time...
+                                    {{ end }}
+                                </div>
+                                <div id="days-remaining-badge" class="ml-2 hidden bg-indigo-100 text-indigo-800 text-xs font-semibold px-2 py-1 rounded-full"></div>
+                            </div>
+                        </div>
+                        {{ else }}
+                        <span class="text-2xl font-bold text-indigo-600" id="current-price">${{ printf "%.2f" .Product.Price }}</span>
+                        {{ end }}
+                    </div>
+
+                    <!-- Description -->
+                    <p class="text-gray-600">{{ .Product.Description }}</p>
+
+                    <!-- Variants -->
+                    {{ if .Product.Variants }}
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Select Variant</label>
+                        <div class="flex flex-wrap gap-2">
+                            {{ range .Product.Variants }}
+                            <button class="variant-btn px-3 py-1 bg-gray-100 rounded-md hover:bg-indigo-100 focus:ring-2 focus:ring-indigo-500"
+                                data-variant-id="{{ .ID }}" data-color="{{ .Color }}"
+                                data-extra-price="{{ .ExtraPrice }}" data-stock="{{ .Stock }}">
+                                {{ .Color }}
+                            </button>
+                            {{ end }}
+                        </div>
+                    </div>
+                    {{ end }}
+
+                    <!-- Quantity -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Quantity</label>
+                        <div class="quantity-control w-28">
+                            <div class="quantity-btn" id="quantity-down"><i class="fas fa-minus text-gray-600"></i></div>
+                            <input type="number" id="product-quantity" class="quantity-input" value="1" min="1"
+                                {{ if .Product.Variants }}{{ with index .Product.Variants 0 }}max="{{ .Stock }}"{{ end }}{{ end }}>
+                            <div class="quantity-btn" id="quantity-up"><i class="fas fa-plus text-gray-600"></i></div>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="flex space-x-3">
+                        <button id="add-to-cart" data-product-id="{{ .Product.ID }}"
+                            class="flex-1 bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 focus:ring-2 focus:ring-indigo-500">
+                            Add to Cart
+                        </button>
+                        <button id="add-to-wishlist" data-product-id="{{ .Product.ID }}"
+                            class="bg-gray-200 text-gray-700 p-2 rounded-md hover:bg-gray-300 focus:ring-2 focus:ring-gray-400">
+                            <i class="far fa-heart"></i>
+                        </button>
+                    </div>
+
+                    <!-- Stock Availability -->
+                    <div class="text-gray-700">
+                        <span class="font-medium">Availability:</span>
+                        <span id="availability" class="text-green-600">In Stock (<span id="stock-quantity">
+                            {{ if .Product.Variants }}{{ with index .Product.Variants 0 }}{{ .Stock }}{{ end }}{{ else }}0{{ end }}
+                        </span>)</span>
+                    </div>
+
+                    <!-- Additional Offer Information (if applicable) -->
+                    {{ if .Product.IsOffer }}
+                    <div class="mt-3 p-3 bg-indigo-50 rounded-md border border-indigo-100">
+                        <div class="flex items-center">
+                            <i class="fas fa-tag text-indigo-500 mr-2"></i>
+                            <p class="text-sm text-indigo-700">This offer is valid for a limited time only. Don't miss out!</p>
+                        </div>
+                    </div>
+                    {{ end }}
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Related Products Section -->
+    <section class="py-8 bg-gray-50 related-products">
+        <div class="container mx-auto px-4">
+            <h2 class="text-xl font-bold text-gray-900 text-center mb-8">Related Products</h2>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {{ range .RelatedProducts }}
+                <div class="bg-white rounded-lg shadow-md hover:shadow-lg transition-all group relative cursor-pointer">
+                    <a href="/product/details/{{ .ID }}" class="block">
+                        <!-- Product Image -->
                         {{ if gt (len .Images) 0 }}
                         <img src="{{ index .Images 0 }}" alt="{{ .ProductName }}"
                             class="w-full h-48 object-cover group-hover:scale-105 transition-transform rounded-t-lg">
@@ -356,357 +347,365 @@
                         <img src="/static/default-product.jpg" alt="{{ .ProductName }}"
                             class="w-full h-48 object-cover group-hover:scale-105 transition-transform rounded-t-lg">
                         {{ end }}
-                        
+
                         <!-- Offer Badge for Related Products -->
-                    
-                        
-                        <div class="p-3">
-                            <a href="/product/details/{{ .ID }}"
-                                class="block text-gray-900 font-semibold hover:text-indigo-600">{{ .ProductName }}</a>
-                            <div class="flex justify-between items-center mt-2">
-                                <!-- Price Display for Related Products -->
-                            
-                                <button class="text-gray-500 hover:text-red-500 wishlist-btn"
-                                    data-product-id="{{ .ID }}">
-                                    <i class="far fa-heart"></i>
-                                </button>
+                        {{ if .IsOffer }}
+                        <div class="absolute top-3 left-3">
+                            <div class="discount-pill bg-gradient-to-r from-green-500 to-emerald-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-md">
+                                {{ .DiscountPercentage }}% OFF
                             </div>
                         </div>
+                        {{ end }}
+
+                        <!-- Out of Stock Badge -->
+                        {{ $hasStock := false }}
+                        {{ range .Variants }}
+                        {{ if gt .Stock 0 }}
+                        {{ $hasStock = true }}
+                        {{ end }}
+                        {{ end }}
+                        {{ if not $hasStock }}
+                        <div class="absolute top-3 right-3 bg-gradient-to-r from-red-500 to-red-600 text-white text-xs font-semibold px-3 py-1 rounded-full shadow-sm">
+                            Out of Stock
+                        </div>
+                        {{ end }}
+                    </a>
+
+                    <div class="p-3">
+                        <a href="/product/details/{{ .ID }}"
+                            class="block text-gray-900 font-semibold hover:text-indigo-600">{{ .ProductName }}</a>
+                        <div class="flex justify-between items-center mt-2">
+                            <!-- Price Display for Related Products -->
+                            {{ if .IsOffer }}
+                            <div class="flex items-center space-x-2">
+                                <span class="text-lg font-bold text-red-600">${{ printf "%.2f" .OfferPrice }}</span>
+                                <span class="line-through text-gray-400 text-sm">${{ printf "%.2f" .OriginalPrice }}</span>
+                                <span class="offer-badge bg-red-100 text-red-600 text-xs font-semibold px-2 py-1 rounded-md">
+                                    Save ${{ printf "%.2f" (sub .OriginalPrice .OfferPrice) }}
+                                </span>
+                            </div>
+                            {{ else }}
+                            <span class="text-lg font-bold text-indigo-600">${{ printf "%.2f" .Price }}</span>
+                            {{ end }}
+                            <button class="text-gray-500 hover:text-red-500 wishlist-btn"
+                                data-product-id="{{ .ID }}">
+                                <i class="far fa-heart"></i>
+                            </button>
+                        </div>
                     </div>
-                    {{ else }}
-                    <p class="text-center text-gray-600 col-span-full">No related products available.</p>
-                    {{ end }}
                 </div>
+                {{ else }}
+                <p class="text-center text-gray-600 col-span-full">No related products available.</p>
+                {{ end }}
             </div>
-        </section>
+        </div>
+    </section>
 
-    <!-- This is the fixed script section for the product details page -->
+    <!-- Script Section -->
     <script>
-       document.addEventListener('DOMContentLoaded', () => {
-    const mainImage = document.getElementById('main-image');
-    const zoomedImage = document.getElementById('zoomed-image');
-    const zoomBox = document.querySelector('.img-zoom-box');
-    const thumbnails = document.querySelectorAll('.thumbnail');
-    const quantityInput = document.getElementById('product-quantity');
-    const btnQuantityUp = document.getElementById('quantity-up');
-    const btnQuantityDown = document.getElementById('quantity-down');
-    const addToCartBtn = document.getElementById('add-to-cart');
-    const variantButtons = document.querySelectorAll('.variant-btn');
-    const currentPriceEl = document.getElementById('current-price');
-    const stockQuantityEl = document.getElementById('stock-quantity');
-    const availabilityEl = document.getElementById('availability');
-    const imgZoomContainer = document.querySelector('.img-zoom-container');
+        document.addEventListener('DOMContentLoaded', () => {
+            const mainImage = document.getElementById('main-image');
+            const zoomedImage = document.getElementById('zoomed-image');
+            const zoomBox = document.querySelector('.img-zoom-box');
+            const thumbnails = document.querySelectorAll('.thumbnail');
+            const quantityInput = document.getElementById('product-quantity');
+            const btnQuantityUp = document.getElementById('quantity-up');
+            const btnQuantityDown = document.getElementById('quantity-down');
+            const addToCartBtn = document.getElementById('add-to-cart');
+            const variantButtons = document.querySelectorAll('.variant-btn');
+            const currentPriceEl = document.getElementById('current-price');
+            const stockQuantityEl = document.getElementById('stock-quantity');
+            const availabilityEl = document.getElementById('availability');
+            const imgZoomContainer = document.querySelector('.img-zoom-container');
 
-    let basePrice = parseFloat(currentPriceEl.textContent.replace('$', ''));
-    let selectedVariant = null;
-    let isOfferProduct = {{ if .Product.IsOffer }}true{{ else }}false{{ end }};
-    let originalPrice = {{ if .Product.IsOffer }}{{ .Product.OriginalPrice }}{{ else }}basePrice{{ end }};
-    let offerPrice = {{ if .Product.IsOffer }}{{ .Product.OfferPrice }}{{ else }}basePrice{{ end }};
+            let basePrice = parseFloat(currentPriceEl.textContent.replace('$', ''));
+            let selectedVariant = null;
+            let isOfferProduct = {{ if .Product.IsOffer }}true{{ else }}false{{ end }};
+            let originalPrice = {{ if .Product.IsOffer }}{{ .Product.OriginalPrice }}{{ else }}basePrice{{ end }};
+            let offerPrice = {{ if .Product.IsOffer }}{{ .Product.OfferPrice }}{{ else }}basePrice{{ end }};
 
-    // FIXED: Add the missing updatePriceDisplay function
-    function updatePriceDisplay(extraPrice) {
-        let newPrice;
-        
-        if (isOfferProduct) {
-            // For offer products, we need to recalculate based on the original logic
-            // The base offer price and original price should be adjusted by the variant extra price
-            let newOriginalPrice = originalPrice + extraPrice;
-            let newOfferPrice = offerPrice + extraPrice;
-            
-            // Update the main price display (offer price)
-            currentPriceEl.textContent = `$${newOfferPrice.toFixed(2)}`;
-            
-            // Update the crossed-out original price if it exists
-            const originalPriceEl = document.querySelector('.line-through');
-            if (originalPriceEl) {
-                originalPriceEl.textContent = `$${newOriginalPrice.toFixed(2)}`;
-            }
-            
-            // Update the savings badge if it exists
-            const savingsEl = document.querySelector('.offer-badge');
-            if (savingsEl && savingsEl.textContent.includes('Save')) {
-                const savings = newOriginalPrice - newOfferPrice;
-                savingsEl.textContent = `Save $${savings.toFixed(2)}`;
-            }
-            
-            newPrice = newOfferPrice;
-        } else {
-            // For regular products without offers
-            newPrice = basePrice + extraPrice;
-            currentPriceEl.textContent = `$${newPrice.toFixed(2)}`;
-        }
-        
-        console.log(`Price updated - Base: $${basePrice}, Extra: $${extraPrice}, Final: $${newPrice}, IsOffer: ${isOfferProduct}`);
-    }
-
-    // Improved animated countdown timer for offers
-    if (isOfferProduct) {
-        const offerTimerEl = document.querySelector('.offer-timer');
-        const daysRemainingBadge = document.getElementById('days-remaining-badge');
-        const offerContainer = document.querySelector('.offer-container');
-
-        if (offerTimerEl) {
-            // Get the end time from the data attribute
-            const endTimeStr = offerTimerEl.getAttribute('data-end-time');
-            console.log('Offer end time:', endTimeStr); // Debug log
-
-            if (!endTimeStr) {
-                offerTimerEl.innerHTML = '<i class="far fa-clock mr-1"></i> Limited time offer';
-                console.warn('No end time provided for offer timer');
-                if (daysRemainingBadge) daysRemainingBadge.classList.add('hidden');
-                return;
+            // Update Price Display
+            function updatePriceDisplay(extraPrice) {
+                let newPrice;
+                if (isOfferProduct) {
+                    let newOriginalPrice = originalPrice + extraPrice;
+                    let newOfferPrice = offerPrice + extraPrice;
+                    currentPriceEl.textContent = `$${newOfferPrice.toFixed(2)}`;
+                    const originalPriceEl = document.querySelector('.line-through');
+                    if (originalPriceEl) originalPriceEl.textContent = `$${newOriginalPrice.toFixed(2)}`;
+                    const savingsEl = document.querySelector('.offer-badge');
+                    if (savingsEl && savingsEl.textContent.includes('Save')) {
+                        const savings = newOriginalPrice - newOfferPrice;
+                        savingsEl.textContent = `Save $${savings.toFixed(2)}`;
+                    }
+                    newPrice = newOfferPrice;
+                } else {
+                    newPrice = basePrice + extraPrice;
+                    currentPriceEl.textContent = `$${newPrice.toFixed(2)}`;
+                }
+                console.log(`Price updated - Base: $${basePrice}, Extra: $${extraPrice}, Final: $${newPrice}, IsOffer: ${isOfferProduct}`);
             }
 
-            const endTime = new Date(endTimeStr);
-            if (isNaN(endTime.getTime())) {
-                offerTimerEl.innerHTML = '<i class="fas fa-exclamation-circle mr-1"></i> Invalid offer time';
-                console.error('Invalid end time format:', endTimeStr);
-                if (daysRemainingBadge) daysRemainingBadge.classList.add('hidden');
-                return;
+            // Offer Timer
+            if (isOfferProduct) {
+                const offerTimerEl = document.querySelector('.offer-timer');
+                const daysRemainingBadge = document.getElementById('days-remaining-badge');
+                const offerContainer = document.querySelector('.offer-container');
+
+                if (offerTimerEl) {
+                    const endTimeStr = offerTimerEl.getAttribute('data-end-time');
+                    console.log('Offer end time:', endTimeStr);
+
+                    if (!endTimeStr) {
+                        offerTimerEl.innerHTML = '<i class="far fa-clock mr-1"></i> Limited time offer';
+                        if (daysRemainingBadge) daysRemainingBadge.classList.add('hidden');
+                        return;
+                    }
+
+                    const endTime = new Date(endTimeStr);
+                    if (isNaN(endTime.getTime())) {
+                        offerTimerEl.innerHTML = '<i class="fas fa-exclamation-circle mr-1"></i> Invalid offer time';
+                        if (daysRemainingBadge) daysRemainingBadge.classList.add('hidden');
+                        return;
+                    }
+
+                    function updateTimer() {
+                        const now = new Date();
+                        const diff = endTime - now;
+
+                        if (diff <= 0) {
+                            offerTimerEl.innerHTML = '<i class="fas fa-exclamation-circle mr-1"></i> Offer ended';
+                            if (daysRemainingBadge) daysRemainingBadge.classList.add('hidden');
+                            if (offerContainer) offerContainer.classList.add('bg-gray-100', 'border-gray-200');
+                            return;
+                        }
+
+                        const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+                        const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+
+                        const formattedDays = String(days).padStart(2, '0');
+                        const formattedHours = String(hours).padStart(2, '0');
+                        const formattedMinutes = String(minutes).padStart(2, '0');
+
+                        const timerHTML = `
+                            <span class="countdown-wrapper">
+                                <i class="far fa-clock mr-2"></i>
+                                <span class="countdown-block bg-indigo-100 text-indigo-800 px-2 py-1 rounded">${formattedDays}<small>d</small></span>
+                                <span class="mx-1">:</span>
+                                <span class="countdown-block bg-indigo-100 text-indigo-800 px-2 py-1 rounded">${formattedHours}<small>h</small></span>
+                                <span class="mx-1">:</span>
+                                <span class="countdown-block bg-indigo-100 text-indigo-800 px-2 py-1 rounded">${formattedMinutes}<small>m</small></span>
+                            </span>
+                        `;
+                        offerTimerEl.innerHTML = timerHTML;
+
+                        if (daysRemainingBadge) {
+                            if (days > 0) {
+                                daysRemainingBadge.textContent = days === 1 ? '1 day left' : `${days} days left`;
+                                daysRemainingBadge.classList.remove('hidden');
+                                daysRemainingBadge.className = 'ml-2 text-xs font-semibold px-2 py-1 rounded-full';
+                                if (days <= 1) {
+                                    daysRemainingBadge.classList.add('bg-red-100', 'text-red-800', 'animate-pulse');
+                                } else if (days <= 3) {
+                                    daysRemainingBadge.classList.add('bg-orange-100', 'text-orange-800');
+                                } else {
+                                    daysRemainingBadge.classList.add('bg-green-100', 'text-green-800');
+                                }
+                            } else {
+                                daysRemainingBadge.classList.add('hidden');
+                            }
+                        }
+
+                        if (offerContainer) {
+                            offerContainer.className = 'offer-container p-3 rounded-lg border mb-3';
+                            if (days <= 0 && hours < 24) {
+                                offerContainer.classList.add('bg-gradient-to-r', 'from-red-50', 'to-pink-50', 'border-red-200', 'animate-pulse');
+                            } else if (days <= 3) {
+                                offerContainer.classList.add('bg-gradient-to-r', 'from-orange-50', 'to-yellow-50', 'border-orange-200');
+                            } else {
+                                offerContainer.classList.add('bg-gradient-to-r', 'from-green-50', 'to-emerald-50', 'border-green-200');
+                            }
+                        }
+
+                        setTimeout(updateTimer, 1000);
+                    }
+                    updateTimer();
+                }
             }
 
-            function updateTimer() {
-                const now = new Date();
-                const diff = endTime - now;
+            // Add to Wishlist
+            function addToWishlist(productId) {
+                const variantId = document.querySelector('.variant-btn.active')?.getAttribute('data-variant-id');
+                fetch(`/wishlist/add/${productId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ variant_id: variantId || null }),
+                    credentials: 'include'
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'OK' || data.status === 'success') {
+                        document.querySelectorAll(`button[data-product-id="${productId}"]`).forEach(btn =>
+                            btn.innerHTML = '<i class="fas fa-heart text-red-500"></i>');
+                        Swal.fire({ title: "Added to Wishlist!", text: data.message || "Product added", icon: "success", timer: 1500 });
+                    } else if (data.status === 'REMOVED') {
+                        document.querySelectorAll(`button[data-product-id="${productId}"]`).forEach(btn =>
+                            btn.innerHTML = '<i class="far fa-heart"></i>');
+                        Swal.fire({ title: "Removed from Wishlist", text: data.message || "Product removed", icon: "info", timer: 1500 });
+                    } else {
+                        Swal.fire({ title: data.title || "Note", text: data.message || data.error, icon: data.icon || "info", timer: 2000 });
+                        if (data.redirect) setTimeout(() => window.location.href = data.redirect, 2000);
+                    }
+                })
+                .catch(() => Swal.fire({ title: "Error", text: "Failed to update wishlist", icon: "error", timer: 2000 }));
+            }
 
-                if (diff <= 0) {
-                    offerTimerEl.innerHTML = '<i class="fas fa-exclamation-circle mr-1"></i> Offer ended';
-                    if (daysRemainingBadge) daysRemainingBadge.classList.add('hidden');
-                    if (offerContainer) offerContainer.classList.add('bg-gray-100', 'border-gray-200');
-                    console.log('Offer has ended');
+            // Initialize Wishlist Buttons
+            document.getElementById('add-to-wishlist')?.addEventListener('click', () =>
+                addToWishlist(document.getElementById('add-to-wishlist').getAttribute('data-product-id')));
+            document.addEventListener('click', (e) => {
+                const wishlistBtn = e.target.closest('.wishlist-btn');
+                if (wishlistBtn) {
+                    e.preventDefault();
+                    addToWishlist(wishlistBtn.getAttribute('data-product-id'));
+                }
+            });
+
+            // Image Zoom
+            if (mainImage && zoomedImage && zoomBox && imgZoomContainer) {
+                const zoomRatio = 2.5;
+                imgZoomContainer.addEventListener('mousemove', e => {
+                    const rect = mainImage.getBoundingClientRect();
+                    const cursorX = e.clientX - rect.left;
+                    const cursorY = e.clientY - rect.top;
+                    const boxHalf = zoomBox.offsetWidth / 2;
+                    const boxX = Math.max(0, Math.min(cursorX - boxHalf, rect.width - zoomBox.offsetWidth));
+                    const boxY = Math.max(0, Math.min(cursorY - boxHalf, rect.height - zoomBox.offsetHeight));
+                    zoomBox.style.left = `${boxX}px`;
+                    zoomBox.style.top = `${boxY}px`;
+                    const zoomPosX = (cursorX / rect.width) * 100;
+                    const zoomPosY = (cursorY / rect.height) * 100;
+                    zoomedImage.style.width = `${rect.width * zoomRatio}px`;
+                    zoomedImage.style.height = `${rect.height * zoomRatio}px`;
+                    zoomedImage.style.transform = `translate(-${zoomPosX}%, -${zoomPosY}%)`;
+                });
+                imgZoomContainer.addEventListener('mouseenter', () => zoomBox.style.display = 'block');
+                imgZoomContainer.addEventListener('mouseleave', () => zoomBox.style.display = 'none');
+            }
+
+            // Thumbnails
+            thumbnails.forEach(thumb => {
+                thumb.addEventListener('click', () => {
+                    const newSrc = thumb.getAttribute('data-src');
+                    thumbnails.forEach(t => t.classList.remove('ring-2', 'ring-indigo-500'));
+                    thumb.classList.add('ring-2', 'ring-indigo-500');
+                    mainImage.src = newSrc;
+                    zoomedImage.src = newSrc;
+                });
+            });
+            thumbnails[0]?.classList.add('ring-2', 'ring-indigo-500');
+
+            // Update Stock Display
+            function updateStockDisplay(stock) {
+                stockQuantityEl.textContent = stock;
+                if (stock > 0) {
+                    availabilityEl.innerHTML = `In Stock (<span id="stock-quantity">${stock}</span>)`;
+                    availabilityEl.classList.remove('text-red-600');
+                    availabilityEl.classList.add('text-green-600');
+                    addToCartBtn.disabled = false;
+                    addToCartBtn.classList.remove('bg-gray-400', 'cursor-not-allowed');
+                    addToCartBtn.classList.add('bg-indigo-600', 'hover:bg-indigo-700');
+                    btnQuantityUp.disabled = false;
+                    btnQuantityDown.disabled = false;
+                    quantityInput.disabled = false;
+                    quantityInput.max = stock;
+                    if (parseInt(quantityInput.value) > stock) quantityInput.value = stock;
+                } else {
+                    availabilityEl.innerHTML = 'Out of Stock';
+                    availabilityEl.classList.remove('text-green-600');
+                    availabilityEl.classList.add('text-red-600');
+                    addToCartBtn.disabled = true;
+                    addToCartBtn.classList.add('bg-gray-400', 'cursor-not-allowed');
+                    addToCartBtn.classList.remove('bg-indigo-600', 'hover:bg-indigo-700');
+                    btnQuantityUp.disabled = true;
+                    btnQuantityDown.disabled = true;
+                    quantityInput.disabled = true;
+                }
+            }
+
+            // Variants
+            if (variantButtons.length) {
+                variantButtons.forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        variantButtons.forEach(b => b.classList.remove('active'));
+                        btn.classList.add('active');
+                        selectedVariant = {
+                            id: parseInt(btn.getAttribute('data-variant-id'), 10),
+                            extraPrice: parseFloat(btn.getAttribute('data-extra-price')),
+                            stock: parseInt(btn.getAttribute('data-stock'))
+                        };
+                        updatePriceDisplay(selectedVariant.extraPrice);
+                        updateStockDisplay(selectedVariant.stock);
+                    });
+                });
+                variantButtons[0].click(); // Auto-select first variant
+            } else {
+                addToCartBtn.disabled = true;
+                addToCartBtn.classList.add('bg-gray-400', 'cursor-not-allowed');
+                updateStockDisplay(0);
+            }
+
+            // Quantity Controls
+            btnQuantityUp.addEventListener('click', () => {
+                if (!selectedVariant) return;
+                let value = parseInt(quantityInput.value, 10);
+                if (value < selectedVariant.stock) quantityInput.value = value + 1;
+                else Swal.fire({ title: "Out Of Stock", text: "Can't Add Item Quantity.", icon: "info", timer: 2000 });
+            });
+            btnQuantityDown.addEventListener('click', () => {
+                if (!selectedVariant) return;
+                let value = parseInt(quantityInput.value, 10);
+                if (value > 1) quantityInput.value = value - 1;
+            });
+            quantityInput.addEventListener('input', () => {
+                if (!selectedVariant) return;
+                let value = parseInt(quantityInput.value, 10);
+                if (isNaN(value) || value < 1) quantityInput.value = 1;
+                else if (value > selectedVariant.stock) {
+                    quantityInput.value = selectedVariant.stock;
+                    Swal.fire({ title: "Max Quantity", text: "Cannot add more than stock.", icon: "info", timer: 2000 });
+                }
+            });
+
+            // Add to Cart
+            addToCartBtn.addEventListener('click', async () => {
+                if (!selectedVariant) {
+                    Swal.fire({ title: "Select a Variant", text: "Please select a variant.", icon: "warning", timer: 2000 });
                     return;
                 }
-
-                // Calculate days, hours, minutes
-                const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-                const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-                const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-
-                // Format time units with leading zeros
-                const formattedDays = String(days).padStart(2, '0');
-                const formattedHours = String(hours).padStart(2, '0');
-                const formattedMinutes = String(minutes).padStart(2, '0');
-
-                // Create visual timer display with time blocks
-                const timerHTML = `
-                    <span class="countdown-wrapper">
-                        <i class="far fa-clock mr-2"></i>
-                        <span class="countdown-block bg-indigo-100 text-indigo-800 px-2 py-1 rounded">${formattedDays}<small>d</small></span>
-                        <span class="mx-1">:</span>
-                        <span class="countdown-block bg-indigo-100 text-indigo-800 px-2 py-1 rounded">${formattedHours}<small>h</small></span>
-                        <span class="mx-1">:</span>
-                        <span class="countdown-block bg-indigo-100 text-indigo-800 px-2 py-1 rounded">${formattedMinutes}<small>m</small></span>
-                    </span>
-                `;
-                offerTimerEl.innerHTML = timerHTML;
-
-                // Update days remaining badge
-                if (daysRemainingBadge) {
-                    if (days > 0) {
-                        daysRemainingBadge.textContent = days === 1 ? '1 day left' : `${days} days left`;
-                        daysRemainingBadge.classList.remove('hidden');
-                        // Change color based on urgency
-                        daysRemainingBadge.className = 'ml-2 text-xs font-semibold px-2 py-1 rounded-full';
-                        if (days <= 1) {
-                            daysRemainingBadge.classList.add('bg-red-100', 'text-red-800', 'animate-pulse');
-                        } else if (days <= 3) {
-                            daysRemainingBadge.classList.add('bg-orange-100', 'text-orange-800');
-                        } else {
-                            daysRemainingBadge.classList.add('bg-green-100', 'text-green-800');
-                        }
+                const productId = parseInt(addToCartBtn.getAttribute('data-product-id'), 10);
+                const quantity = parseInt(quantityInput.value, 10);
+                const variantId = selectedVariant.id;
+                try {
+                    const response = await fetch('/cart/add', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ product_id: productId, quantity, variant_id: variantId }),
+                        credentials: 'include'
+                    });
+                    const data = await response.json();
+                    if (response.ok) {
+                        Swal.fire({ title: "Added to Cart", text: data.message || "Item added", icon: "success", timer: 1500 });
                     } else {
-                        daysRemainingBadge.classList.add('hidden');
+                        Swal.fire({ title: "Error", text: data.error || "Failed to add to cart", icon: "error", timer: 2000 });
+                        if (data.redirect) setTimeout(() => window.location.href = data.redirect, 2000);
                     }
+                } catch {
+                    Swal.fire({ title: "Error", text: "Failed to add to cart.", icon: "error", timer: 2000 });
                 }
-
-                // Update offer container color based on urgency
-                if (offerContainer) {
-                    offerContainer.className = 'offer-container p-3 rounded-lg border mb-3';
-                    if (days <= 0 && hours < 24) {
-                        offerContainer.classList.add('bg-gradient-to-r', 'from-red-50', 'to-pink-50', 'border-red-200', 'animate-pulse');
-                    } else if (days <= 3) {
-                        offerContainer.classList.add('bg-gradient-to-r', 'from-orange-50', 'to-yellow-50', 'border-orange-200');
-                    } else {
-                        offerContainer.classList.add('bg-gradient-to-r', 'from-green-50', 'to-emerald-50', 'border-green-200');
-                    }
-                }
-
-                setTimeout(updateTimer, 1000);
-            }
-
-            updateTimer();
-        } else {
-            console.warn('Offer timer element not found');
-        }
-    }
-
-    // Add to wishlist
-    function addToWishlist(productId) {
-        const variantId = document.querySelector('.variant-btn.active')?.getAttribute('data-variant-id');
-        fetch(`/wishlist/add/${productId}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ variant_id: variantId }),
-            credentials: 'include'
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.status === 'OK' || data.status === 'success') {
-                document.querySelectorAll(`button[data-product-id="${productId}"]`).forEach(btn => 
-                    btn.innerHTML = '<i class="fas fa-heart text-red-500"></i>');
-                Swal.fire({ title: "Added to Wishlist!", text: data.message || "Product added", icon: "success", timer: 1500 });
-            } else if (data.status === 'REMOVED') {
-                document.querySelectorAll(`button[data-product-id="${productId}"]`).forEach(btn => 
-                    btn.innerHTML = '<i class="far fa-heart"></i>');
-                Swal.fire({ title: "Removed from Wishlist", text: data.message || "Product removed", icon: "info", timer: 1500 });
-            } else {
-                Swal.fire({ title: data.title || "Note", text: data.message || data.error, icon: data.icon || "info", timer: 2000 });
-                if (data.redirect) setTimeout(() => window.location.href = data.redirect, 2000);
-            }
-        })
-        .catch(() => Swal.fire({ title: "Error", text: "Failed to update wishlist", icon: "error", timer: 2000 }));
-    }
-
-    // Initialize wishlist buttons
-    document.getElementById('add-to-wishlist')?.addEventListener('click', () => 
-        addToWishlist(document.getElementById('add-to-wishlist').getAttribute('data-product-id')));
-    document.querySelectorAll('.wishlist-btn').forEach(btn => 
-        btn.addEventListener('click', () => addToWishlist(btn.getAttribute('data-product-id'))));
-
-    // Image zoom
-    if (mainImage && zoomedImage && zoomBox && imgZoomContainer) {
-        const zoomRatio = 2.5;
-        imgZoomContainer.addEventListener('mousemove', e => {
-            const rect = mainImage.getBoundingClientRect();
-            const cursorX = e.clientX - rect.left;
-            const cursorY = e.clientY - rect.top;
-            const boxHalf = zoomBox.offsetWidth / 2;
-            const boxX = Math.max(0, Math.min(cursorX - boxHalf, rect.width - zoomBox.offsetWidth));
-            const boxY = Math.max(0, Math.min(cursorY - boxHalf, rect.height - zoomBox.offsetHeight));
-            zoomBox.style.left = `${boxX}px`;
-            zoomBox.style.top = `${boxY}px`;
-            const zoomPosX = (cursorX / rect.width) * 100;
-            const zoomPosY = (cursorY / rect.height) * 100;
-            zoomedImage.style.width = `${rect.width * zoomRatio}px`;
-            zoomedImage.style.height = `${rect.height * zoomRatio}px`;
-            zoomedImage.style.transform = `translate(-${zoomPosX}%, -${zoomPosY}%)`;
-        });
-        imgZoomContainer.addEventListener('mouseenter', () => zoomBox.style.display = 'block');
-        imgZoomContainer.addEventListener('mouseleave', () => zoomBox.style.display = 'none');
-    }
-
-    // Thumbnails
-    thumbnails.forEach(thumb => {
-        thumb.addEventListener('click', () => {
-            const newSrc = thumb.getAttribute('data-src');
-            thumbnails.forEach(t => t.classList.remove('ring-2', 'ring-indigo-500'));
-            thumb.classList.add('ring-2', 'ring-indigo-500');
-            mainImage.src = newSrc;
-            zoomedImage.src = newSrc;
-        });
-    });
-    thumbnails[0]?.classList.add('ring-2', 'ring-indigo-500');
-
-    // Update stock display
-    function updateStockDisplay(stock) {
-        stockQuantityEl.textContent = stock;
-        if (stock > 0) {
-            availabilityEl.innerHTML = `In Stock (<span id="stock-quantity">${stock}</span>)`;
-            availabilityEl.classList.remove('text-red-600');
-            availabilityEl.classList.add('text-green-600');
-            addToCartBtn.disabled = false;
-            addToCartBtn.classList.remove('bg-gray-400', 'cursor-not-allowed');
-            addToCartBtn.classList.add('bg-indigo-600', 'hover:bg-indigo-700');
-            btnQuantityUp.disabled = false;
-            btnQuantityDown.disabled = false;
-            quantityInput.disabled = false;
-            quantityInput.max = stock;
-            if (parseInt(quantityInput.value) > stock) quantityInput.value = stock;
-        } else {
-            availabilityEl.innerHTML = 'Out of Stock';
-            availabilityEl.classList.remove('text-green-600');
-            availabilityEl.classList.add('text-red-600');
-            addToCartBtn.disabled = true;
-            addToCartBtn.classList.add('bg-gray-400', 'cursor-not-allowed');
-            addToCartBtn.classList.remove('bg-indigo-600', 'hover:bg-indigo-700');
-            btnQuantityUp.disabled = true;
-            btnQuantityDown.disabled = true;
-            quantityInput.disabled = true;
-        }
-    }
-
-    // Variants - FIXED: Now properly calls updatePriceDisplay
-    if (variantButtons.length) {
-        variantButtons.forEach(btn => {
-            btn.addEventListener('click', () => {
-                variantButtons.forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                selectedVariant = {
-                    id: parseInt(btn.getAttribute('data-variant-id'), 10),
-                    extraPrice: parseFloat(btn.getAttribute('data-extra-price')),
-                    stock: parseInt(btn.getAttribute('data-stock'))
-                };
-                updatePriceDisplay(selectedVariant.extraPrice); // This function now exists!
-                updateStockDisplay(selectedVariant.stock);
             });
         });
-        variantButtons[0].click(); // Auto-select first variant
-    } else {
-        addToCartBtn.disabled = true;
-        addToCartBtn.classList.add('bg-gray-400', 'cursor-not-allowed');
-        updateStockDisplay(0);
-    }
-
-    // Quantity controls
-    btnQuantityUp.addEventListener('click', () => {
-        if (!selectedVariant) return;
-        let value = parseInt(quantityInput.value, 10);
-        if (value < selectedVariant.stock) quantityInput.value = value + 1;
-        else Swal.fire({ title: "Out Of Stock", text: "Can't Add Item Quantity.", icon: "info", timer: 2000 });
-    });
-    btnQuantityDown.addEventListener('click', () => {
-        if (!selectedVariant) return;
-        let value = parseInt(quantityInput.value, 10);
-        if (value > 1) quantityInput.value = value - 1;
-    });
-    quantityInput.addEventListener('input', () => {
-        if (!selectedVariant) return;
-        let value = parseInt(quantityInput.value, 10);
-        if (isNaN(value) || value < 1) quantityInput.value = 1;
-        else if (value > selectedVariant.stock) {
-            quantityInput.value = selectedVariant.stock;
-            Swal.fire({ title: "Max Quantity", text: "Cannot add more than stock.", icon: "info", timer: 2000 });
-        }
-    });
-
-    // Add to cart
-    addToCartBtn.addEventListener('click', async () => {
-        if (!selectedVariant) {
-            Swal.fire({ title: "Select a Variant", text: "Please select a variant.", icon: "warning", timer: 2000 });
-            return;
-        }
-        const productId = parseInt(addToCartBtn.getAttribute('data-product-id'), 10);
-        const quantity = parseInt(quantityInput.value, 10);
-        const variantId = selectedVariant.id;
-        try {
-            const response = await fetch('/cart/add', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ product_id: productId, quantity, variant_id: variantId }),
-                credentials: 'include'
-            });
-            const data = await response.json();
-            if (response.ok) {
-                Swal.fire({ title: "Added to Cart", text: data.message || "Item added", icon: "success", timer: 1500 });
-            } else {
-                Swal.fire({ title: "Error", text: data.error || "Failed to add to cart", icon: "error", timer: 2000 });
-                if (data.redirect) setTimeout(() => window.location.href = data.redirect, 2000);
-            }
-        } catch {
-            Swal.fire({ title: "Error", text: "Failed to add to cart.", icon: "error", timer: 2000 });
-        }
-    });
-});
     </script>
-    </body>
-    </html>
+</body>
+</html>

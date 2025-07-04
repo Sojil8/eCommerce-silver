@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"log"
 	"net/http"
 	"time"
 
@@ -69,13 +70,25 @@ func GetProductDetails(c *gin.Context) {
 		Where("products.category_name = ? AND products.id != ? AND products.is_listed = ? AND categories.status = ?",
 			product.CategoryName, product.ID, true, true).
 		Preload("Variants").Limit(4).Find(&relatedProducts).Error; err != nil {
+		// Log error but continue with empty related products
+		log.Println("Error fetching related products:", err)
 	}
 
-	availableRelatedProducts := []adminModels.Product{}
+	// Prepare related products with offer details
+	availableRelatedProducts := []ProductWithOffer{}
 	for _, rp := range relatedProducts {
 		for _, v := range rp.Variants {
 			if v.Stock > 0 {
-				availableRelatedProducts = append(availableRelatedProducts, rp)
+				offer := helper.GetBestOfferForProduct(&rp, v.ExtraPrice)
+				availableRelatedProducts = append(availableRelatedProducts, ProductWithOffer{
+					Product:            rp,
+					OfferPrice:         offer.DiscountedPrice,
+					OriginalPrice:      offer.OriginalPrice,
+					DiscountPercentage: offer.DiscountPercentage,
+					IsOffer:            offer.IsOfferApplied,
+					OfferName:          offer.OfferName,
+					OfferEndTime:       offer.EndTime,
+				})
 				break
 			}
 		}

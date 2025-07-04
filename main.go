@@ -5,6 +5,8 @@ import (
 	"github.com/Sojil8/eCommerce-silver/database"
 	"github.com/Sojil8/eCommerce-silver/middleware"
 	"github.com/Sojil8/eCommerce-silver/routes"
+	"github.com/Sojil8/eCommerce-silver/services"
+	"github.com/Sojil8/eCommerce-silver/storage"
 	"github.com/gin-gonic/gin"
 )
 
@@ -16,18 +18,18 @@ func init() {
 	router.SetFuncMap(config.SetupTemplateFunctions())
 	router.LoadHTMLGlob("templates/**/*")
 	config.LoadEnv()
-	config.Cloudnary()
-	config.InitRazorPay()
-	config.InitGoogleOAuth()
+	services.Cloudnary()
+	services.InitRazorPay()
+	services.InitGoogleOAuth()
 	database.ConnectDb()
 	middleware.SecretKeyCheck()
 	database.MigrageHandler()
-	database.InitRedis()
+	storage.InitRedis()
 }
 
 func main() {
 	routes.AdminRoutes(router)
 	routes.UserRoutes(router)
-	
+
 	router.Run()
 }

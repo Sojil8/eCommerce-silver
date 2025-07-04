@@ -9,6 +9,8 @@ import (
 	"github.com/Sojil8/eCommerce-silver/database"
 	"github.com/Sojil8/eCommerce-silver/helper"
 	"github.com/Sojil8/eCommerce-silver/models/userModels"
+	"github.com/Sojil8/eCommerce-silver/services"
+	"github.com/Sojil8/eCommerce-silver/storage"
 	"github.com/gin-gonic/gin"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -135,10 +137,10 @@ func EditProfile(c *gin.Context) {
 
 		data, _ := json.Marshal(tempData)
 		key := fmt.Sprintf("edit:%d", userID)
-		database.RedisClient.Set(database.Ctx, key, data, 15*time.Minute)
+		storage.RedisClient.Set(storage.Ctx, key, data, 15*time.Minute)
 
-		if err := helper.SendOTP(editProfileRequest.Email, otp); err != nil {
-			database.RedisClient.Del(database.Ctx, key)
+		if err := services.SendOTP(editProfileRequest.Email, otp); err != nil {
+			storage.RedisClient.Del(storage.Ctx, key)
 			helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to send OTP", "Email sending failed", "")
 			return
 		}
@@ -188,7 +190,7 @@ func VerifyEditEmail(c *gin.Context) {
 		return
 	}
 	key := fmt.Sprintf("edit:%d", userID)
-	data, err := database.RedisClient.Get(database.Ctx, key).Result()
+	data, err := storage.RedisClient.Get(storage.Ctx, key).Result()
 	if err != nil {
 		helper.ResponseWithErr(c, http.StatusNotFound, "OTP expired or not found", "Session expired", "")
 		return
@@ -221,7 +223,7 @@ func VerifyEditEmail(c *gin.Context) {
 		helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to update profile", "Database error", "")
 		return
 	}
-	database.RedisClient.Del(database.Ctx, key)
+	storage.RedisClient.Del(storage.Ctx, key)
 	c.Redirect(http.StatusSeeOther, "/profile")
 }
 
@@ -231,9 +233,9 @@ var changePasswordRequest struct {
 	ConfirmPassword string `form:"confirm_password" binding:"required"`
 }
 
-func ShowChangePassword(c *gin.Context){
-	c.HTML(http.StatusOK,"changePassProfile.html",gin.H{
-		"status":"ok",
+func ShowChangePassword(c *gin.Context) {
+	c.HTML(http.StatusOK, "changePassProfile.html", gin.H{
+		"status": "ok",
 	})
 }
 
@@ -248,9 +250,9 @@ func ChangePassword(c *gin.Context) {
 		helper.ResponseWithErr(c, http.StatusBadRequest, "Invalid input", "Please check all fields", "")
 		return
 	}
-	
-	if user.Password == ""{
-		helper.ResponseWithErr(c,http.StatusInternalServerError,"NO password","Password changes are only available for accounts created with email and password.","")
+
+	if user.Password == "" {
+		helper.ResponseWithErr(c, http.StatusInternalServerError, "NO password", "Password changes are only available for accounts created with email and password.", "")
 		return
 	}
 
@@ -292,24 +294,23 @@ var addressRequest struct {
 	AlternatePhone string `json:"alternate_phone"`
 }
 
-func GetAddressProfile(c *gin.Context){
-	uuid,_:= c.Get("id")
+func GetAddressProfile(c *gin.Context) {
+	uuid, _ := c.Get("id")
 
 	var addressess []userModels.Address
-	if err:=database.DB.Where("user_id = ?",uuid).Find(&addressess).Error;err!=nil{
+	if err := database.DB.Where("user_id = ?", uuid).Find(&addressess).Error; err != nil {
 		helper.ResponseWithErr(c, http.StatusNotFound, "Not found the address", err.Error(), "")
 	}
 
-
-	c.HTML(http.StatusOK,"addressProfile.html",gin.H{
-		"status":"ok",
-		"Addresses" : addressess,
+	c.HTML(http.StatusOK, "addressProfile.html", gin.H{
+		"status":    "ok",
+		"Addresses": addressess,
 	})
 }
 
 func AddAddress(c *gin.Context) {
 	userID, _ := c.Get("id")
-	
+
 	if err := c.ShouldBindJSON(&addressRequest); err != nil {
 		helper.ResponseWithErr(c, http.StatusBadRequest, "Invalid input", err.Error(), "")
 		return
@@ -342,7 +343,6 @@ func EditAddress(c *gin.Context) {
 	userID, _ := c.Get("id")
 	addressID := c.Param("address_id")
 
-	
 	if err := c.ShouldBindJSON(&addressRequest); err != nil {
 		helper.ResponseWithErr(c, http.StatusBadRequest, "Invalid input", err.Error(), "")
 		return

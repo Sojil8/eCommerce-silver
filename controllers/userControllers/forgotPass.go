@@ -10,6 +10,8 @@ import (
 	"github.com/Sojil8/eCommerce-silver/database"
 	"github.com/Sojil8/eCommerce-silver/helper"
 	"github.com/Sojil8/eCommerce-silver/models/userModels"
+	"github.com/Sojil8/eCommerce-silver/services"
+	"github.com/Sojil8/eCommerce-silver/storage"
 	"github.com/gin-gonic/gin"
 )
 
@@ -59,14 +61,14 @@ func ForgotPasswordRequest(c *gin.Context) {
 	}
 
 	resetKey := fmt.Sprintf("reset:%s", forgotPassRequest.Email)
-	if err := database.RedisClient.Set(database.Ctx, resetKey, data, 15*time.Minute).Err(); err != nil {
+	if err := storage.RedisClient.Set(storage.Ctx, resetKey, data, 15*time.Minute).Err(); err != nil {
 		helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to store reset data", "Internal error", "")
 		return
 	}
 
-	if err := helper.SendOTP(forgotPassRequest.Email, otp); err != nil {
+	if err := services.SendOTP(forgotPassRequest.Email, otp); err != nil {
 		fmt.Println("Failed to send OTP:", otp)
-		database.RedisClient.Del(database.Ctx, resetKey)
+		storage.RedisClient.Del(storage.Ctx, resetKey)
 		helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to send OTP", "Email sending failed", "")
 		return
 	}
@@ -102,7 +104,7 @@ func VerifyResetOTP(c *gin.Context) {
 	}
 
 	resetKey := fmt.Sprintf("reset:%s", resetOTPInput.Email)
-	data, err := database.RedisClient.Get(database.Ctx, resetKey).Result()
+	data, err := storage.RedisClient.Get(storage.Ctx, resetKey).Result()
 	if err != nil {
 		log.Println("Redis Get Error:", err)
 		helper.ResponseWithErr(c, http.StatusNotFound, "OTP expired or not found", "Session expired", "")
@@ -158,7 +160,7 @@ func ResetPassword(c *gin.Context) {
 	}
 
 	resetKey := fmt.Sprintf("reset:%s", resetPasswordRequest.Email)
-	if exists, _ := database.RedisClient.Exists(database.Ctx, resetKey).Result(); exists == 0 {
+	if exists, _ := storage.RedisClient.Exists(storage.Ctx, resetKey).Result(); exists == 0 {
 		helper.ResponseWithErr(c, http.StatusForbidden, "Invalid session", "Reset session expired or invalid", "")
 		return
 	}
@@ -181,7 +183,7 @@ func ResetPassword(c *gin.Context) {
 		return
 	}
 
-	database.RedisClient.Del(database.Ctx, resetKey)
+	storage.RedisClient.Del(storage.Ctx, resetKey)
 	c.JSON(http.StatusOK, gin.H{
 		"status":   "ok",
 		"message":  "Password reset successfully",

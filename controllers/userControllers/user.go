@@ -11,13 +11,14 @@ import (
 	"github.com/Sojil8/eCommerce-silver/helper"
 	"github.com/Sojil8/eCommerce-silver/middleware"
 	"github.com/Sojil8/eCommerce-silver/models/userModels"
+	"github.com/Sojil8/eCommerce-silver/services"
+	"github.com/Sojil8/eCommerce-silver/storage"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt"
 	"golang.org/x/crypto/bcrypt"
 )
 
 var roleUser string = "User"
-
 
 func ShowSignUp(c *gin.Context) {
 	tokenString, err := c.Cookie("jwt_token")
@@ -94,13 +95,13 @@ func UserSignUp(c *gin.Context) {
 	}
 
 	userKey := fmt.Sprintf("user:%s", signupRequest.Email)
-	if err := database.RedisClient.Set(database.Ctx, userKey, userData, 15*time.Minute).Err(); err != nil {
+	if err := storage.RedisClient.Set(storage.Ctx, userKey, userData, 15*time.Minute).Err(); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to store user data in Redis"})
 		return
 	}
 
-	if err := helper.SendOTP(signupRequest.Email, otp); err != nil {
-		database.RedisClient.Del(database.Ctx, userKey)
+	if err := services.SendOTP(signupRequest.Email, otp); err != nil {
+		storage.RedisClient.Del(storage.Ctx, userKey)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to send OTP", "field": "email"})
 		return
 	}
@@ -136,7 +137,7 @@ func VerifyOTP(c *gin.Context) {
 	}
 
 	userKey := fmt.Sprintf("user:%s", otpInput.Email)
-	exists, err := database.RedisClient.Exists(database.Ctx, userKey).Result()
+	exists, err := storage.RedisClient.Exists(storage.Ctx, userKey).Result()
 	if err != nil {
 		log.Println("Redis Exists Error:", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check OTP existence"})
@@ -147,7 +148,7 @@ func VerifyOTP(c *gin.Context) {
 		return
 	}
 
-	data, err := database.RedisClient.Get(database.Ctx, userKey).Result()
+	data, err := storage.RedisClient.Get(storage.Ctx, userKey).Result()
 	if err != nil {
 		log.Println("Redis Get Error:", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve OTP data"})
@@ -185,7 +186,7 @@ func VerifyOTP(c *gin.Context) {
 		return
 	}
 
-	database.RedisClient.Del(database.Ctx, userKey)
+	storage.RedisClient.Del(storage.Ctx, userKey)
 	c.JSON(http.StatusOK, gin.H{
 		"status":   "ok",
 		"message":  "OTP verified successfully",
@@ -203,7 +204,7 @@ func ResendOTP(c *gin.Context) {
 	}
 
 	userKey := fmt.Sprintf("user:%s", resendRequest.Email)
-	exists, err := database.RedisClient.Exists(database.Ctx, userKey).Result()
+	exists, err := storage.RedisClient.Exists(storage.Ctx, userKey).Result()
 	if err != nil {
 		log.Println("Redis Exists Error:", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check user data"})
@@ -221,7 +222,7 @@ func ResendOTP(c *gin.Context) {
 		return
 	}
 	fmt.Println(otp)
-	data, err := database.RedisClient.Get(database.Ctx, userKey).Result()
+	data, err := storage.RedisClient.Get(storage.Ctx, userKey).Result()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve user data"})
 		return
@@ -240,12 +241,12 @@ func ResendOTP(c *gin.Context) {
 		return
 	}
 
-	if err := database.RedisClient.Set(database.Ctx, userKey, updatedData, 15*time.Minute).Err(); err != nil {
+	if err := storage.RedisClient.Set(storage.Ctx, userKey, updatedData, 15*time.Minute).Err(); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update OTP in Redis"})
 		return
 	}
 
-	if err := helper.SendOTP(resendRequest.Email, otp); err != nil {
+	if err := services.SendOTP(resendRequest.Email, otp); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to resend OTP"})
 		return
 	}
@@ -279,7 +280,6 @@ var loginRequest struct {
 	Password string `json:"password" form:"password" binding:"required,min=8"`
 }
 
-
 func LoginPostUser(c *gin.Context) {
 	if err := c.ShouldBind(&loginRequest); err != nil {
 		helper.ResponseWithErr(c, http.StatusBadRequest, "Invalid input", "Please provide a valid email and password", "")
@@ -311,7 +311,6 @@ func LoginPostUser(c *gin.Context) {
 	c.SetCookie("jwt_token", token, 24*60*60, "/", "", false, true)
 	c.Redirect(http.StatusSeeOther, "/home")
 }
-
 
 func LogoutUser(c *gin.Context) {
 	c.SetCookie("jwt_token", "", -1, "/", "", false, true)

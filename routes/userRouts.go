@@ -1,9 +1,9 @@
 package routes
 
 import (
-	"github.com/Sojil8/eCommerce-silver/config"
 	controllers "github.com/Sojil8/eCommerce-silver/controllers/userControllers"
 	"github.com/Sojil8/eCommerce-silver/middleware"
+	"github.com/Sojil8/eCommerce-silver/services"
 	"github.com/gin-gonic/gin"
 )
 
@@ -64,7 +64,7 @@ func UserRoutes(c *gin.Engine) {
 			// protected.POST("/checkout/create-razorpay-order",controllers.CreateRazorpayOrder)
 			protected.POST("/checkout/verify-payment", controllers.VerifyPayment)
 			protected.GET("/order/success", controllers.ShowOrderSuccess)
-			protected.GET("/order/failure",controllers.ShowOrderFailure)
+			protected.GET("/order/failure", controllers.ShowOrderFailure)
 
 			// Order
 			protected.GET("/orders", controllers.GetOrderList)
@@ -83,15 +83,13 @@ func UserRoutes(c *gin.Engine) {
 			//coupons
 			protected.POST("/checkout/apply-coupon", controllers.ApplyCoupon)
 			protected.POST("/checkout/remove-coupon", controllers.RemoveCoupon)
-			protected.GET("/checkout/available-coupons",controllers.GetAvailableCoupons)
-			
-
+			protected.GET("/checkout/available-coupons", controllers.GetAvailableCoupons)
 
 			protected.POST("/logout", controllers.LogoutUser)
 		}
 		authGroup := c.Group("/auth")
-		authGroup.GET("/google", config.GoogleLogin)
-		authGroup.GET("/google/callback", config.GoogleCallback)
+		authGroup.GET("/google", services.GoogleLogin)
+		authGroup.GET("/google/callback", services.GoogleCallback)
 		c.NoRoute(controllers.NotFound)
 	}
 }
