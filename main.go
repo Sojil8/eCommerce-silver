@@ -6,7 +6,7 @@ import (
 	"github.com/Sojil8/eCommerce-silver/middleware"
 	"github.com/Sojil8/eCommerce-silver/routes"
 	"github.com/Sojil8/eCommerce-silver/services"
-	"github.com/Sojil8/eCommerce-silver/storage"
+	"github.com/Sojil8/eCommerce-silver/utils/storage"
 	"github.com/gin-gonic/gin"
 )
 

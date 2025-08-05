@@ -8,9 +8,9 @@ import (
 	"time"
 
 	"github.com/Sojil8/eCommerce-silver/database"
-	"github.com/Sojil8/eCommerce-silver/helper"
 	"github.com/Sojil8/eCommerce-silver/models/adminModels"
 	"github.com/Sojil8/eCommerce-silver/models/userModels"
+	"github.com/Sojil8/eCommerce-silver/utils/helper"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt"
 )
@@ -81,7 +81,8 @@ func Authenticate(cookieName, expectedRole, loginRedirect string) gin.HandlerFun
 			return
 		}
 
-		if expectedRole == "Admin" {
+		switch expectedRole {
+		case "Admin":
 			var admin adminModels.Admin
 			if err := database.DB.First(&admin, claims.ID).Error; err != nil {
 				fmt.Println("Admin not found in DB:", err)
@@ -90,7 +91,7 @@ func Authenticate(cookieName, expectedRole, loginRedirect string) gin.HandlerFun
 				return
 			}
 			c.Set("admin_id", claims.ID)
-		} else if expectedRole == "User" {
+		case "User":
 			var user userModels.Users
 			if err := database.DB.First(&user, claims.ID).Error; err != nil {
 				fmt.Println("User not found in DB - ID:", claims.ID, "Error:", err)
@@ -105,7 +106,7 @@ func Authenticate(cookieName, expectedRole, loginRedirect string) gin.HandlerFun
 			}
 			c.Set("user_name", user.UserName)
 			c.Set("user", user)
-		} else {
+		default:
 			c.Redirect(http.StatusSeeOther, loginRedirect)
 			c.Abort()
 			return

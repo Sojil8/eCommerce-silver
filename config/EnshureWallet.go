@@ -1,6 +1,8 @@
 package config
 
 import (
+	"log"
+
 	"github.com/Sojil8/eCommerce-silver/models/userModels"
 	"gorm.io/gorm"
 )
@@ -20,5 +22,6 @@ func EnshureWallet(tx *gorm.DB, userID uint) (*userModels.Wallet, error) {
 	} else if err != nil {
 		return nil, err
 	}
+	log.Println("in side enshure wallet")
 	return &wallet, nil
 }

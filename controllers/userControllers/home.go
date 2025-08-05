@@ -5,9 +5,9 @@ import (
 	"net/http"
 
 	"github.com/Sojil8/eCommerce-silver/database"
-	"github.com/Sojil8/eCommerce-silver/helper"
 	"github.com/Sojil8/eCommerce-silver/models/adminModels"
 	"github.com/Sojil8/eCommerce-silver/models/userModels"
+	"github.com/Sojil8/eCommerce-silver/utils/helper"
 	"github.com/gin-gonic/gin"
 )
 
@@ -30,11 +30,11 @@ func GetUserProducts(c *gin.Context) {
 
 	type ProductWithOffer struct {
 		adminModels.Product
-		OfferPrice    float64
-		OriginalPrice float64
+		OfferPrice         float64
+		OriginalPrice      float64
 		DiscountPercentage float64
-		IsOffer       bool
-		OfferName     string
+		IsOffer            bool
+		OfferName          string
 	}
 
 	var produtWithOffers []ProductWithOffer
@@ -45,19 +45,18 @@ func GetUserProducts(c *gin.Context) {
 			variantExtraPrice = product.Variants[0].ExtraPrice
 		}
 
-		offer :=helper.GetBestOfferForProduct(&product,variantExtraPrice)
+		offer := helper.GetBestOfferForProduct(&product, variantExtraPrice)
 
-		produtWithOffers =append(produtWithOffers,ProductWithOffer{
-			Product: product,
-			OfferPrice:offer.DiscountedPrice ,
-			OriginalPrice: offer.OriginalPrice,
+		produtWithOffers = append(produtWithOffers, ProductWithOffer{
+			Product:            product,
+			OfferPrice:         offer.DiscountedPrice,
+			OriginalPrice:      offer.OriginalPrice,
 			DiscountPercentage: offer.DiscountPercentage,
-			IsOffer: offer.IsOfferApplied,
-			OfferName: offer.OfferName,
+			IsOffer:            offer.IsOfferApplied,
+			OfferName:          offer.OfferName,
 		})
 
-	}	
-
+	}
 
 	user, exists := c.Get("user")
 	userName, nameExists := c.Get("user_name")

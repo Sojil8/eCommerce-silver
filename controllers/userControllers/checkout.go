@@ -3,16 +3,15 @@ package controllers
 import (
 	"fmt"
 	"log"
-	"math/rand"
 	"net/http"
 	"net/url"
 	"os"
 	"time"
 
 	"github.com/Sojil8/eCommerce-silver/database"
-	"github.com/Sojil8/eCommerce-silver/helper"
 	"github.com/Sojil8/eCommerce-silver/models/adminModels"
 	"github.com/Sojil8/eCommerce-silver/models/userModels"
+	"github.com/Sojil8/eCommerce-silver/utils/helper"
 	"github.com/gin-gonic/gin"
 	"github.com/razorpay/razorpay-go"
 	"gorm.io/gorm"
@@ -271,7 +270,7 @@ func PlaceOrder(c *gin.Context) {
 	var couponDiscount float64
 	var offerDiscount float64
 	var coupon adminModels.Coupons
-	orderID := generateOrderID()
+	orderID := helper.GenerateOrderID()
 	totalPrice := 0.0
 	err := database.DB.Transaction(func(tx *gorm.DB) error {
 
@@ -446,8 +445,8 @@ func PlaceOrder(c *gin.Context) {
 			return fmt.Errorf("failed to create order: %v", err)
 		}
 		orderBackup := userModels.OrderBackUp{
-			ShippingCost: order.ShippingCost,
-			Subtotal: cart.OriginalTotalPrice,
+			ShippingCost:  order.ShippingCost,
+			Subtotal:      cart.OriginalTotalPrice,
 			TotalPrice:    finalPrice,
 			OfferDiscount: offerDiscount,
 			OrderIdUnique: orderID,
@@ -705,7 +704,7 @@ func VerifyPayment(c *gin.Context) {
 			return fmt.Errorf("invalid address: %v", err)
 		}
 
-		orderID := generateOrderID()
+		orderID := helper.GenerateOrderID()
 		shippingAdd := adminModels.ShippingAddress{
 			OrderID:        orderID,
 			UserID:         uid,
@@ -747,7 +746,7 @@ func VerifyPayment(c *gin.Context) {
 		}
 
 		orderBackup := userModels.OrderBackUp{
-			ShippingCost: order.ShippingCost,
+			ShippingCost:  order.ShippingCost,
 			Subtotal:      cart.OriginalTotalPrice,
 			TotalPrice:    finalPrice,
 			OfferDiscount: offerDiscount,
@@ -937,10 +936,4 @@ func ShowOrderFailure(c *gin.Context) {
 		"OrderID":     orderID,
 		"OrderExists": orderExists,
 	})
-}
-
-func generateOrderID() string {
-	timestamp := time.Now().Format("20060102")
-	randomNum := rand.Intn(10000)
-	return fmt.Sprintf("ORD-%s-%04d", timestamp, randomNum)
 }

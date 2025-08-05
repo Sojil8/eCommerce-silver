@@ -43,6 +43,8 @@ func UserRoutes(c *gin.Engine) {
 			protected.GET("/profile/change-password", controllers.ShowChangePassword)
 			protected.POST("/profile/change-password", controllers.ChangePassword)
 			protected.GET("/wallet", controllers.ShowWallet)
+			protected.GET("/refral", controllers.ShowRefralPage)
+			// protected.POST("/refral-invite", controllers.VerifiRefralCode)
 
 			// Cart
 			protected.GET("/cart", controllers.GetCart)

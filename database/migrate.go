@@ -27,5 +27,6 @@ func MigrageHandler() {
 		&adminModels.ProductOffer{},
 		&adminModels.CategoryOffer{},
 		&userModels.OrderBackUp{},
+		&userModels.Refral{},
 	)
 }

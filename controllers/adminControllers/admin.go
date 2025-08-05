@@ -7,9 +7,10 @@ import (
 	"net/http"
 
 	"github.com/Sojil8/eCommerce-silver/database"
-	"github.com/Sojil8/eCommerce-silver/helper"
 	"github.com/Sojil8/eCommerce-silver/middleware"
 	"github.com/Sojil8/eCommerce-silver/models/adminModels"
+	"github.com/Sojil8/eCommerce-silver/utils/helper"
+
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt"
 	"gorm.io/gorm"
@@ -23,22 +24,21 @@ type AdminDetails struct {
 }
 
 func ShowLoginPage(c *gin.Context) {
-    tokenString, err := c.Cookie("jwtTokensAdmin")
-    if err == nil && tokenString != "" {
-        claims := &middleware.Claims{}
-        token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
-            return middleware.SecretKey, nil
-        })
-        if err == nil && token.Valid {
-            c.Redirect(http.StatusSeeOther, "/admin/user-management")
-            return
-        }
-    }
-    c.HTML(http.StatusOK, "adminLogin.html", gin.H{
-        "status": "ok",
-    })
+	tokenString, err := c.Cookie("jwtTokensAdmin")
+	if err == nil && tokenString != "" {
+		claims := &middleware.Claims{}
+		token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
+			return middleware.SecretKey, nil
+		})
+		if err == nil && token.Valid {
+			c.Redirect(http.StatusSeeOther, "/admin/user-management")
+			return
+		}
+	}
+	c.HTML(http.StatusOK, "adminLogin.html", gin.H{
+		"status": "ok",
+	})
 }
-
 
 func AdminLogin(c *gin.Context) {
 	var adminReq AdminDetails

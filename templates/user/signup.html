@@ -108,109 +108,119 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            const form = document.getElementById('signupForm');
-            const inputs = {
-                name: document.getElementById('name'),
-                email: document.getElementById('email'),
-                phone: document.getElementById('phone'),
-                password: document.getElementById('password'),
-                confirmPassword: document.getElementById('confirmPassword')
-            };
+    const form = document.getElementById('signupForm');
+    const inputs = {
+        name: document.getElementById('name'),
+        email: document.getElementById('email'),
+        phone: document.getElementById('phone'),
+        password: document.getElementById('password'),
+        confirmPassword: document.getElementById('confirmPassword')
+    };
 
-            // Toggle password visibility
-            document.querySelectorAll('.toggle-password').forEach(icon => {
-                icon.addEventListener('click', function() {
-                    const input = this.previousElementSibling;
-                    input.type = input.type === 'password' ? 'text' : 'password';
-                    this.classList.toggle('fa-eye');
-                    this.classList.toggle('fa-eye-slash');
-                });
-            });
+    // Read the 'ref' query parameter from the current URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const referralCode = urlParams.get('ref');
 
-            // Real-time validation
-            Object.keys(inputs).forEach(key => {
-                inputs[key].addEventListener('input', () => validateField(key));
-            });
-
-            form.addEventListener('submit', async function(e) {
-                e.preventDefault();
-
-                const isValid = Object.keys(inputs).every(key => validateField(key));
-                if (!isValid) return;
-
-                const formData = {
-                    username: inputs.name.value.trim(),
-                    email: inputs.email.value.trim(),
-                    phone: inputs.phone.value.trim(),
-                    password: inputs.password.value,
-                    confirmpassword: inputs.confirmPassword.value
-                };
-
-                try {
-                    const response = await fetch('/signup', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(formData)
-                    });
-
-                    const data = await response.json();
-                    if (data.status === 'ok') {
-                        window.location.href = data.redirect;
-                    } else {
-                        showError(`${data.field}Error`, data.error);
-                    }
-                } catch (error) {
-                    showError('emailError', 'An error occurred. Please try again.');
-                    console.error('Error:', error);
-                }
-            });
-
-            function validateField(field) {
-                const value = inputs[field].value.trim();
-                const errorElement = document.getElementById(`${field}Error`);
-
-                switch (field) {
-                    case 'name':
-                        if (value.length < 2 || !/^[a-zA-Z\s]+$/.test(value)) {
-                            showError('nameError', 'Name must be at least 2 letters');
-                            return false;
-                        }
-                        break;
-                    case 'email':
-                        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
-                            showError('emailError', 'Invalid email address');
-                            return false;
-                        }
-                        break;
-                    case 'phone':
-                        if (!/^\+\d{10,15}$/.test(value)) {
-                            showError('phoneError', 'Invalid phone number (e.g., +1234567890)');
-                            return false;
-                        }
-                        break;
-                    case 'password':
-                        if (value.length < 8) {
-                            showError('passwordError', 'Password must be at least 8 characters');
-                            return false;
-                        }
-                        break;
-                    case 'confirmPassword':
-                        if (value !== inputs.password.value) {
-                            showError('confirmPasswordError', 'Passwords do not match');
-                            return false;
-                        }
-                        break;
-                }
-                showError(`${field}Error`, '');
-                return true;
-            }
-
-            function showError(elementId, message) {
-                const errorElement = document.getElementById(elementId);
-                errorElement.textContent = message;
-                errorElement.classList.toggle('hidden', !message);
-            }
+    // Toggle password visibility
+    document.querySelectorAll('.toggle-password').forEach(icon => {
+        icon.addEventListener('click', function() {
+            const input = this.previousElementSibling;
+            input.type = input.type === 'password' ? 'text' : 'password';
+            this.classList.toggle('fa-eye');
+            this.classList.toggle('fa-eye-slash');
         });
+    });
+
+    // Real-time validation
+    Object.keys(inputs).forEach(key => {
+        inputs[key].addEventListener('input', () => validateField(key));
+    });
+
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+
+        const isValid = Object.keys(inputs).every(key => validateField(key));
+        if (!isValid) return;
+
+        const formData = {
+            username: inputs.name.value.trim(),
+            email: inputs.email.value.trim(),
+            phone: inputs.phone.value.trim(),
+            password: inputs.password.value,
+            confirmpassword: inputs.confirmPassword.value
+        };
+
+        // FIXED: Build the URL with query parameter instead of adding to form data
+        let submitUrl = '/signup';
+        if (referralCode) {
+            submitUrl += `?ref=${encodeURIComponent(referralCode)}`;
+        }
+
+        try {
+            const response = await fetch(submitUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(formData)
+            });
+
+            const data = await response.json();
+            if (data.status === 'ok') {
+                window.location.href = data.redirect;
+            } else {
+                showError(`${data.field}Error`, data.error);
+            }
+        } catch (error) {
+            showError('emailError', 'An error occurred. Please try again.');
+            console.error('Error:', error);
+        }
+    });
+
+    function validateField(field) {
+        const value = inputs[field].value.trim();
+        const errorElement = document.getElementById(`${field}Error`);
+
+        switch (field) {
+            case 'name':
+                if (value.length < 2 || !/^[a-zA-Z\s]+$/.test(value)) {
+                    showError('nameError', 'Name must be at least 2 letters');
+                    return false;
+                }
+                break;
+            case 'email':
+                if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+                    showError('emailError', 'Invalid email address');
+                    return false;
+                }
+                break;
+            case 'phone':
+                if (!/^\+\d{10,15}$/.test(value)) {
+                    showError('phoneError', 'Invalid phone number (e.g., +1234567890)');
+                    return false;
+                }
+                break;
+            case 'password':
+                if (value.length < 8) {
+                    showError('passwordError', 'Password must be at least 8 characters');
+                    return false;
+                }
+                break;
+            case 'confirmPassword':
+                if (value !== inputs.password.value) {
+                    showError('confirmPasswordError', 'Passwords do not match');
+                    return false;
+                }
+                break;
+        }
+        showError(`${field}Error`, '');
+        return true;
+    }
+
+    function showError(elementId, message) {
+        const errorElement = document.getElementById(elementId);
+        errorElement.textContent = message;
+        errorElement.classList.toggle('hidden', !message);
+    }
+});
     </script>
 </body>
 </html>

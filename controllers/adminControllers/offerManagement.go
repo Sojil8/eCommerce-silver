@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/Sojil8/eCommerce-silver/database"
-	"github.com/Sojil8/eCommerce-silver/helper"
 	"github.com/Sojil8/eCommerce-silver/models/adminModels"
+	"github.com/Sojil8/eCommerce-silver/utils/helper"
 	"github.com/gin-gonic/gin"
 )
 
@@ -67,8 +67,8 @@ func AddProductOffer(c *gin.Context) {
 	}
 
 	var productOffer adminModels.ProductOffer
-	if err:=database.DB.Where("product_id = ?",productID).First(&productOffer).Error;err == nil{
-		helper.ResponseWithErr(c,http.StatusFound,"Only One Offer For One Product","This Product Has already One Offer	","")
+	if err := database.DB.Where("product_id = ?", productID).First(&productOffer).Error; err == nil {
+		helper.ResponseWithErr(c, http.StatusFound, "Only One Offer For One Product", "This Product Has already One Offer	", "")
 		return
 	}
 

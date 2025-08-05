@@ -7,7 +7,7 @@ import (
 	"os"
 
 	"github.com/Sojil8/eCommerce-silver/database"
-	"github.com/Sojil8/eCommerce-silver/helper"
+	"github.com/Sojil8/eCommerce-silver/utils/helper"
 	"github.com/Sojil8/eCommerce-silver/middleware"
 	"github.com/Sojil8/eCommerce-silver/models/userModels"
 	"github.com/gin-gonic/gin"
@@ -67,6 +67,11 @@ func GoogleCallback(c *gin.Context) {
 		return
 	}
 
+	refralCode,err:=helper.GenerateReferralCode()
+	if err!=nil{
+		helper.ResponseWithErr(c,http.StatusInternalServerError,"Refral code Generate error","Refral code Generate error","")
+	}
+
 	var user userModels.Users
 	err = database.DB.Where("email = ?", googleUser.Email).First(&user).Error
 	if err != nil {
@@ -77,6 +82,7 @@ func GoogleCallback(c *gin.Context) {
 				Password:   "",
 				Phone:      "",
 				Is_blocked: false,
+				ReferralToken: refralCode,
 			}
 			if err := database.DB.Create(&user).Error; err != nil {
 				helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to create user", err.Error(), "")

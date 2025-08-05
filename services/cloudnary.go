@@ -3,7 +3,7 @@ package services
 import (
 	"log"
 
-	"github.com/Sojil8/eCommerce-silver/helper"
+	"github.com/Sojil8/eCommerce-silver/utils/helper"
 )
 
 func Cloudnary() {

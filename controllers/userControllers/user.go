@@ -8,11 +8,11 @@ import (
 	"time"
 
 	"github.com/Sojil8/eCommerce-silver/database"
-	"github.com/Sojil8/eCommerce-silver/helper"
 	"github.com/Sojil8/eCommerce-silver/middleware"
 	"github.com/Sojil8/eCommerce-silver/models/userModels"
 	"github.com/Sojil8/eCommerce-silver/services"
-	"github.com/Sojil8/eCommerce-silver/storage"
+	"github.com/Sojil8/eCommerce-silver/utils/helper"
+	"github.com/Sojil8/eCommerce-silver/utils/storage"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt"
 	"golang.org/x/crypto/bcrypt"
@@ -43,6 +43,8 @@ var signupRequest struct {
 	Password        string `json:"password" form:"password" binding:"required,min=8"`
 	ConfirmPassword string `json:"confirmpassword" form:"confirmpassword" binding:"required"`
 }
+
+//add the code of user in the marshal field and only call the func on veryfiy otp
 
 func UserSignUp(c *gin.Context) {
 	if err := c.ShouldBind(&signupRequest); err != nil {
@@ -79,12 +81,16 @@ func UserSignUp(c *gin.Context) {
 	}
 	fmt.Println(otp)
 
+	referral := c.Query("ref")
+	// log.Println("got refral from signup page",referral)
+
 	newUser := map[string]interface{}{
 		"name":       signupRequest.UserName,
 		"email":      signupRequest.Email,
 		"phone":      signupRequest.Phone,
 		"password":   hashedPassword,
 		"otp":        otp,
+		"ref":        referral,
 		"created_at": time.Now().UTC(),
 	}
 
@@ -172,18 +178,35 @@ func VerifyOTP(c *gin.Context) {
 	email, _ := storedData["email"].(string)
 	password, _ := storedData["password"].(string)
 	phone, _ := storedData["phone"].(string)
+	ref, _ := storedData["ref"].(string)
+	// log.Println("got the referal code",ref)
+
+	refralCode, err := helper.GenerateReferralCode()
+	if err != nil {
+		helper.ResponseWithErr(c, http.StatusInternalServerError, "Refral code Can't generate", "Refral code Can't generate", "")
+		return
+	}
 
 	newUser := userModels.Users{
-		UserName: name,
-		Email:    email,
-		Password: password,
-		Phone:    phone,
+		UserName:      name,
+		Email:         email,
+		Password:      password,
+		Phone:         phone,
+		ReferralToken: refralCode,
 	}
 
 	if err := database.DB.Create(&newUser).Error; err != nil {
 		log.Println("Database Create Error:", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not create user"})
 		return
+	}
+
+	if ref != "" {
+		if err := VerifiRefralCode(newUser.ID, ref); err != nil {
+			helper.ResponseWithErr(c,http.StatusInternalServerError,"Referral code verification failed","Referral code verification failed","")
+			log.Printf("Referral code verification failed for user %d (code: %s): %v", newUser.ID, ref, err)
+			return
+		}
 	}
 
 	storage.RedisClient.Del(storage.Ctx, userKey)
@@ -221,7 +244,7 @@ func ResendOTP(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate new OTP"})
 		return
 	}
-	fmt.Println(otp)
+	// fmt.Println(otp)
 	data, err := storage.RedisClient.Get(storage.Ctx, userKey).Result()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve user data"})

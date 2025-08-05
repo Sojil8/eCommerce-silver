@@ -8,10 +8,10 @@ import (
 	"time"
 
 	"github.com/Sojil8/eCommerce-silver/database"
-	"github.com/Sojil8/eCommerce-silver/helper"
+	"github.com/Sojil8/eCommerce-silver/utils/helper"
 	"github.com/Sojil8/eCommerce-silver/models/userModels"
 	"github.com/Sojil8/eCommerce-silver/services"
-	"github.com/Sojil8/eCommerce-silver/storage"
+	"github.com/Sojil8/eCommerce-silver/utils/storage"
 	"github.com/gin-gonic/gin"
 )
 

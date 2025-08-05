@@ -5,10 +5,11 @@ type Breadcrumb struct {
 	URL  string
 }
 
-func GenerateBreadcrumbs(items ...Breadcrumb)[]Breadcrumb {
+func GenerateBreadcrumbs(items ...Breadcrumb) []Breadcrumb {
 	breadcrumbs := []Breadcrumb{
 		{Name: "Home", URL: "/home"},
 	}
-	breadcrumbs = append(breadcrumbs,items...)
+	breadcrumbs = append(breadcrumbs, items...)
+
 	return breadcrumbs
 }

@@ -51,38 +51,32 @@
     </style>
 </head>
 <body class="bg-gray-50 flex flex-col min-h-screen">
-    <!-- Navigation would be included here -->
-    <!-- {{template "navbar.html" .}} -->
+    {{template "navbar.html" .}}
 
-    <!-- Main Content -->
     <div class="container mx-auto p-6 flex-grow">
         <div class="flex flex-col md:flex-row gap-6">
-            <!-- Sidebar Navigation -->
             {{template "userSideBar.html" .}}
 
-            <!-- Main Content Area -->
             <div class="flex-1">
-                <!-- Referral Tab -->
                 <div id="referral-tab" class="tab-content active bg-white rounded-xl shadow-md p-6">
                     <div class="flex items-center mb-6">
                         <i class="fas fa-users text-indigo-600 text-3xl mr-3"></i>
                         <h3 class="text-2xl font-semibold text-gray-900">Referral Program</h3>
                     </div>
                     
-                    <!-- Referral Link Section -->
                     <div class="referral-card text-white rounded-xl p-6 mb-6">
                         <div class="flex items-center justify-between mb-4">
-                            <h4 class="text-xl font-semibold">Your Referral Link</h4>
+                            <h4 class="text-xl font-semibold">Your Referral Code</h4>
                             <i class="fas fa-gift text-2xl"></i>
                         </div>
-                        <p class="text-white/90 mb-4">Share this link with friends and earn rewards when they sign up!</p>
+                        <p class="text-white/90 mb-4">Share this code with friends and earn rewards when they sign up and use it!</p>
                         
                         <div class="bg-white/10 backdrop-blur-sm rounded-lg p-4 mb-4">
                             <div class="flex items-center justify-between">
-                                <input type="text" id="referral-link" readonly 
+                                <input type="text" id="referral-code-display" readonly 
                                        class="bg-transparent text-white placeholder-white/70 flex-1 outline-none text-sm"
-                                       placeholder="Loading your referral link...">
-                                <button onclick="copyReferralLink()" 
+                                       value="{{.userCode}}">
+                                <button onclick="copyReferralCode()" 
                                         class="copy-btn bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg ml-3 text-sm font-medium">
                                     <i class="fas fa-copy mr-2"></i>Copy
                                 </button>
@@ -105,7 +99,22 @@
                         </div>
                     </div>
 
-                    <!-- Stats Section -->
+                    <div class="bg-white rounded-xl shadow-md p-6 mb-6 border border-gray-200">
+                        <h4 class="text-xl font-semibold text-gray-900 mb-4 flex items-center">
+                            <i class="fas fa-tag text-indigo-600 text-2xl mr-2"></i>
+                            Have a Referral Code?
+                        </h4>
+                        <p class="text-gray-600 mb-4">Enter a friend's referral code to receive your reward!</p>
+                        <div class="flex flex-col sm:flex-row gap-4">
+                            <input type="text" id="referral-code-input" placeholder="Enter referral code"
+                                   class="flex-1 border border-gray-300 rounded-lg p-3 profile-input text-gray-800">
+                            <button onclick="submitReferralCode()"
+                                    class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-200">
+                                Apply Code
+                            </button>
+                        </div>
+                    </div>
+
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
                         <div class="stats-card text-white rounded-xl p-6">
                             <div class="flex items-center justify-between">
@@ -138,7 +147,6 @@
                         </div>
                     </div>
 
-                    <!-- How it Works Section -->
                     <div class="bg-gray-50 rounded-xl p-6 mb-6">
                         <h4 class="text-xl font-semibold text-gray-900 mb-4">How It Works</h4>
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -146,16 +154,16 @@
                                 <div class="bg-indigo-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3">
                                     <i class="fas fa-share text-indigo-600 text-2xl"></i>
                                 </div>
-                                <h5 class="font-semibold text-gray-900 mb-2">1. Share Your Link</h5>
-                                <p class="text-gray-600 text-sm">Share your unique referral link with friends and family</p>
+                                <h5 class="font-semibold text-gray-900 mb-2">1. Share Your Code</h5>
+                                <p class="text-gray-600 text-sm">Share your unique referral code with friends and family</p>
                             </div>
                             
                             <div class="text-center">
                                 <div class="bg-green-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3">
                                     <i class="fas fa-user-plus text-green-600 text-2xl"></i>
                                 </div>
-                                <h5 class="font-semibold text-gray-900 mb-2">2. Friend Signs Up</h5>
-                                <p class="text-gray-600 text-sm">Your friend creates an account using your referral link</p>
+                                <h5 class="font-semibold text-gray-900 mb-2">2. Friend Uses Code</h5>
+                                <p class="text-gray-600 text-sm">Your friend enters your referral code on their profile</p>
                             </div>
                             
                             <div class="text-center">
@@ -168,7 +176,6 @@
                         </div>
                     </div>
 
-                    <!-- Referral History -->
                     <div class="bg-white rounded-xl border border-gray-200 p-6">
                         <h4 class="text-xl font-semibold text-gray-900 mb-4">Recent Referrals</h4>
                         <div class="overflow-x-auto">
@@ -185,7 +192,7 @@
                                     <tr>
                                         <td colspan="4" class="text-center py-8 text-gray-500">
                                             <i class="fas fa-users text-4xl mb-3 block"></i>
-                                            No referrals yet. Start sharing your link!
+                                            No referrals yet. Start sharing your code!
                                         </td>
                                     </tr>
                                 </tbody>
@@ -197,7 +204,6 @@
         </div>
     </div>
 
-    <!-- Footer -->
     <footer class="bg-gray-900 text-white p-6 mt-auto">
         <div class="container mx-auto flex flex-col md:flex-row justify-between items-center">
             <p class="text-sm">© 2025 Silver. All rights reserved.</p>
@@ -208,119 +214,26 @@
         </div>
     </footer>
 
-    <!-- JavaScript -->
     <script>
-        let referralLink = '';
+        // Use the referral code passed from the backend
+        const referralCode = document.getElementById('referral-code-display').value;
         
-        // Load referral data on page load
-        document.addEventListener('DOMContentLoaded', function() {
-            loadReferralData();
-        });
-
-        function loadReferralData() {
-            // Show loading state
-            document.getElementById('referral-link').placeholder = 'Loading your referral link...';
-            
-            fetch('/api/referral/invite-link', {
-                method: 'GET',
-                credentials: 'include',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.invite_link) {
-                    referralLink = data.invite_link;
-                    document.getElementById('referral-link').value = referralLink;
-                    document.getElementById('referral-link').placeholder = '';
-                } else {
-                    throw new Error('Failed to load referral link');
-                }
-            })
-            .catch(error => {
-                console.error('Error loading referral data:', error);
-                document.getElementById('referral-link').placeholder = 'Error loading referral link';
+        function copyReferralCode() {
+            if (!referralCode) {
                 Swal.fire({
                     icon: 'error',
                     title: 'Error',
-                    text: 'Failed to load referral data. Please refresh the page.',
-                    confirmButtonColor: '#4f46e5'
-                });
-            });
-
-            // Load referral stats (you'll need to implement this endpoint)
-            loadReferralStats();
-        }
-
-        function loadReferralStats() {
-            // This would fetch actual stats from your backend
-            // For now, showing placeholder data
-            fetch('/api/referral/stats', {
-                method: 'GET',
-                credentials: 'include'
-            })
-            .then(response => response.json())
-            .then(data => {
-                document.getElementById('total-referrals').textContent = data.total_referrals || 0;
-                document.getElementById('total-rewards').textContent = '₹' + (data.total_rewards || 0);
-                document.getElementById('active-referrals').textContent = data.active_referrals || 0;
-                
-                if (data.referral_history && data.referral_history.length > 0) {
-                    updateReferralHistory(data.referral_history);
-                }
-            })
-            .catch(error => {
-                console.error('Error loading referral stats:', error);
-            });
-        }
-
-        function updateReferralHistory(history) {
-            const tbody = document.getElementById('referral-history');
-            tbody.innerHTML = '';
-            
-            history.forEach(referral => {
-                const row = document.createElement('tr');
-                row.className = 'border-b border-gray-100 hover:bg-gray-50';
-                row.innerHTML = `
-                    <td class="py-3 px-4">${referral.friend_name || 'Anonymous'}</td>
-                    <td class="py-3 px-4">
-                        <span class="px-2 py-1 rounded-full text-xs font-medium ${getStatusClass(referral.status)}">
-                            ${referral.status}
-                        </span>
-                    </td>
-                    <td class="py-3 px-4">₹${referral.reward || 0}</td>
-                    <td class="py-3 px-4">${new Date(referral.created_at).toLocaleDateString()}</td>
-                `;
-                tbody.appendChild(row);
-            });
-        }
-
-        function getStatusClass(status) {
-            switch(status) {
-                case 'completed': return 'bg-green-100 text-green-800';
-                case 'pending': return 'bg-yellow-100 text-yellow-800';
-                case 'cancelled': return 'bg-red-100 text-red-800';
-                default: return 'bg-gray-100 text-gray-800';
-            }
-        }
-
-        function copyReferralLink() {
-            if (!referralLink) {
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Error',
-                    text: 'Referral link not loaded yet. Please wait.',
+                    text: 'Referral code not available.',
                     confirmButtonColor: '#4f46e5'
                 });
                 return;
             }
 
-            navigator.clipboard.writeText(referralLink).then(() => {
+            navigator.clipboard.writeText(referralCode).then(() => {
                 Swal.fire({
                     icon: 'success',
                     title: 'Copied!',
-                    text: 'Referral link copied to clipboard',
+                    text: 'Referral code copied to clipboard',
                     timer: 2000,
                     showConfirmButton: false,
                     confirmButtonColor: '#4f46e5'
@@ -328,7 +241,7 @@
             }).catch(() => {
                 // Fallback for older browsers
                 const textArea = document.createElement('textarea');
-                textArea.value = referralLink;
+                textArea.value = referralCode;
                 document.body.appendChild(textArea);
                 textArea.select();
                 document.execCommand('copy');
@@ -337,7 +250,7 @@
                 Swal.fire({
                     icon: 'success',
                     title: 'Copied!',
-                    text: 'Referral link copied to clipboard',
+                    text: 'Referral code copied to clipboard',
                     timer: 2000,
                     showConfirmButton: false,
                     confirmButtonColor: '#4f46e5'
@@ -346,25 +259,84 @@
         }
 
         function shareViaWhatsApp() {
-            if (!referralLink) return;
-            const message = `Hey! Check out Silver - I think you'll love it! Use my referral link to get started: ${referralLink}`;
+            if (!referralCode) return;
+            const message = `Hey! Check out Silver - I think you'll love it! Use my referral code: ${referralCode} when you sign up.`;
             const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`;
             window.open(whatsappUrl, '_blank');
         }
 
         function shareViaEmail() {
-            if (!referralLink) return;
-            const subject = 'Join Silver with my referral link!';
-            const body = `Hi there!\n\nI've been using Silver and thought you might be interested. Use my referral link to get started:\n\n${referralLink}\n\nBest regards!`;
+            if (!referralCode) return;
+            const subject = 'Join Silver with my referral code!';
+            const body = `Hi there!\n\nI've been using Silver and thought you might be interested. Use my referral code: ${referralCode} when you create an account to get started!\n\nBest regards!`;
             const emailUrl = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
             window.location.href = emailUrl;
         }
 
         function shareViaSMS() {
-            if (!referralLink) return;
-            const message = `Hey! Check out Silver - use my referral link: ${referralLink}`;
+            if (!referralCode) return;
+            const message = `Hey! Check out Silver - use my referral code: ${referralCode}`;
             const smsUrl = `sms:?body=${encodeURIComponent(message)}`;
             window.location.href = smsUrl;
+        }
+
+        async function submitReferralCode() {
+            const refralCodeInput = document.getElementById('referral-code-input');
+            const refralCode = refralCodeInput.value.trim();
+
+            if (!refralCode) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Oops...',
+                    text: 'Please enter a referral code.',
+                    confirmButtonColor: '#4f46e5'
+                });
+                return;
+            }
+
+            try {
+                const response = await fetch('refral-invite', { // Assuming this is your verify endpoint
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ RefralCode: refralCode })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Success!',
+                        text: 'Referral code applied successfully! Your wallet has been credited.',
+                        confirmButtonColor: '#4f46e5'
+                    }).then(() => {
+                        window.location.reload(); // Reload to reflect changes, e.g., wallet balance
+                    });
+                } else {
+                    let errorMessage = 'Failed to apply referral code.';
+                    if (data.error) {
+                        errorMessage = data.error;
+                    } else if (data.message) { // Assuming your helper.ResponseWithErr uses "message" or "error" field for user-facing error
+                        errorMessage = data.message;
+                    }
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: errorMessage,
+                        confirmButtonColor: '#4f46e5'
+                    });
+                }
+            } catch (error) {
+                console.error('Error submitting referral code:', error);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Network Error',
+                    text: 'Could not connect to the server. Please try again.',
+                    confirmButtonColor: '#4f46e5'
+                });
+            }
         }
     </script>
 </body>
