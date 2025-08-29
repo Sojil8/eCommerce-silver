@@ -3,25 +3,34 @@ package controllers
 import (
 	"fmt"
 	"log"
+	"math"
+	"math/rand"
 	"net/http"
-	"net/url"
 	"os"
 	"time"
 
 	"github.com/Sojil8/eCommerce-silver/database"
 	"github.com/Sojil8/eCommerce-silver/models/adminModels"
 	"github.com/Sojil8/eCommerce-silver/models/userModels"
+	"github.com/Sojil8/eCommerce-silver/pkg"
+	"github.com/Sojil8/eCommerce-silver/services"
 	"github.com/Sojil8/eCommerce-silver/utils/helper"
 	"github.com/gin-gonic/gin"
-	"github.com/razorpay/razorpay-go"
+	"github.com/google/uuid"
+	"go.uber.org/zap"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 const shipping = 10.0
 const minimumOrderAmount = 10.0
 
 func ShowCheckout(c *gin.Context) {
-	userID, _ := c.Get("id")
+	pkg.Log.Info("Request to checkout")
+	uid, _ := c.Get("id")
+	userID := uid.(uint)
+
+	pkg.Log.Debug("Feach user ID", zap.Uint("userID", userID))
 
 	var cart userModels.Cart
 	if err := database.DB.Where("user_id = ?", userID).
@@ -64,17 +73,16 @@ func ShowCheckout(c *gin.Context) {
 			offerDetails := helper.GetBestOfferForProduct(&item.Product, item.Variants.ExtraPrice)
 			item.Price = offerDetails.OriginalPrice
 			item.DiscountedPrice = offerDetails.DiscountedPrice
-			item.OriginalPrice = offerDetails.OriginalPrice
-			item.DiscountPercentage = offerDetails.DiscountPercentage
+			item.RegularPrice = offerDetails.OriginalPrice
+			item.OfferDiscountPercentage = offerDetails.DiscountPercentage
 			item.OfferName = offerDetails.OfferName
 			item.IsOfferApplied = offerDetails.IsOfferApplied
 
-			// Calculate offer discount for this item
 			itemOfferDiscount := (offerDetails.OriginalPrice - offerDetails.DiscountedPrice) * float64(item.Quantity)
 			offerDiscount += itemOfferDiscount
 
-			item.ItemTotal = offerDetails.DiscountedPrice * float64(item.Quantity)
-			totalPrice += item.ItemTotal
+			item.SalePrice = offerDetails.DiscountedPrice * float64(item.Quantity)
+			totalPrice += item.SalePrice
 			originalTotalPrice += offerDetails.OriginalPrice * float64(item.Quantity)
 			validCartItems = append(validCartItems, item)
 		} else {
@@ -130,7 +138,6 @@ func ShowCheckout(c *gin.Context) {
 				appliedCoupon.ExpiryDate.After(time.Now()) &&
 				appliedCoupon.UsedCount < appliedCoupon.UsageLimit &&
 				totalPrice >= appliedCoupon.MinPurchaseAmount {
-				// Calculate coupon discount based on the discounted total (after offers)
 				couponDiscount = originalTotalPrice * (appliedCoupon.DiscountPercentage / 100)
 				finalPrice -= couponDiscount
 				couponApplied = true
@@ -164,6 +171,12 @@ func ShowCheckout(c *gin.Context) {
 		return
 	}
 
+	var Wallet userModels.Wallet
+	if err := database.DB.Where("user_id = ?", userID).First(&Wallet).Error; err != nil {
+		helper.ResponseWithErr(c, http.StatusNotFound, "Wallet not found", "Wallet not found", "")
+		return
+	}
+
 	userr, exists := c.Get("user")
 	userName, nameExists := c.Get("user_name")
 	if !exists || !nameExists {
@@ -175,11 +188,11 @@ func ShowCheckout(c *gin.Context) {
 			"Addresses":          addresses,
 			"Shipping":           shipping,
 			"FinalPrice":         finalPrice,
-			"Subtotal":           originalTotalPrice, // This should be the discounted subtotal
+			"Subtotal":           originalTotalPrice,
 			"OriginalTotalPrice": originalTotalPrice,
-			"TotalDiscount":      offerDiscount + couponDiscount, // FIXED: Use totalDiscount instead of Discount
-			"OfferDiscount":      offerDiscount,                  // Separate offer discount
-			"CouponDiscount":     couponDiscount,                 // Separate coupon discount
+			"TotalDiscount":      offerDiscount + couponDiscount,
+			"OfferDiscount":      offerDiscount,
+			"CouponDiscount":     couponDiscount,
 			"CouponApplied":      couponApplied,
 			"AppliedCoupon":      appliedCoupon,
 			"UserEmail":          user.Email,
@@ -190,6 +203,7 @@ func ShowCheckout(c *gin.Context) {
 			"WishlistCount":      0,
 			"CartCount":          0,
 			"ProfileImage":       "",
+			"Wallet":             Wallet,
 		})
 		return
 	}
@@ -215,9 +229,9 @@ func ShowCheckout(c *gin.Context) {
 		"FinalPrice":         finalPrice,
 		"Subtotal":           originalTotalPrice,
 		"OriginalTotalPrice": originalTotalPrice,
-		"TotalDiscount":      offerDiscount + couponDiscount, // FIXED: Use totalDiscount instead of Discount
-		"OfferDiscount":      offerDiscount,                  // Separate offer discount
-		"CouponDiscount":     couponDiscount,                 // Separate coupon discount
+		"TotalDiscount":      offerDiscount + couponDiscount,
+		"OfferDiscount":      offerDiscount,
+		"CouponDiscount":     couponDiscount,
 		"CouponApplied":      couponApplied,
 		"AppliedCoupon":      appliedCoupon,
 		"UserEmail":          user.Email,
@@ -227,6 +241,7 @@ func ShowCheckout(c *gin.Context) {
 		"ProfileImage":       userData.ProfileImage,
 		"WishlistCount":      wishlistCount,
 		"CartCount":          cartCount,
+		"Wallet":             Wallet,
 	})
 }
 
@@ -236,18 +251,7 @@ type PaymentRequest struct {
 }
 
 func PlaceOrder(c *gin.Context) {
-	userID, exists := c.Get("id")
-	if !exists {
-		log.Printf("No user ID found in context")
-		helper.ResponseWithErr(c, http.StatusUnauthorized, "User not authenticated", "No user ID found in context", "")
-		return
-	}
-	uid, ok := userID.(uint)
-	if !ok {
-		log.Printf("Invalid user ID type")
-		helper.ResponseWithErr(c, http.StatusInternalServerError, "Internal server error", "Invalid user ID type", "")
-		return
-	}
+	userID := helper.FetchUserID(c)
 
 	var req PaymentRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -256,298 +260,445 @@ func PlaceOrder(c *gin.Context) {
 		return
 	}
 
-	log.Printf("PlaceOrder request for user %v: address_id=%d, payment_method=%s", uid, req.AddressID, req.PaymentMethod)
+	log.Printf("PlaceOrder request for user %v: address_id=%d, payment_method=%s", userID, req.AddressID, req.PaymentMethod)
 
-	if req.PaymentMethod != "COD" && req.PaymentMethod != "ONLINE" {
-		helper.ResponseWithErr(c, http.StatusBadRequest, "Invalid payment method", "Choose either COD or ONLINE", "")
+	var user userModels.Users
+	if err := database.DB.First(&user, userID).Error; err != nil {
+		pkg.Log.Error("User not found", zap.Uint("userID", userID), zap.Error(err))
+		helper.ResponseWithErr(c, http.StatusNotFound, "User not found", "User not found", "/cart")
 		return
 	}
 
-	var cart userModels.Cart
-	var validCartItems []userModels.CartItem
+	cart, err := services.FetchCartByUserID(userID)
+	if err != nil {
+		pkg.Log.Warn("Cart is empty or not found", zap.Uint("userID", userID))
+		helper.ResponseWithErr(c, http.StatusNotFound, "Cart is empty", "Add products to your cart", "/cart")
+		return
+	}
+
+	totalPrice, originalTotalPrice, OfferDiscount, validCartItems, err := services.ValidateCartItems(cart, database.DB)
+	if err != nil {
+		pkg.Log.Error("Failed to validate cart items", zap.Uint("userID", userID), zap.Error(err))
+		helper.ResponseWithErr(c, http.StatusBadRequest, err.Error(), err.Error(), "/cart")
+		return
+	}
+
+	cart.OriginalTotalPrice = originalTotalPrice
+	cart.TotalPrice = totalPrice
+	if err := database.DB.Save(&cart).Error; err != nil {
+		pkg.Log.Error("Failed to save cart", zap.Uint("userID", userID), zap.Error(err))
+		helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to process cart", "Something went wrong", "/cart")
+		return
+	}
+
 	var address userModels.Address
-	var finalPrice float64
+	if err := database.DB.Where("id = ? AND user_id = ?", req.AddressID, userID).First(&address).Error; err != nil {
+		pkg.Log.Error("Address not found", zap.Uint("addressID", req.AddressID), zap.Error(err))
+		helper.ResponseWithErr(c, http.StatusBadRequest, "Invalid address", "Address not found", "/checkout")
+		return
+	}
+
 	var couponDiscount float64
-	var offerDiscount float64
-	var coupon adminModels.Coupons
-	orderID := helper.GenerateOrderID()
-	totalPrice := 0.0
-	err := database.DB.Transaction(func(tx *gorm.DB) error {
-
-		var originalTotalPrice float64
-		if err := tx.Where("user_id = ?", uid).
-			Preload("CartItems.Product").
-			Preload("CartItems.Variants").
-			First(&cart).Error; err != nil {
-			return fmt.Errorf("cart not found: %v", err)
-		}
-
-		for _, item := range cart.CartItems {
-			var category adminModels.Category
-			var variant adminModels.Variants
-
-			isInStock := item.Product.IsListed && item.Product.InStock
-			hasVariantStock := false
-			if err := tx.Where("id = ? AND deleted_at IS NULL", item.VariantsID).First(&variant).Error; err == nil {
-				hasVariantStock = variant.Stock >= item.Quantity
-			}
-
-			if isInStock && hasVariantStock &&
-				tx.Where("category_name = ? AND status = ?", item.Product.CategoryName, true).First(&category).Error == nil {
-				offerDetails := helper.GetBestOfferForProduct(&item.Product, item.Variants.ExtraPrice)
-				item.Price = offerDetails.OriginalPrice
-				item.DiscountedPrice = offerDetails.DiscountedPrice
-				item.OriginalPrice = offerDetails.OriginalPrice
-				item.DiscountPercentage = offerDetails.DiscountPercentage
-				item.OfferName = offerDetails.OfferName
-				item.IsOfferApplied = offerDetails.IsOfferApplied
-				item.ItemTotal = offerDetails.DiscountedPrice * float64(item.Quantity)
-				totalPrice += item.ItemTotal
-				originalTotalPrice += offerDetails.OriginalPrice * float64(item.Quantity)
-
-				itemOfferDiscount := (offerDetails.OriginalPrice - offerDetails.DiscountedPrice) * float64(item.Quantity)
-				offerDiscount += itemOfferDiscount
-				validCartItems = append(validCartItems, item)
-			} else {
-				log.Printf("Skipping item: product_id=%d, variant_id=%d, product_listed=%v, product_in_stock=%v, variant_stock=%d, quantity=%d",
-					item.ProductID, item.VariantsID, item.Product.IsListed, isInStock, variant.Stock, item.Quantity)
-			}
-		}
-
-		if len(validCartItems) == 0 {
-			return fmt.Errorf("no valid items in cart with sufficient stock")
-		}
-
-		cart.OriginalTotalPrice = originalTotalPrice
-		cart.TotalPrice = totalPrice
-		if err := tx.Save(&cart).Error; err != nil {
-			return fmt.Errorf("failed to save cart: %v", err)
-		}
-
-		if err := tx.Where("id = ? AND user_id = ?", req.AddressID, uid).First(&address).Error; err != nil {
-			return fmt.Errorf("invalid address: %v", err)
-		}
-
-		finalPrice = cart.TotalPrice + shipping
-		couponCode := ""
-		if cart.CouponID != 0 {
-			if err := tx.First(&coupon, cart.CouponID).Error; err == nil {
-				if coupon.IsActive &&
-					coupon.ExpiryDate.After(time.Now()) &&
-					coupon.UsedCount < coupon.UsageLimit &&
-					cart.OriginalTotalPrice >= coupon.MinPurchaseAmount {
-					couponDiscount = cart.OriginalTotalPrice * (coupon.DiscountPercentage / 100)
-					finalPrice -= couponDiscount
-					couponCode = coupon.CouponCode
-				} else {
-					log.Printf("Coupon %s invalid: active=%v, expired=%v, used=%d/%d, min=%.2f, cartTotal=%.2f",
-						coupon.CouponCode, coupon.IsActive, coupon.ExpiryDate.Before(time.Now()),
-						coupon.UsedCount, coupon.UsageLimit, coupon.MinPurchaseAmount, cart.TotalPrice)
-					cart.CouponID = 0
-					if err := tx.Save(&cart).Error; err != nil {
-						return fmt.Errorf("failed to reset coupon: %v", err)
-					}
-				}
-			} else {
-				log.Printf("Coupon ID %v not found: %v", cart.CouponID, err)
-				cart.CouponID = 0
-				if err := tx.Save(&cart).Error; err != nil {
-					return fmt.Errorf("failed to reset coupon: %v", err)
-				}
-			}
-		}
-
-		if finalPrice < minimumOrderAmount {
-			return fmt.Errorf("order amount too low: %.2f < %.2f", finalPrice, minimumOrderAmount)
-		}
-
-		var paymentStatus string
-		if req.PaymentMethod == "COD" {
-			paymentStatus = "Pending"
+	var couponCode string
+	var couponID uint
+	if cart.CouponID != 0 {
+		var coupon adminModels.Coupons
+		if err := database.DB.First(&coupon, cart.CouponID).Error; err != nil {
+			pkg.Log.Warn("Coupon not found", zap.Uint("couponID", cart.CouponID), zap.Error(err))
+			cart.CouponID = 0
+			database.DB.Save(&cart)
+		} else if coupon.IsActive && coupon.ExpiryDate.After(time.Now()) && coupon.UsedCount < coupon.UsageLimit && cart.OriginalTotalPrice >= coupon.MinPurchaseAmount {
+			couponDiscount = cart.OriginalTotalPrice * (coupon.DiscountPercentage / 100) // Fixed: Use * for percentage
+			couponCode = coupon.CouponCode
+			couponID = coupon.ID
 		} else {
-			paymentStatus = "Created"
+			pkg.Log.Warn("Invalid coupon", zap.String("couponCode", coupon.CouponCode))
+			cart.CouponID = 0
+			database.DB.Save(&cart)
 		}
-		paymentDetails := adminModels.PaymentDetails{
-			UserID:        uid,
-			Amount:        finalPrice,
-			AddressID:     req.AddressID,
-			PaymentMethod: req.PaymentMethod,
-			Status:        paymentStatus,
-		}
+	}
+	finalPrice := totalPrice + shipping - couponDiscount
+	if finalPrice < minimumOrderAmount {
+		pkg.Log.Warn("Order amount too low", zap.Float64("finalPrice", finalPrice))
+		helper.ResponseWithErr(c, http.StatusBadRequest, "Order amount too low", fmt.Sprintf("Minimum order amount is %.2f", minimumOrderAmount), "/cart")
+		return
+	}
 
-		if req.PaymentMethod == "ONLINE" {
-			client := razorpay.NewClient(os.Getenv("RAZORPAY_KEY_ID"), os.Getenv("RAZORPAY_KEY_SECRET"))
-			amount := int(finalPrice * 100)
-			data := map[string]interface{}{
-				"amount":   amount,
-				"currency": "INR",
-				"receipt":  fmt.Sprintf("receipt_%d_%d", uid, time.Now().Unix()),
-			}
-			razorpayOrder, err := client.Order.Create(data, nil)
-			if err != nil {
-				return fmt.Errorf("failed to create Razorpay order: %v", err)
-			}
-			paymentDetails.RazorpayOrderID = razorpayOrder["id"].(string)
-			if err := tx.Create(&paymentDetails).Error; err != nil {
-				return fmt.Errorf("failed to store payment details: %v", err)
-			}
-			c.Set("razorpayOrderID", paymentDetails.RazorpayOrderID)
-			c.Set("amount", amount)
-			return nil
+	tx := database.DB.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
 		}
+	}()
 
-		var orderCount int64
-		if err := tx.Model(&userModels.Orders{}).Where("user_id = ? AND payment_method = ?", uid, "COD").Count(&orderCount).Error; err != nil {
-			return fmt.Errorf("failed to check COD order count: %v", err)
-		}
-		if err := tx.Where("id = ? AND user_id = ?", req.AddressID, userID).First(&address).Error; err != nil {
-			return fmt.Errorf("invalid address: %v", err)
-		}
+	orderID := helper.GenerateOrderID()
+	shippingAddress := adminModels.ShippingAddress{
+		OrderID:        orderID,
+		UserID:         userID,
+		Name:           address.Name,
+		City:           address.City,
+		AddressType:    address.AddressType,
+		State:          address.State,
+		Pincode:        address.Pincode,
+		Phone:          address.Phone,
+		AlternatePhone: address.AlternatePhone,
+	}
+	if err := tx.Create(&shippingAddress).Error; err != nil {
+		pkg.Log.Error("Failed to create shipping address", zap.Error(err))
+		tx.Rollback()
+		helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to create shipping address", "Something went wrong", "/checkout")
+		return
+	}
 
-		shippingAdd := adminModels.ShippingAddress{
-			OrderID:        orderID,
-			UserID:         uid,
-			Name:           address.Name,
-			City:           address.City,
-			Landmark:       address.Landmark,
-			State:          address.State,
-			Pincode:        address.Pincode,
-			AddressType:    address.AddressType,
-			Phone:          address.Phone,
-			AlternatePhone: address.AlternatePhone,
-			TrackingStatus: "Pending",
-		}
-		if err := tx.Create(&shippingAdd).Error; err != nil {
-			return fmt.Errorf("failed to create shipping address: %v", err)
-		}
+	order := userModels.Orders{
+		UserID:             userID,
+		OrderIdUnique:      orderID,
+		AddressID:          req.AddressID,
+		ShippingAddress:    shippingAddress,
+		TotalPrice:         finalPrice,
+		Subtotal:           originalTotalPrice,
+		CouponDiscount:     couponDiscount,
+		OfferDiscount:      OfferDiscount,
+		TotalDiscount:      OfferDiscount + couponDiscount,
+		CouponID:           couponID,
+		CouponCode:         couponCode,
+		PaymentMethod:      req.PaymentMethod,
+		PaymentStatus:      "Pending",
+		Status:             "Pending",
+		OrderDate:          time.Now(),
+		ShippingCost:       shipping,
+		CancellationStatus: "None",
+	}
+	if err := tx.Create(&order).Error; err != nil {
+		pkg.Log.Error("Failed to create order", zap.Error(err))
+		tx.Rollback()
+		helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to create order", "Something went wrong", "/checkout")
+		return
+	}
 
-		order := userModels.Orders{
-			UserID:          uid,
-			OrderIdUnique:   orderID,
-			AddressID:       req.AddressID,
-			ShippingAddress: shippingAdd,
-			TotalPrice:      finalPrice,
-			Subtotal:        cart.OriginalTotalPrice,
-			CouponDiscount:  couponDiscount,
-			OfferDiscount:   offerDiscount,
-			CouponID:        cart.CouponID,
-			CouponCode:      couponCode,
-			Status:          "Pending",
-			PaymentMethod:   req.PaymentMethod,
-			PaymentStatus:   paymentStatus,
-			OrderDate:       time.Now(),
-			ShippingCost:    shipping,
+	orderBackUp := userModels.OrderBackUp{
+		Subtotal:      originalTotalPrice,
+		ShippingCost:  shipping,
+		TotalPrice:    finalPrice,
+		OfferDiscount: OfferDiscount,
+		OrderIdUnique: orderID,
+	}
+	if err := tx.Create(&orderBackUp).Error; err != nil {
+		pkg.Log.Error("Failed to create order backup", zap.Error(err))
+		tx.Rollback()
+		helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to create order backup", "Something went wrong", "/checkout")
+		return
+	}
 
-			CancellationStatus: "None",
+	// Create order items (common for all payment methods)
+	for _, item := range validCartItems {
+		orderItem := userModels.OrderItem{
+			OrderID:        order.ID,
+			ProductID:      item.ProductID,
+			VariantsID:     item.VariantsID,
+			Quantity:       item.Quantity,
+			UnitPrice:      item.DiscountedPrice,
+			ItemTotal:      item.DiscountedPrice * float64(item.Quantity),
+			DiscountAmount: (item.SalePrice - item.DiscountedPrice) * float64(item.Quantity),
+			OfferName:      item.OfferName,
+			Status:         "Active",
+			ReturnStatus:   "None",
 		}
+		if err := tx.Create(&orderItem).Error; err != nil {
+			pkg.Log.Error("Failed to create order item", zap.Uint("productID", item.ProductID), zap.Error(err))
+			tx.Rollback()
+			helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to create order items", "Something went wrong", "/checkout")
+			return
+		}
+	}
 
-		if err := tx.Create(&order).Error; err != nil {
-			return fmt.Errorf("failed to create order: %v", err)
+	// Stock check/deduction logic
+	stockOk := true
+	for _, item := range validCartItems {
+		var variant adminModels.Variants
+		if err := tx.First(&variant, item.VariantsID).Error; err != nil {
+			pkg.Log.Error("Variant not found", zap.Uint("variantsID", item.VariantsID), zap.Error(err))
+			tx.Rollback()
+			helper.ResponseWithErr(c, http.StatusBadRequest, "Variant not found", "Product variant not found", "/cart")
+			return
 		}
-		orderBackup := userModels.OrderBackUp{
-			ShippingCost:  order.ShippingCost,
-			Subtotal:      cart.OriginalTotalPrice,
-			TotalPrice:    finalPrice,
-			OfferDiscount: offerDiscount,
-			OrderIdUnique: orderID,
+		if variant.Stock < item.Quantity {
+			stockOk = false
+			pkg.Log.Error("Insufficient stock", zap.Uint("variantsID", item.VariantsID), zap.Uint("available", variant.Stock), zap.Uint("required", item.Quantity))
+			break
 		}
-		if err := tx.Create(&orderBackup).Error; err != nil {
-			return fmt.Errorf("failed to create orderbackup: %v", err)
-		}
+	}
+	if !stockOk {
+		tx.Rollback()
+		helper.ResponseWithErr(c, http.StatusBadRequest, "Insufficient stock", "One or more products are out of stock", "/cart")
+		return
+	}
 
-		for _, item := range validCartItems {
-			orderItem := userModels.OrderItem{
-				OrderID:        order.ID,
-				ProductID:      item.ProductID,
-				VariantsID:     item.VariantsID,
-				Quantity:       item.Quantity,
-				UnitPrice:      item.DiscountedPrice,
-				ItemTotal:      item.DiscountedPrice * float64(item.Quantity),
-				DiscountAmount: (item.OriginalPrice - item.DiscountedPrice) * float64(item.Quantity),
-				OfferName:      item.OfferName,
-				Status:         "Active",
-				ReturnStatus:   "None",
-			}
-			if err := tx.Create(&orderItem).Error; err != nil {
-				return fmt.Errorf("failed to create order item: %v", err)
-			}
-
-			var variant adminModels.Variants
-			if err := tx.First(&variant, item.VariantsID).Error; err != nil {
-				return fmt.Errorf("variant not found: %v", err)
-			}
-			variant.Stock -= item.Quantity
-			if variant.Stock == 0 {
-				var product adminModels.Product
-				if err := tx.First(&product, item.ProductID).Error; err != nil {
-					return fmt.Errorf("product not found: %v", err)
-				}
-				product.InStock = false
-				if err := tx.Save(&product).Error; err != nil {
-					return fmt.Errorf("failed to update product stock: %v", err)
-				}
-			}
-			if err := tx.Save(&variant).Error; err != nil {
-				return fmt.Errorf("failed to update variant stock: %v", err)
-			}
-		}
-
-		if cart.CouponID != 0 {
+	if cart.CouponID != 0 {
+		var coupon adminModels.Coupons
+		if err := tx.First(&coupon, cart.CouponID).Error; err == nil {
 			coupon.UsedCount++
 			if err := tx.Save(&coupon).Error; err != nil {
-				return fmt.Errorf("failed to update coupon usage: %v", err)
+				pkg.Log.Error("Failed to update coupon usage", zap.Uint("couponID", cart.CouponID), zap.Error(err))
+				tx.Rollback()
+				helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to update coupon", "Something went wrong", "/checkout")
+				return
+			}
+		}
+	}
+
+	switch req.PaymentMethod {
+	case "COD":
+		// Deduct stock for COD
+		for _, item := range validCartItems {
+			var variant adminModels.Variants
+			tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&variant, item.VariantsID)
+			variant.Stock -= item.Quantity
+			if err := tx.Save(&variant).Error; err != nil {
+				pkg.Log.Error("Failed to update variant stock", zap.Uint("variantsID", item.VariantsID), zap.Error(err))
+				tx.Rollback()
+				helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to update stock", "Something went wrong", "/checkout")
+				return
+			}
+			// Update product InStock
+			var product adminModels.Product
+			if err := tx.Preload("Variants").First(&product, item.ProductID).Error; err != nil {
+				pkg.Log.Error("Product not found", zap.Uint("productID", item.ProductID), zap.Error(err))
+				tx.Rollback()
+				helper.ResponseWithErr(c, http.StatusInternalServerError, "Product not found", "Something went wrong", "/checkout")
+				return
+			}
+			var totalStock uint
+			for _, v := range product.Variants {
+				totalStock += v.Stock
+			}
+			product.InStock = totalStock > 0
+			if err := tx.Save(&product).Error; err != nil {
+				pkg.Log.Error("Failed to update product stock", zap.Uint("productID", item.ProductID), zap.Error(err))
+				tx.Rollback()
+				helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to update product stock", "Something went wrong", "/checkout")
+				return
 			}
 		}
 
-		paymentDetails.OrderID = order.ID
-		if err := tx.Create(&paymentDetails).Error; err != nil {
-			return fmt.Errorf("failed to store payment details: %v", err)
+		payment := adminModels.PaymentDetails{
+			OrderID:       order.ID,
+			UserID:        userID,
+			AddressID:     req.AddressID,
+			PaymentMethod: "COD",
+			Amount:        finalPrice,
+			Status:        "Pending",
+			Attempts:      1,
+			CreatedAt:     time.Now(),
 		}
-		if err := tx.Where("cart_id = ?", cart.ID).Delete(&userModels.CartItem{}).Error; err != nil {
-			return fmt.Errorf("failed to delete cart items: %v", err)
-		}
-		if err := tx.Delete(&cart).Error; err != nil {
-			return fmt.Errorf("failed to delete cart: %v", err)
-		}
-
-		return nil
-	})
-
-	if err != nil {
-		log.Printf("Transaction error: %v", err)
-		helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to place order", err.Error(), "")
-		return
-	}
-
-	if req.PaymentMethod == "ONLINE" {
-		razorpayOrderID, exists := c.Get("razorpayOrderID")
-		if !exists {
-			log.Printf("Razorpay order ID not found in context")
-			helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to retrieve payment details", "Razorpay order ID not found", "")
+		if err := tx.Create(&payment).Error; err != nil {
+			pkg.Log.Error("Failed to create payment", zap.Uint("orderID", order.ID), zap.Error(err))
+			tx.Rollback()
+			helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to process COD", "Something went wrong", "/checkout")
 			return
 		}
-		amount, exists := c.Get("amount")
-		if !exists {
-			log.Printf("Amount not found in context")
-			helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to retrieve payment details", "Amount not found", "")
+		order.PaymentStatus = "Pending"
+		order.Status = "Confirmed"
+		if err := tx.Save(&order).Error; err != nil {
+			pkg.Log.Error("Failed to update order", zap.Uint("orderID", order.ID), zap.Error(err))
+			tx.Rollback()
+			helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to process COD", "Something went wrong", "/checkout")
 			return
 		}
+
+		if err := services.ClearCart(userID, tx); err != nil {
+			pkg.Log.Error("Failed to clear cart", zap.Uint("userID", userID), zap.Error(err))
+			tx.Rollback()
+			helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to clear cart", "Something went wrong", "/checkout")
+			return
+		}
+		tx.Commit()
+		pkg.Log.Info("COD order placed successfully", zap.String("orderID", order.OrderIdUnique), zap.Uint("userID", userID))
+		c.JSON(http.StatusOK, gin.H{
+			"status":   "ok",
+			"message":  "Order placed successfully",
+			"order_id": order.OrderIdUnique,
+			"redirect": fmt.Sprintf("/order/success?order_id=%s", order.OrderIdUnique),
+		})
+
+	case "ONLINE":
+		// No stock deduction here - only checked above
+		razorpayOrder, err := services.CreateRazorpayOrder(int(math.Round(finalPrice))) // Fixed: Use finalPrice
+		if err != nil {
+			pkg.Log.Error("Failed to create Razorpay order", zap.Float64("amount", finalPrice), zap.Error(err))
+			tx.Rollback()
+			helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to create Razorpay order", "Something went wrong", "/checkout")
+			return
+		}
+
+		razorpayOrderID, ok := razorpayOrder["id"].(string)
+		if !ok {
+			pkg.Log.Error("Failed to extract Razorpay order ID", zap.Any("razorpayOrder", razorpayOrder))
+			tx.Rollback()
+			helper.ResponseWithErr(c, http.StatusInternalServerError, "Invalid Razorpay response", "Something went wrong", "/checkout")
+			return
+		}
+
+		order.RazorpayOrderID = razorpayOrderID
+		if err := tx.Save(&order).Error; err != nil {
+			pkg.Log.Error("Failed to update order with Razorpay ID", zap.String("razorpayOrderID", razorpayOrderID), zap.Error(err))
+			tx.Rollback()
+			helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to process Razorpay", "Something went wrong", "/checkout")
+			return
+		}
+
+		payment := adminModels.PaymentDetails{
+			OrderID:         order.ID,
+			UserID:          userID,
+			AddressID:       req.AddressID,
+			PaymentMethod:   "ONLINE",
+			Amount:          finalPrice,
+			Status:          "Pending",
+			RazorpayOrderID: razorpayOrderID,
+			Attempts:        1,
+			CreatedAt:       time.Now(),
+		}
+		if err := tx.Create(&payment).Error; err != nil {
+			pkg.Log.Error("Failed to create payment record", zap.Uint("orderID", order.ID), zap.Error(err))
+			tx.Rollback()
+			helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to create payment record", "Something went wrong", "/checkout")
+			return
+		}
+
+		tx.Commit()
+		pkg.Log.Info("Razorpay order initiated", zap.String("razorpayOrderID", razorpayOrderID), zap.Uint("userID", userID))
 		c.JSON(http.StatusOK, gin.H{
 			"status":            "payment_required",
-			"message":           "Proceed to payment",
+			"key_id":            os.Getenv("RAZORPAY_KEY_ID"),
 			"razorpay_order_id": razorpayOrderID,
-			"amount":            amount,
-			"order_id":          orderID,
+			"amount":            int(math.Round(finalPrice) * 100),
+			"currency":          "INR",
+			"order_id":          order.OrderIdUnique,
+			"prefill": gin.H{
+				"name":    user.UserName,
+				"email":   user.Email,
+				"contact": address.Phone,
+			},
+			"notes": gin.H{
+				"address":  address.City,
+				"user_id":  userID,
+				"order_id": order.ID,
+			},
 		})
+
+	case "Wallet":
+		// Similar to COD: deduct stock here
+		var wallet userModels.Wallet
+		if err := tx.First(&wallet, "user_id = ?", userID).Error; err != nil || wallet.Balance < finalPrice { // Fixed: Use finalPrice
+			pkg.Log.Error("Insufficient wallet balance or wallet not found", zap.Uint("userID", userID), zap.Error(err))
+			tx.Rollback()
+			helper.ResponseWithErr(c, http.StatusBadRequest, "Insufficient wallet balance", "Add funds to your wallet", "/cart")
+			return
+		}
+
+		// Deduct stock for Wallet
+		for _, item := range validCartItems {
+			var variant adminModels.Variants
+			tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&variant, item.VariantsID)
+			variant.Stock -= item.Quantity
+			if err := tx.Save(&variant).Error; err != nil {
+				pkg.Log.Error("Failed to update variant stock", zap.Uint("variantsID", item.VariantsID), zap.Error(err))
+				tx.Rollback()
+				helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to update stock", "Something went wrong", "/checkout")
+				return
+			}
+			// Update product InStock
+			var product adminModels.Product
+			if err := tx.Preload("Variants").First(&product, item.ProductID).Error; err != nil {
+				pkg.Log.Error("Product not found", zap.Uint("productID", item.ProductID), zap.Error(err))
+				tx.Rollback()
+				helper.ResponseWithErr(c, http.StatusInternalServerError, "Product not found", "Something went wrong", "/checkout")
+				return
+			}
+			var totalStock uint
+			for _, v := range product.Variants {
+				totalStock += v.Stock
+			}
+			product.InStock = totalStock > 0
+			if err := tx.Save(&product).Error; err != nil {
+				pkg.Log.Error("Failed to update product stock", zap.Uint("productID", item.ProductID), zap.Error(err))
+				tx.Rollback()
+				helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to update product stock", "Something went wrong", "/checkout")
+				return
+			}
+		}
+
+		order.PaymentStatus = "Completed"
+		order.Status = "Confirmed"
+		if err := tx.Save(&order).Error; err != nil {
+			pkg.Log.Error("Failed to update order", zap.Uint("orderID", order.ID), zap.Error(err))
+			tx.Rollback()
+			helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to process wallet payment", "Something went wrong", "/checkout")
+			return
+		}
+		transactionID := fmt.Sprintf("TXN-%d-%d", time.Now().UnixNano(), rand.Intn(10000))
+		payment := adminModels.PaymentDetails{
+			OrderID:       order.ID,
+			UserID:        userID,
+			PaymentMethod: "Wallet",
+			Amount:        finalPrice,
+			Status:        "Completed",
+			Attempts:      1,
+			CreatedAt:     time.Now(),
+			TransactionID: transactionID,
+		}
+		if err := tx.Create(&payment).Error; err != nil {
+			pkg.Log.Error("Failed to create payment", zap.Uint("orderID", order.ID), zap.Error(err))
+			tx.Rollback()
+			helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to process wallet payment", "Something went wrong", "/checkout")
+			return
+		}
+
+		lastBalance := wallet.Balance
+		wallet.Balance -= finalPrice
+		if err := tx.Save(&wallet).Error; err != nil {
+			pkg.Log.Error("Failed to update wallet balance", zap.Uint("userID", userID), zap.Error(err))
+			tx.Rollback()
+			helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to update wallet", "Something went wrong", "/checkout")
+			return
+		}
+
+		walletTransaction := userModels.WalletTransaction{
+			UserID:        userID,
+			WalletID:      wallet.ID,
+			Amount:        finalPrice,
+			LastBalance:   lastBalance,
+			Description:   "Product Purchase ORD ID: " + order.OrderIdUnique,
+			Type:          "Debited",
+			Receipt:       "rcpt-" + uuid.New().String(),
+			OrderID:       order.OrderIdUnique,
+			TransactionID: transactionID,
+			PaymentMethod: "Wallet",
+		}
+		if err := tx.Create(&walletTransaction).Error; err != nil {
+			pkg.Log.Error("Failed to create wallet transaction", zap.Uint("userID", userID), zap.Error(err))
+			tx.Rollback()
+			helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to record wallet transaction", "Something went wrong", "/checkout")
+			return
+		}
+
+		if err := services.ClearCart(userID, tx); err != nil {
+			pkg.Log.Error("Failed to clear cart", zap.Uint("userID", userID), zap.Error(err))
+			tx.Rollback()
+			helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to clear cart", "Something went wrong", "/checkout")
+			return
+		}
+
+		tx.Commit()
+		pkg.Log.Info("Wallet order placed successfully", zap.String("orderID", order.OrderIdUnique), zap.Uint("userID", userID))
+		c.Redirect(http.StatusFound, "/order/success?order_id="+order.OrderIdUnique)
+
+	default:
+		pkg.Log.Warn("Invalid payment method", zap.String("method", req.PaymentMethod))
+		tx.Rollback()
+		helper.ResponseWithErr(c, http.StatusBadRequest, "Invalid payment method", "Invalid payment method", "/checkout")
 		return
 	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"status":   "ok",
-		"message":  "Order placed successfully",
-		"order_id": orderID,
-		"redirect": fmt.Sprintf("/order/success?order_id=%s", orderID),
-	})
 }
 
 type PaymentVerification struct {
@@ -557,287 +708,135 @@ type PaymentVerification struct {
 }
 
 func VerifyPayment(c *gin.Context) {
-	userID, exists := c.Get("id")
-	if !exists {
-		log.Printf("No user ID found in context")
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"status":   "error",
-			"message":  "User not authenticated",
-			"redirect": fmt.Sprintf("/order/failure?error=%s", url.QueryEscape("User not authenticated")),
-		})
-		return
-	}
-	uid, ok := userID.(uint)
-	if !ok {
-		log.Printf("Invalid user ID type")
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"status":   "error",
-			"message":  "Internal server error",
-			"redirect": fmt.Sprintf("/order/failure?error=%s", url.QueryEscape("Invalid user ID type")),
-		})
-		return
-	}
+	userID := helper.FetchUserID(c)
 
 	var req PaymentVerification
 	if err := c.ShouldBindJSON(&req); err != nil {
-		log.Printf("Error binding JSON: %v", err)
-		c.JSON(http.StatusBadRequest, gin.H{
-			"status":   "error",
-			"message":  "Invalid payment data",
-			"redirect": fmt.Sprintf("/order/failure?error=%s", url.QueryEscape("Invalid payment data")),
-		})
+		pkg.Log.Error("Failed to bind verification request", zap.Error(err))
+		helper.ResponseWithErr(c, http.StatusBadRequest, "Invalid request", "Invalid request data", "/order/failure")
 		return
 	}
 
-	if !helper.VerifyPaymentSignature(req.RazorpayOrderID, req.RazorpayPaymentID, req.RazorpaySignature) {
-		log.Printf("Invalid payment signature for Razorpay order ID: %s", req.RazorpayOrderID)
-		c.JSON(http.StatusBadRequest, gin.H{
-			"status":   "error",
-			"message":  "Invalid payment signature",
-			"redirect": fmt.Sprintf("/order/failure?error=%s", url.QueryEscape("Invalid payment signature")),
-		})
+	if err := services.VerifyRazorpaySignature(req.RazorpayOrderID, req.RazorpayPaymentID, req.RazorpaySignature); err != nil {
+		pkg.Log.Error("Razorpay signature verification failed", zap.String("razorpayOrderID", req.RazorpayOrderID), zap.Error(err))
+		helper.ResponseWithErr(c, http.StatusBadRequest, "Payment verification failed", "Invalid payment", "/order/failure")
 		return
 	}
 
-	var orderIdUnique string
-	var cart userModels.Cart
-	var validCartItems []userModels.CartItem
-	var address userModels.Address
-	var finalPrice float64
-	var couponDiscount float64
-	var offerDiscount float64
-	var coupon adminModels.Coupons
-
-	err := database.DB.Transaction(func(tx *gorm.DB) error {
-		var paymentDetails adminModels.PaymentDetails
-		if err := tx.Where("razorpay_order_id = ? AND user_id = ?", req.RazorpayOrderID, uid).First(&paymentDetails).Error; err != nil {
-			return fmt.Errorf("payment record not found: %v", err)
+	tx := database.DB.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
 		}
+	}()
 
-		if err := tx.Where("user_id = ?", uid).
-			Preload("CartItems.Product").
-			Preload("CartItems.Variants").
-			First(&cart).Error; err != nil {
-			return fmt.Errorf("cart not found: %v", err)
-		}
-
-		totalPrice := 0.0
-		originalTotalPrice := 0.0
-		totalDiscount := 0.0
-		for _, item := range cart.CartItems {
-			var category adminModels.Category
-			var variant adminModels.Variants
-
-			isInStock := item.Product.IsListed && item.Product.InStock
-			hasVariantStock := false
-			if err := tx.Where("id = ? AND deleted_at IS NULL", item.VariantsID).First(&variant).Error; err == nil {
-				hasVariantStock = variant.Stock >= item.Quantity
-			}
-
-			if isInStock && hasVariantStock &&
-				tx.Where("category_name = ? AND status = ?", item.Product.CategoryName, true).First(&category).Error == nil {
-				offerDetails := helper.GetBestOfferForProduct(&item.Product, item.Variants.ExtraPrice)
-				item.Price = offerDetails.OriginalPrice
-				item.DiscountedPrice = offerDetails.DiscountedPrice
-				// totalDiscount += offerDetails.DiscountedPrice + couponDiscount
-				item.OriginalPrice = offerDetails.OriginalPrice
-				item.DiscountPercentage = offerDetails.DiscountPercentage
-				item.OfferName = offerDetails.OfferName
-				item.IsOfferApplied = offerDetails.IsOfferApplied
-				item.ItemTotal = offerDetails.DiscountedPrice * float64(item.Quantity)
-				totalPrice += item.ItemTotal
-				originalTotalPrice += offerDetails.OriginalPrice * float64(item.Quantity)
-				itemOfferDiscount := (offerDetails.OriginalPrice - offerDetails.DiscountedPrice) * float64(item.Quantity)
-				offerDiscount += itemOfferDiscount
-				validCartItems = append(validCartItems, item)
-			} else {
-				log.Printf("Skipping item: product_id=%d, variant_id=%d, product_listed=%v, product_in_stock=%v, variant_stock=%d, quantity=%d",
-					item.ProductID, item.VariantsID, item.Product.IsListed, isInStock, variant.Stock, item.Quantity)
-			}
-		}
-
-		if len(validCartItems) == 0 {
-			return fmt.Errorf("no valid items in cart with sufficient stock")
-		}
-
-		cart.TotalPrice = totalPrice
-		cart.OriginalTotalPrice = originalTotalPrice
-		if err := tx.Save(&cart).Error; err != nil {
-			return fmt.Errorf("failed to save cart: %v", err)
-		}
-
-		finalPrice = cart.TotalPrice + shipping
-		couponCode := ""
-		if cart.CouponID != 0 {
-			if err := tx.First(&coupon, cart.CouponID).Error; err == nil {
-				if coupon.IsActive &&
-					coupon.ExpiryDate.After(time.Now()) &&
-					coupon.UsedCount < coupon.UsageLimit &&
-					cart.OriginalTotalPrice >= coupon.MinPurchaseAmount {
-					couponDiscount = cart.OriginalTotalPrice * (coupon.DiscountPercentage / 100)
-					finalPrice -= couponDiscount
-					couponCode = coupon.CouponCode
-					totalDiscount += couponDiscount
-				} else {
-					log.Printf("Coupon %s invalid: active=%v, expired=%v, used=%d/%d, min=%.2f, cartOriginalTotal=%.2f",
-						coupon.CouponCode, coupon.IsActive, coupon.ExpiryDate.Before(time.Now()),
-						coupon.UsedCount, coupon.UsageLimit, coupon.MinPurchaseAmount, cart.OriginalTotalPrice)
-					cart.CouponID = 0
-					if err := tx.Save(&cart).Error; err != nil {
-						return fmt.Errorf("failed to reset coupon: %v", err)
-					}
-				}
-			} else {
-				log.Printf("Coupon ID %v not found: %v", cart.CouponID, err)
-				cart.CouponID = 0
-				if err := tx.Save(&cart).Error; err != nil {
-					return fmt.Errorf("failed to reset coupon: %v", err)
-				}
-			}
-		}
-
-		if finalPrice < minimumOrderAmount {
-			return fmt.Errorf("order amount too low: %.2f < %.2f", finalPrice, minimumOrderAmount)
-		}
-
-		if err := tx.Where("id = ? AND user_id = ?", paymentDetails.AddressID, uid).First(&address).Error; err != nil {
-			return fmt.Errorf("invalid address: %v", err)
-		}
-
-		orderID := helper.GenerateOrderID()
-		shippingAdd := adminModels.ShippingAddress{
-			OrderID:        orderID,
-			UserID:         uid,
-			Name:           address.Name,
-			City:           address.City,
-			Landmark:       address.Landmark,
-			State:          address.State,
-			Pincode:        address.Pincode,
-			AddressType:    address.AddressType,
-			Phone:          address.Phone,
-			AlternatePhone: address.AlternatePhone,
-			TrackingStatus: "Pending",
-		}
-		if err := tx.Create(&shippingAdd).Error; err != nil {
-			return fmt.Errorf("failed to create shipping address: %v", err)
-		}
-
-		order := userModels.Orders{
-			UserID:             uid,
-			OrderIdUnique:      orderID,
-			AddressID:          paymentDetails.AddressID,
-			ShippingAddress:    shippingAdd,
-			TotalPrice:         finalPrice,
-			Subtotal:           cart.OriginalTotalPrice,
-			CouponDiscount:     couponDiscount,
-			OfferDiscount:      offerDiscount,
-			CouponID:           cart.CouponID,
-			CouponCode:         couponCode,
-			Status:             "Confirmed",
-			PaymentMethod:      "ONLINE",
-			PaymentStatus:      "Paid",
-			OrderDate:          time.Now(),
-			TotalDiscount:      totalDiscount,
-			ShippingCost:       shipping,
-			CancellationStatus: "None",
-		}
-		if err := tx.Create(&order).Error; err != nil {
-			return fmt.Errorf("failed to create order: %v", err)
-		}
-
-		orderBackup := userModels.OrderBackUp{
-			ShippingCost:  order.ShippingCost,
-			Subtotal:      cart.OriginalTotalPrice,
-			TotalPrice:    finalPrice,
-			OfferDiscount: offerDiscount,
-			OrderIdUnique: orderID,
-		}
-		if err := tx.Create(&orderBackup).Error; err != nil {
-			return fmt.Errorf("failed to create orderbackup: %v", err)
-		}
-
-		for _, item := range validCartItems {
-			orderItem := userModels.OrderItem{
-				OrderID:        order.ID,
-				ProductID:      item.ProductID,
-				VariantsID:     item.VariantsID,
-				Quantity:       item.Quantity,
-				UnitPrice:      item.DiscountedPrice,
-				ItemTotal:      item.DiscountedPrice * float64(item.Quantity),
-				DiscountAmount: (item.OriginalPrice - item.DiscountedPrice) * float64(item.Quantity),
-				OfferName:      item.OfferName,
-				Status:         "Active",
-				ReturnStatus:   "None",
-			}
-			if err := tx.Create(&orderItem).Error; err != nil {
-				return fmt.Errorf("failed to create order item: %v", err)
-			}
-
-			var variant adminModels.Variants
-			if err := tx.First(&variant, item.VariantsID).Error; err != nil {
-				return fmt.Errorf("variant not found: %v", err)
-			}
-			if variant.Stock < item.Quantity {
-				return fmt.Errorf("insufficient stock for variant ID %d", item.VariantsID)
-			}
-			variant.Stock -= item.Quantity
-			if variant.Stock == 0 {
-				var product adminModels.Product
-				if err := tx.First(&product, item.ProductID).Error; err != nil {
-					return fmt.Errorf("product not found: %v", err)
-				}
-				product.InStock = false
-				if err := tx.Save(&product).Error; err != nil {
-					return fmt.Errorf("failed to update product stock: %v", err)
-				}
-			}
-			if err := tx.Save(&variant).Error; err != nil {
-				return fmt.Errorf("failed to update variant stock: %v", err)
-			}
-		}
-
-		if cart.CouponID != 0 {
-			coupon.UsedCount++
-			if err := tx.Save(&coupon).Error; err != nil {
-				return fmt.Errorf("failed to update coupon usage: %v", err)
-			}
-		}
-
-		paymentDetails.OrderID = order.ID
-		paymentDetails.RazorpayPaymentID = req.RazorpayPaymentID
-		paymentDetails.RazorpaySignature = req.RazorpaySignature
-		paymentDetails.Status = "Paid"
-		paymentDetails.Attempts++
-		if err := tx.Save(&paymentDetails).Error; err != nil {
-			return fmt.Errorf("failed to update payment status: %v", err)
-		}
-
-		if err := tx.Where("cart_id = ?", cart.ID).Delete(&userModels.CartItem{}).Error; err != nil {
-			return fmt.Errorf("failed to delete cart items: %v", err)
-		}
-		if err := tx.Delete(&cart).Error; err != nil {
-			return fmt.Errorf("failed to delete cart: %v", err)
-		}
-
-		orderIdUnique = order.OrderIdUnique
-		return nil
-	})
-
-	if err != nil {
-		log.Printf("Transaction error: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"status":   "error",
-			"message":  "Failed to verify payment",
-			"redirect": fmt.Sprintf("/order/failure?error=%s", url.QueryEscape(err.Error())),
-		})
+	var order userModels.Orders
+	if err := tx.Preload("OrderItems").First(&order, "razorpay_order_id = ? AND user_id = ?", req.RazorpayOrderID, userID).Error; err != nil {
+		pkg.Log.Error("Order not found", zap.String("razorpayOrderID", req.RazorpayOrderID), zap.Error(err))
+		tx.Rollback()
+		helper.ResponseWithErr(c, http.StatusNotFound, "Order not found", "Something went wrong", "/order/failure")
 		return
 	}
 
+	var payment adminModels.PaymentDetails
+	if err := tx.First(&payment, "razorpay_order_id = ? AND user_id = ?", req.RazorpayOrderID, userID).Error; err != nil {
+		pkg.Log.Error("Payment record not found", zap.String("razorpayOrderID", req.RazorpayOrderID), zap.Error(err))
+		tx.Rollback()
+		helper.ResponseWithErr(c, http.StatusNotFound, "Payment record not found", "Something went wrong", "/order/failure")
+		return
+	}
+
+	// Check and deduct stock (for ONLINE only)
+	stockOk := true
+	for _, item := range order.OrderItems {
+		var variant adminModels.Variants
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&variant, item.VariantsID).Error; err != nil {
+			pkg.Log.Error("Variant not found during verification", zap.Uint("variantsID", item.VariantsID), zap.Error(err))
+			stockOk = false
+			break
+		}
+		if variant.Stock < item.Quantity {
+			pkg.Log.Error("Insufficient stock during verification", zap.Uint("variantsID", item.VariantsID), zap.Uint("available", variant.Stock), zap.Uint("required", item.Quantity))
+			stockOk = false
+			break
+		}
+		variant.Stock -= item.Quantity
+		if err := tx.Save(&variant).Error; err != nil {
+			pkg.Log.Error("Failed to update variant stock during verification", zap.Uint("variantsID", item.VariantsID), zap.Error(err))
+			stockOk = false
+			break
+		}
+		// Update product InStock
+		var product adminModels.Product
+		if err := tx.Preload("Variants").First(&product, item.ProductID).Error; err != nil {
+			pkg.Log.Error("Product not found during verification", zap.Uint("productID", item.ProductID), zap.Error(err))
+			stockOk = false
+			break
+		}
+		var totalStock uint
+		for _, v := range product.Variants {
+			totalStock += v.Stock
+		}
+		product.InStock = totalStock > 0
+		if err := tx.Save(&product).Error; err != nil {
+			pkg.Log.Error("Failed to update product stock during verification", zap.Uint("productID", item.ProductID), zap.Error(err))
+			stockOk = false
+			break
+		}
+	}
+
+	if !stockOk {
+		// Initiate refund and fail order
+		// if err := services.RefundRazorpayPayment(req.RazorpayPaymentID, order.TotalPrice); err != nil {
+		//     // Log but continue to fail order (refund might need manual handling)
+		//     pkg.Log.Warn("Refund failed, manual intervention needed", zap.String("paymentID", req.RazorpayPaymentID), zap.Error(err))
+		// }
+		// payment.Status = "Refunded"
+		payment.FailureReason = "Insufficient stock"
+		tx.Save(&payment)
+		order.Status = "Failed"
+		// order.PaymentStatus = "Refunded"
+		order.OrderError = "Insufficient stock after payment"
+		tx.Save(&order)
+		tx.Commit()
+		helper.ResponseWithErr(c, http.StatusInternalServerError, "Insufficient stock", "Order failed due to stock unavailability. Refund initiated.", "/order/failure")
+		return
+	}
+
+	payment.RazorpayPaymentID = req.RazorpayPaymentID
+	payment.RazorpaySignature = req.RazorpaySignature
+	payment.Status = "Paid"
+	payment.Attempts++
+	if err := tx.Save(&payment).Error; err != nil {
+		pkg.Log.Error("Failed to update payment status", zap.Uint("orderID", order.ID), zap.Error(err))
+		tx.Rollback()
+		helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to update payment", "Something went wrong", "/order/failure")
+		return
+	}
+
+	order.PaymentStatus = "Paid"
+	order.Status = "Confirmed"
+	if err := tx.Save(&order).Error; err != nil {
+		pkg.Log.Error("Failed to update order", zap.String("orderID", order.OrderIdUnique), zap.Error(err))
+		tx.Rollback()
+		helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to update order", "Something went wrong", "/order/failure")
+		return
+	}
+
+	if err := services.ClearCart(userID, tx); err != nil {
+		pkg.Log.Error("Failed to clear cart", zap.Uint("userID", userID), zap.Error(err))
+		tx.Rollback()
+		helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to clear cart", "Something went wrong", "/order/failure")
+		return
+	}
+
+	tx.Commit()
+	pkg.Log.Info("Razorpay payment verified successfully", zap.String("orderID", order.OrderIdUnique), zap.Uint("userID", userID))
 	c.JSON(http.StatusOK, gin.H{
 		"status":   "ok",
 		"message":  "Payment verified successfully",
-		"order_id": orderIdUnique,
-		"redirect": fmt.Sprintf("/order/success?order_id=%s", orderIdUnique),
+		"order_id": order.OrderIdUnique,
+		"redirect": fmt.Sprintf("/order/success?order_id=%s", order.OrderIdUnique),
 	})
 }
 
@@ -867,73 +866,74 @@ func SetDefaultAddress(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"status": "ok", "message": "Default address updated"})
 }
-
 func ShowOrderSuccess(c *gin.Context) {
-	userID, _ := c.Get("id")
+	pkg.Log.Info("Rendering order success page")
+
 	orderID := c.Query("order_id")
 	var order userModels.Orders
-	if err := database.DB.Where("order_id_unique = ? AND user_id = ?", orderID, userID).First(&order).Error; err != nil {
-		log.Printf("Failed to load order %s for user %v: %v", orderID, userID, err)
-		helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to load order", err.Error(), "")
+	if err := database.DB.Preload("OrderItems").Preload("OrderItems.Product").Preload("OrderItems.Variants").Preload("ShippingAddress").First(&order, "order_id_unique = ?", orderID).Error; err != nil {
+		pkg.Log.Error("Order not found", zap.String("orderID", orderID), zap.Error(err))
+		helper.ResponseWithErr(c, http.StatusNotFound, "Order not found", "Something went wrong", "/cart")
 		return
 	}
-	user, exists := c.Get("user")
-	userName, nameExists := c.Get("user_name")
-	if !exists || !nameExists {
-		c.HTML(http.StatusOK, "home.html", gin.H{
-			"status":        "success",
-			"UserName":      "Guest",
-			"WishlistCount": 0,
-			"CartCount":     0,
-			"ProfileImage":  "",
-		})
-		return
-	}
-	userData := user.(userModels.Users)
-	userNameStr := userName.(string)
 
-	var wishlistCount, cartCount int64
-	if err := database.DB.Model(&userModels.Wishlist{}).Where("user_id = ?", userData.ID).Count(&wishlistCount).Error; err != nil {
-		wishlistCount = 0
-	}
-	if err := database.DB.Model(&userModels.CartItem{}).Joins("JOIN carts ON carts.id = cart_items.cart_id").Where("carts.user_id = ?", userData.ID).Count(&cartCount).Error; err != nil {
-		cartCount = 0
-	}
-
+	pkg.Log.Info("Order success page loaded", zap.String("orderID", orderID))
 	c.HTML(http.StatusOK, "orderSuccess.html", gin.H{
-		"title":         "Order Successful",
+		"status":        "Success",
+		"message":       "Order placed successfully",
 		"OrderID":       order.OrderIdUnique,
-		"status":        "success",
-		"UserName":      userNameStr,
-		"ProfileImage":  userData.ProfileImage,
-		"WishlistCount": wishlistCount,
-		"CartCount":     cartCount,
+		"PaymentMethod": order.PaymentMethod,
+		"OrderDate":     order.OrderDate.Format("January 2, 2006"),
+		"ExpectedDate":  order.OrderDate.AddDate(0, 0, 7).Format("January 2, 2006"),
+		"Order":         order,
+		"code":          http.StatusOK,
 	})
 }
 
 func ShowOrderFailure(c *gin.Context) {
-	userID, _ := c.Get("id")
+	pkg.Log.Info("Rendering order failure page")
 	errorMsg := c.Query("error")
+	if errorMsg == "" {
+		errorMsg = "Order placement failed"
+	}
+
 	orderID := c.Query("order_id")
+	if orderID == "" {
+		log.Println("order id is empty")
+	}
 
 	var order userModels.Orders
-	var orderExists bool
-
-	if orderID != "" {
-		if err := database.DB.Where("order_id_unique = ? AND user_id = ?", orderID, userID).
-			First(&order).Error; err == nil {
-			orderExists = true
-		}
+	if err := database.DB.Where("order_id_unique = ?", orderID).First(&order).Error; err != nil {
+		helper.ResponseWithErr(c, http.StatusNotFound, "not found order id", "", "")
+		return
 	}
 
-	if errorMsg == "" {
-		errorMsg = "An error occurred while processing your payment."
+	order.Status = "Failed"
+	order.PaymentStatus = "Pending"
+
+	if err := database.DB.Save(&order).Error; err != nil {
+		helper.ResponseWithErr(c, http.StatusNotFound, "error saving orders", "", "")
+		return
 	}
 
-	c.HTML(http.StatusOK, "orderFailed.html", gin.H{
-		"title":       "Order Failed",
-		"Error":       errorMsg,
-		"OrderID":     orderID,
-		"OrderExists": orderExists,
+	var orderItems []userModels.OrderItem
+	if err := database.DB.Where("order_id = ?", order.ID).Preload("Product").Preload("Variants").Find(&orderItems).Error; err != nil {
+		helper.ResponseWithErr(c, http.StatusNotFound, "order item is not found", "", "")
+		return
+	}
+
+	var shipping adminModels.ShippingAddress
+	if err := database.DB.Where("order_id = ?", orderID).First(&shipping).Error; err != nil {
+		helper.ResponseWithErr(c, http.StatusNotFound, "address not found", "", "")
+		return
+	}
+
+	c.HTML(http.StatusOK, "orderFailure.html", gin.H{
+		"status":     "Failed",
+		"orderItems": orderItems,
+		"message":    errorMsg,
+		"address":    shipping,
+		"code":       http.StatusOK,
+		"ordID":      orderID,
 	})
 }

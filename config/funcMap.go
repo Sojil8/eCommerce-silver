@@ -16,9 +16,10 @@ func SetupTemplateFunctions() template.FuncMap {
 			}
 			return strings.ToUpper(string(s[0])) + s[1:]
 		},
-		"sub": func(a, b float64) float64 {
-			return a - b
+		"sub": func(a, b interface{}) float64 {
+			return toFloat64(a) - toFloat64(b)
 		},
+
 		"add": func(a, b interface{}) interface{} {
 			// Handle integer addition
 			if aInt, ok := a.(int); ok {

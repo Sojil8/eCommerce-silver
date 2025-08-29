@@ -1,15 +1,75 @@
 package services
 
 import (
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
+	"fmt"
+	"math/rand"
 	"os"
+	"time"
 
+	"github.com/Sojil8/eCommerce-silver/pkg"
 	"github.com/razorpay/razorpay-go"
+	"go.uber.org/zap"
 )
 
 var RazorpayClient *razorpay.Client
 
 func InitRazorPay() {
-	testKey:=os.Getenv("RAZORPAY_KEY_ID")
-	secretKey:=os.Getenv("RAZORPAY_KEY_SECRET")
+	testKey := os.Getenv("RAZORPAY_KEY_ID")
+	secretKey := os.Getenv("RAZORPAY_KEY_SECRET")
 	RazorpayClient = razorpay.NewClient(testKey, secretKey)
+}
+
+func CreateRazorpayOrder(amountPaise int) (map[string]interface{}, error) {
+	client := razorpay.NewClient(os.Getenv("RAZORPAY_KEY_ID"), os.Getenv("RAZORPAY_KEY_SECRET"))
+
+	// Generate a receipt string within 40 characters
+	rand.Seed(time.Now().UnixNano())
+	receipt := fmt.Sprintf("r-%d-%d", time.Now().UnixNano(), rand.Intn(10000))
+
+	data := map[string]interface{}{
+		"amount":   amountPaise, // ✅ integer paise
+		"currency": "INR",
+		"receipt":  receipt,
+	}
+
+	order, err := client.Order.Create(data, nil)
+	if err != nil {
+		pkg.Log.Error("Failed to create Razorpay order",
+			zap.Int("amountPaise", amountPaise),
+			zap.Error(err))
+		return nil, err
+	}
+
+	pkg.Log.Debug("Razorpay order created",
+		zap.String("receipt", receipt),
+		zap.Int("amountPaise", amountPaise))
+
+	return order, nil
+}
+
+
+// VerifyRazorpaySignature verifies the Razorpay payment signature.
+func VerifyRazorpaySignature(orderID, paymentID, signature string) error {
+	// Concatenate orderID and paymentID with a | separator
+	payload := orderID + "|" + paymentID
+
+	// Create HMAC-SHA256 hash using the Razorpay secret key
+	mac := hmac.New(sha256.New, []byte(os.Getenv("RAZORPAY_KEY_SECRET")))
+	mac.Write([]byte(payload))
+	expectedSignature := hex.EncodeToString(mac.Sum(nil))
+
+	// Compare the generated signature with the provided signature
+	if expectedSignature != signature {
+		pkg.Log.Error("Razorpay signature verification failed",
+			zap.String("orderID", orderID),
+			zap.String("expectedSignature", expectedSignature),
+			zap.String("providedSignature", signature))
+		return fmt.Errorf("invalid signature: expected %s, got %s", expectedSignature, signature)
+	}
+
+	pkg.Log.Debug("Razorpay signature verified successfully", zap.String("orderID", orderID))
+	return nil
 }

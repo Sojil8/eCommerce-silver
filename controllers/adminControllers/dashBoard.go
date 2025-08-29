@@ -8,9 +8,9 @@ import (
 	"time"
 
 	"github.com/Sojil8/eCommerce-silver/database"
-	"github.com/Sojil8/eCommerce-silver/utils/helper"
 	"github.com/Sojil8/eCommerce-silver/models/adminModels"
 	"github.com/Sojil8/eCommerce-silver/models/userModels"
+	"github.com/Sojil8/eCommerce-silver/utils/helper"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
@@ -88,9 +88,9 @@ func GetDashboardData(c *gin.Context) {
 	db.Model(&adminModels.Coupons{}).Where("is_active = ?", true).Count(&dashboardData.ActiveCoupons)
 
 	// Get order status counts
-	db.Model(&userModels.Orders{}).Where("status IN ?", []string{"Pending","Confirmed","Shipped","Out for Delivery"}).Count(&dashboardData.PendingOrders)
+	db.Model(&userModels.Orders{}).Where("status IN ?", []string{"Pending", "Confirmed", "Shipped", "Out for Delivery"}).Count(&dashboardData.PendingOrders)
 	db.Model(&userModels.Orders{}).Where("status = ?", "Delivered").Count(&dashboardData.CompletedOrders)
-	db.Model(&userModels.Orders{}).Where("status IN ?", []string{"Return Rejected","Cancelled","Returned"}).Count(&dashboardData.CancelledOrders)
+	db.Model(&userModels.Orders{}).Where("status IN ?", []string{"Return Rejected", "Cancelled", "Returned"}).Count(&dashboardData.CancelledOrders)
 
 	// Calculate total revenue
 	var revenue struct {
@@ -238,16 +238,16 @@ func getInventoryStatus(db *gorm.DB, data *DashboardData) {
 
 	query := `
 		SELECT 
-			p.product_name,
-			COALESCE(SUM(v.stock), 0) as stock,
-			CASE 
-				WHEN COALESCE(SUM(v.stock), 0) = 0 THEN 'Out of Stock'
-				WHEN COALESCE(SUM(v.stock), 0) < 10 THEN 'Low Stock'
-				ELSE 'In Stock'
-			END as status
+   			 p.product_name,
+   			 COALESCE(SUM(v.stock), 0) as stock,
+  		  CASE 
+       		 WHEN COALESCE(SUM(v.stock), 0) = 0 THEN 'Out of Stock'
+      		  WHEN COALESCE(SUM(v.stock), 0) < 10 THEN 'Low Stock'
+      	  ELSE 'In Stock'
+    		END as status
 		FROM products p
-		LEFT JOIN variants v ON p.id = v.product_id
-		WHERE p.is_listed = true
+			LEFT JOIN variants v ON p.id = v.product_id
+		WHERE p.is_listed = true AND v.deleted_at IS NULL
 		GROUP BY p.id, p.product_name
 		ORDER BY stock ASC
 		LIMIT 20

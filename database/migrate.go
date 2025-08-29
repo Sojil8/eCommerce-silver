@@ -22,6 +22,7 @@ func MigrageHandler() {
 		&userModels.Cancellation{},
 		&adminModels.ShippingAddress{},
 		&userModels.Wallet{},
+		&userModels.WalletTransaction{},
 		&adminModels.PaymentDetails{},
 		&adminModels.Coupons{},
 		&adminModels.ProductOffer{},

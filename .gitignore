@@ -1,5 +1,5 @@
 .env
 package-lock.json
 package.json
-.vscode
+vscode
 dump.rdb

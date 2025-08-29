@@ -11,7 +11,6 @@ func EnshureWallet(tx *gorm.DB, userID uint) (*userModels.Wallet, error) {
 	var wallet userModels.Wallet
 	err := tx.Where("user_id = ?", userID).First(&wallet).Error
 	if err == gorm.ErrRecordNotFound {
-		// Create new wallet if not found
 		wallet = userModels.Wallet{
 			UserID:  userID,
 			Balance: 0.0,

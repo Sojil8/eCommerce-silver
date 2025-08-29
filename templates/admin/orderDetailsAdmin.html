@@ -234,13 +234,13 @@
                                     <div class="text-sm text-gray-900">{{.Variants.Color}}</div>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
-                                    <div class="text-sm text-gray-900">${{printf "%.2f" .Price}}</div>
+                                    <div class="text-sm text-gray-900">${{printf "%.2f" (add .Product.Price .Variants.ExtraPrice)}}</div>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <div class="text-sm text-gray-900">{{.Quantity}}</div>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
-                                    <div class="text-sm text-gray-900">${{printf "%.2f" (mul .Price .Quantity)}}</div>
+                                    <div class="text-sm text-gray-900">${{printf "%.2f" (mul (add .Product.Price .Variants.ExtraPrice) .Quantity)}}</div>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
@@ -270,7 +270,7 @@
                     </div>
                     <div class="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
                         <dt class="text-sm font-medium text-gray-500">Discount</dt>
-                        <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">-${{printf "%.2f" .Order.Discount}}</dd>
+                        <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">-${{printf "%.2f" (add .Order.OfferDiscount .Order.CouponDiscount)}}</dd>
                     </div>
                     <div class="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
                         <dt class="text-sm font-medium text-gray-500">Total</dt>

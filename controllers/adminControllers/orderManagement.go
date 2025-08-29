@@ -26,11 +26,12 @@ func ListOrder(c *gin.Context) {
 	query := database.DB.Preload("OrderItems.Product").Preload("OrderItems.Variants").Preload("User")
 
 	if search != "" {
-		query = query.Where("order_id LIKE ? OR users.user_name LIKE ? OR users.email LIKE ?", "%"+search+"%", "%"+search+"%", "%"+search+"%")
+		query = query.Where("order_id_unique iLIKE ? OR users.user_name iLIKE ? OR users.email iLIKE ?", "%"+search+"%", "%"+search+"%", "%"+search+"%")
 	}
 	if filterStatus != "" {
 		query = query.Where("status = ?", filterStatus)
 	}
+	query = query.Where("status <> ?", "Failed")
 
 	var total int64
 	totalPages := int((total + int64(limit) - 1) / int64(limit))

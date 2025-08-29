@@ -15,7 +15,9 @@ type PaymentDetails struct {
 	AddressID         uint `gorm:"index"`
 	Amount            float64
 	Status            string `gorm:"size:50"`
-	Attempts          int
-	CreatedAt         time.Time
-	UpdatedAt         time.Time
+	FailureReason     string `gorm:"type:text" json:"failure_reason,omitempty"` 
+	Attempts      int
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
+	TransactionID string
 }

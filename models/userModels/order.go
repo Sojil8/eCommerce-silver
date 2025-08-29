@@ -17,6 +17,7 @@ type Orders struct {
 	TotalPrice      float64                     `json:"total_price"`
 	ShippingCost    float64                     `json:"shipping_cost"`
 	PaymentMethod   string                      `json:"payment_method"`
+	RazorpayOrderID string                      `gorm:"index"`
 	PaymentStatus   string                      `json:"payment_status"`
 	OrderItems      []OrderItem                 `gorm:"foreignKey:OrderID" json:"order_items"`
 	CouponID        uint                        `json:"coupon_id"`
@@ -27,8 +28,8 @@ type Orders struct {
 	Status          string                      `json:"status"`
 	Subtotal        float64                     `json:"subtotal"`
 	OrderDate       time.Time                   `json:"order_date"`
-
 	CancellationStatus string `json:"cancellation_status"`
+	OrderError         string `json:"order_error"`
 }
 
 type OrderItem struct {

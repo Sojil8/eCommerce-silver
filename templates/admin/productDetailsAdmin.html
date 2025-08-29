@@ -172,7 +172,7 @@
                                     <div class="space-y-4">
                                         <div>
                                             <p class="info-label">Base Price</p>
-                                            <p class="info-value">₹{{ printf "%.2f" .Product.Price }}</p>
+                                            <p class="info-value">${{ printf "%.2f" .Product.Price }}</p>
                                         </div>
                                         {{ if .OfferDetails.IsOfferApplied }}
                                             <div>
@@ -185,7 +185,7 @@
                                             </div>
                                             <div>
                                                 <p class="info-label">Price After Discount</p>
-                                                <p class="info-value">₹{{ printf "%.2f" .OfferDetails.DiscountedPrice }}</p>
+                                                <p class="info-value">${{ printf "%.2f" .OfferDetails.DiscountedPrice }}</p>
                                             </div>
                                             <div>
                                                 <p class="info-label">Offer Valid Until</p>
@@ -230,7 +230,7 @@
                                                     <div class="grid grid-cols-2 gap-4">
                                                         <div>
                                                             <p class="info-label">Additional Price</p>
-                                                            <p class="info-value">₹{{ printf "%.2f" .Variant.ExtraPrice }}</p>
+                                                            <p class="info-value">${{ printf "%.2f" .Variant.ExtraPrice }}</p>
                                                         </div>
                                                         <div>
                                                             <p class="info-label">Stock Available</p>
@@ -243,7 +243,7 @@
                                                             </div>
                                                             <div>
                                                                 <p class="info-label">Total Price After Discount</p>
-                                                                <p class="info-value">₹{{ printf "%.2f" .OfferDetails.DiscountedPrice }}</p>
+                                                                <p class="info-value">${{ printf "%.2f" .OfferDetails.DiscountedPrice }}</p>
                                                             </div>
                                                         {{ else }}
                                                             <div class="col-span-2">
@@ -270,7 +270,7 @@
                             {{ range .RelatedProducts }}
                             <div class="card p-4 bg-white hover:shadow-lg transition-shadow">
                                 <p class="font-semibold text-gray-700">{{ .ProductName }}</p>
-                                <p class="text-gray-600">₹{{ printf "%.2f" .Price }}</p>
+                                <p class="text-gray-600">${{ printf "%.2f" .Price }}</p>
                                 {{ if .Images }}
                                     <img src="{{ index .Images 0 }}" alt="{{ .ProductName }}" class="w-24 h-24 object-cover rounded mt-3">
                                 {{ end }}

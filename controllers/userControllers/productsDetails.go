@@ -7,10 +7,12 @@ import (
 
 	"github.com/Sojil8/eCommerce-silver/config"
 	"github.com/Sojil8/eCommerce-silver/database"
-	"github.com/Sojil8/eCommerce-silver/utils/helper"
 	"github.com/Sojil8/eCommerce-silver/models/adminModels"
 	"github.com/Sojil8/eCommerce-silver/models/userModels"
+	"github.com/Sojil8/eCommerce-silver/pkg"
+	"github.com/Sojil8/eCommerce-silver/utils/helper"
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
@@ -64,17 +66,24 @@ func GetProductDetails(c *gin.Context) {
 		OfferName:          offer.OfferName,
 		OfferEndTime:       offer.EndTime,
 	}
+	pkg.Log.Info("Product with offer",
+		zap.Any("Product", productWithOffers.Product),
+		zap.Float64("OfferPrice", productWithOffers.OfferPrice),
+		zap.Float64("OriginalPrice", productWithOffers.OriginalPrice),
+		zap.Float64("DiscountPercentage", productWithOffers.DiscountPercentage),
+		zap.Bool("IsOffer", productWithOffers.IsOffer),
+		zap.String("OfferName", productWithOffers.OfferName),
+		zap.Time("OfferEndTime", productWithOffers.OfferEndTime),
+	)
 
 	var relatedProducts []adminModels.Product
 	if err := database.DB.Joins("JOIN categories ON categories.category_name = products.category_name").
 		Where("products.category_name = ? AND products.id != ? AND products.is_listed = ? AND categories.status = ?",
 			product.CategoryName, product.ID, true, true).
 		Preload("Variants").Limit(4).Find(&relatedProducts).Error; err != nil {
-		// Log error but continue with empty related products
 		log.Println("Error fetching related products:", err)
 	}
 
-	// Prepare related products with offer details
 	availableRelatedProducts := []ProductWithOffer{}
 	for _, rp := range relatedProducts {
 		for _, v := range rp.Variants {

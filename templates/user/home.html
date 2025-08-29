@@ -34,6 +34,36 @@
     .product-card:hover .discount-pill {
       transform: rotate(0deg) scale(1.05);
     }
+    
+    /* Wishlist heart styling */
+    .wishlist-btn {
+      transition: all 0.3s ease;
+      border: none;
+      outline: none;
+    }
+    .wishlist-btn:hover {
+      transform: scale(1.1);
+    }
+    .wishlist-btn:disabled {
+      opacity: 0.7;
+      cursor: not-allowed;
+    }
+    .heart-icon {
+      transition: all 0.3s ease;
+      color: #6b7280;
+    }
+    .heart-icon.active {
+      color: #ef4444;
+    }
+    .heart-icon:hover {
+      color: #ef4444;
+    }
+    
+    /* Loading state for wishlist button */
+    .wishlist-btn.loading {
+      opacity: 0.6;
+      pointer-events: none;
+    }
   </style>
 </head>
 <body class="bg-gradient-to-b from-gray-50 to-gray-100 flex flex-col min-h-screen">
@@ -60,8 +90,16 @@
               <div class="absolute inset-0 flex items-center justify-center bg-black bg-opacity-0 hover:bg-opacity-30 transition-all duration-300">
                 <a href="/product/details/{{.ID}}" class="bg-gradient-to-r from-yellow-400 to-yellow-500 text-gray-900 px-6 py-2 rounded-full font-medium opacity-0 hover:opacity-100 transition-opacity duration-300 transform hover:scale-105">View Product</a>
               </div>
+              
+              <!-- Wishlist Button -->
+              <button onclick="toggleWishlist('{{.ID}}', this)" 
+                      data-product-id="{{.ID}}"
+                      class="wishlist-btn absolute top-3 right-3 bg-white/90 backdrop-blur-sm w-10 h-10 rounded-full shadow-lg flex items-center justify-center">
+                <i class="fas fa-heart heart-icon text-lg"></i>
+              </button>
+              
               {{if not (anyVariantInStock .Variants)}}
-                <div class="out-of-stock-badge absolute top-3 right-3 bg-gradient-to-r from-red-500 to-red-600 text-white text-xs font-semibold px-3 py-1 rounded-full shadow-sm">Out of Stock</div>
+                <div class="out-of-stock-badge absolute top-16 right-3 bg-gradient-to-r from-red-500 to-red-600 text-white text-xs font-semibold px-3 py-1 rounded-full shadow-sm">Out of Stock</div>
               {{end}}
               
               {{if .IsOffer}}
@@ -127,29 +165,241 @@
   </footer>
 
   <script>
+    // Store wishlist state - using Map for better performance
+    let wishlistItems = new Map();
+    let isLoadingWishlist = false;
+
+    // Add to cart function
     async function addToCart(productId) {
       try {
         const response = await fetch(`/cart/add/${productId}`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
           credentials: 'include'
         });
+        
         const data = await response.json();
+        
         if (response.ok) {
           Swal.fire({
             icon: 'success',
             title: 'Added to Cart!',
             text: 'Product has been added to your cart.',
             timer: 1500,
-            showConfirmButton: false
+            showConfirmButton: false,
+            toast: true,
+            position: 'top-end'
           });
         } else {
-          Swal.fire('Error', data.error || 'Failed to add to cart', 'error');
+          Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: data.error || 'Failed to add to cart'
+          });
         }
       } catch (error) {
-        Swal.fire('Error', 'Something went wrong', 'error');
+        console.error('Add to cart error:', error);
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: 'Something went wrong. Please try again.'
+        });
       }
     }
+
+    // Toggle wishlist function - improved with better error handling
+    async function toggleWishlist(productId, buttonElement) {
+      // Prevent multiple simultaneous requests
+      if (buttonElement.classList.contains('loading')) {
+        return;
+      }
+
+      try {
+        // Add loading state
+        buttonElement.classList.add('loading');
+        const heartIcon = buttonElement.querySelector('.heart-icon');
+        
+        // Check current state from the UI (more reliable than local state)
+        const isCurrentlyInWishlist = heartIcon.classList.contains('active');
+        
+        console.log(`Product ${productId}: Currently in wishlist: ${isCurrentlyInWishlist}`);
+        
+        let response;
+        let endpoint;
+        let method;
+        
+        // Use only the add endpoint since it handles both add and remove
+        endpoint = `/wishlist/add/${productId}`;
+        method = 'POST';
+        console.log(`Toggling wishlist for product ${productId}, currently: ${isCurrentlyInWishlist ? 'removing' : 'adding'}`);
+
+        
+        response = await fetch(endpoint, {
+          method: method,
+          headers: { 
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          credentials: 'include'
+        });
+        
+        console.log(`Response status: ${response.status}`);
+        
+        // Handle response - check the status field to determine what happened
+        if (response.ok) {
+          const responseData = await response.json();
+          
+          if (responseData.status === 'REMOVED') {
+            // Successfully removed
+            wishlistItems.delete(productId);
+            heartIcon.classList.remove('active');
+            console.log(`Successfully removed product ${productId} from wishlist`);
+            
+            Swal.fire({
+              icon: 'info',
+              title: 'Removed from Wishlist',
+              text: 'Product has been removed from your wishlist.',
+              timer: 1500,
+              showConfirmButton: false,
+              toast: true,
+              position: 'top-end'
+            });
+          } else {
+            // Successfully added
+            wishlistItems.set(productId, true);
+            heartIcon.classList.add('active');
+            console.log(`Successfully added product ${productId} to wishlist`);
+            
+            Swal.fire({
+              icon: 'success',
+              title: 'Added to Wishlist!',
+              text: 'Product has been added to your wishlist.',
+              timer: 1500,
+              showConfirmButton: false,
+              toast: true,
+              position: 'top-end'
+            });
+          }
+        } else {
+          // Handle error response
+          let errorMessage = 'Something went wrong. Please try again.';
+          let errorData = {};
+          
+          try {
+            const responseText = await response.text();
+            console.log('Error response:', responseText);
+            
+            // Try to parse as JSON
+            if (responseText) {
+              try {
+                errorData = JSON.parse(responseText);
+                errorMessage = errorData.error || errorData.message || errorMessage;
+              } catch (jsonError) {
+                // If not JSON, use the text as error message
+                errorMessage = responseText || errorMessage;
+              }
+            }
+          } catch (parseError) {
+            console.log('Could not parse error response:', parseError);
+          }
+          
+          console.error(`Wishlist operation failed: ${errorMessage}`, errorData);
+          
+          Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: errorMessage,
+            footer: `Status: ${response.status} | Product ID: ${productId}`
+          });
+        }
+        
+      } catch (error) {
+        console.error('Wishlist error:', error);
+        
+        // Show user-friendly error message
+        Swal.fire({
+          icon: 'error',
+          title: 'Connection Error',
+          text: 'Unable to update wishlist. Please check your connection and try again.',
+          footer: `Product ID: ${productId}`
+        });
+        
+      } finally {
+        // Always remove loading state
+        buttonElement.classList.remove('loading');
+      }
+    }
+
+    // Load initial wishlist state when page loads
+    async function loadInitialWishlistState() {
+      if (isLoadingWishlist) return;
+      
+      try {
+        isLoadingWishlist = true;
+        
+        const response = await fetch('/wishlist', {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json'
+          },
+          credentials: 'include'
+        });
+        
+        if (response.ok) {
+          const wishlistData = await response.json();
+          
+          // Clear existing wishlist state
+          wishlistItems.clear();
+          
+          // Assuming your backend returns an array of products or product IDs
+          if (wishlistData.products && Array.isArray(wishlistData.products)) {
+            wishlistData.products.forEach(product => {
+              const productId = product.id || product.product_id || product;
+              wishlistItems.set(productId.toString(), true);
+              updateHeartIcon(productId.toString());
+            });
+          }
+          
+          console.log('Wishlist loaded successfully:', wishlistItems.size, 'items');
+        } else {
+          console.log('Could not load wishlist (status:', response.status, ')');
+        }
+      } catch (error) {
+        console.log('Could not load initial wishlist state:', error);
+      } finally {
+        isLoadingWishlist = false;
+      }
+    }
+
+    // Helper function to update heart icon state
+    function updateHeartIcon(productId) {
+      const buttons = document.querySelectorAll(`[data-product-id="${productId}"]`);
+      buttons.forEach(button => {
+        const heartIcon = button.querySelector('.heart-icon');
+        if (heartIcon) {
+          if (wishlistItems.has(productId)) {
+            heartIcon.classList.add('active');
+          } else {
+            heartIcon.classList.remove('active');
+          }
+        }
+      });
+    }
+
+    // Initialize when DOM is loaded
+    document.addEventListener('DOMContentLoaded', function() {
+      loadInitialWishlistState();
+    });
+
+    // Optional: Refresh wishlist state when user comes back to the tab
+    document.addEventListener('visibilitychange', function() {
+      if (!document.hidden) {
+        loadInitialWishlistState();
+      }
+    });
   </script>
 </body>
-</html>
+</html>   

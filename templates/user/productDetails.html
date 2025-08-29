@@ -422,7 +422,7 @@
             let selectedVariant = null;
             let isOfferProduct = {{ if .Product.IsOffer }}true{{ else }}false{{ end }};
             let originalPrice = {{ if .Product.IsOffer }}{{ .Product.OriginalPrice }}{{ else }}basePrice{{ end }};
-            let offerPrice = {{ if .Product.IsOffer }}{{ .Product.OfferPrice }}{{ else }}basePrice{{ end }};
+            // let offerPrice = {{ if .Product.IsOffer }}{{ .Product.OfferPrice }}{{ else }}basePrice{{ end }};  -- no need of this line 
 
             // Update Price Display
             function updatePriceDisplay(extraPrice) {

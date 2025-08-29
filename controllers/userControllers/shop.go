@@ -6,9 +6,9 @@ import (
 	"strings"
 
 	"github.com/Sojil8/eCommerce-silver/database"
-	"github.com/Sojil8/eCommerce-silver/utils/helper"
 	"github.com/Sojil8/eCommerce-silver/models/adminModels"
 	"github.com/Sojil8/eCommerce-silver/models/userModels"
+	"github.com/Sojil8/eCommerce-silver/utils/helper"
 	"github.com/gin-gonic/gin"
 )
 
@@ -99,21 +99,18 @@ func GetUserShop(c *gin.Context) {
 
 	var availableProducts []adminModels.Product
 	for _, p := range products {
-		for _, v := range p.Variants {
-			if v.Stock >= 0 {
-				availableProducts = append(availableProducts, p)
-				break
-			}
+		if p.IsListed {
+			availableProducts = append(availableProducts, p)
 		}
+
 	}
 
-	// Transform products to include offer information
 	var shopProducts []ShopProduct
 	for _, product := range availableProducts {
 		var variants adminModels.Variants
 		if err := database.DB.Find(&variants, product.Variants).Error; err != nil {
-			helper.ResponseWithErr(c,http.StatusNotFound, "Product varinats not found", "", "")
-			return 
+			helper.ResponseWithErr(c, http.StatusNotFound, "Product varinats not found", "", "")
+			return
 		}
 
 		offerDetails := helper.GetBestOfferForProduct(&product, variants.ExtraPrice)

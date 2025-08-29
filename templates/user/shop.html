@@ -37,11 +37,9 @@
 <body class="bg-gray-50 flex flex-col min-h-screen">
   {{template "navbar.html" .}}
 
-  <!-- Main Content -->
   <div class="container mx-auto p-6 flex-grow">
     <h2 class="text-3xl font-bold text-gray-900 mb-4 tracking-tight">Shop Our Collection</h2>
 
-    <!-- Search Bar at Top -->
     <div class="bg-white p-4 rounded-lg shadow-md mb-6">
       <div class="relative">
         <input type="text" id="search" class="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 pl-10" placeholder="Search products..." value="{{.Query.Search}}">
@@ -51,12 +49,10 @@
     </div>
 
     <div class="flex flex-col md:flex-row gap-6">
-      <!-- Left Side Filters -->
       <div class="w-full md:w-1/4">
         <div class="bg-white p-4 rounded-lg shadow-md sticky top-4">
           <h3 class="font-medium text-lg text-gray-900 mb-4 pb-2 border-b">Filters</h3>
           
-          <!-- Sort - As radio buttons -->
           <div class="mb-6">
             <h4 class="text-sm font-medium text-gray-700 mb-2">Sort By</h4>
             <div class="space-y-2">
@@ -83,7 +79,6 @@
             </div>
           </div>
 
-          <!-- Category Filter - As radio buttons -->
           <div class="mb-6">
             <h4 class="text-sm font-medium text-gray-700 mb-2">Category</h4>
             <div class="space-y-2">
@@ -100,7 +95,6 @@
             </div>
           </div>
 
-          <!-- Price Range - As radio buttons -->
           <div class="mb-6">
             <h4 class="text-sm font-medium text-gray-700 mb-2">Price Range</h4>
             <div class="space-y-2">
@@ -131,7 +125,6 @@
             </div>
           </div>
 
-          <!-- Clear filters button - only visible when filters are active -->
           <div id="clear-filters-container" class="mt-4" style="display: none;">
             <button id="clear-filters" class="w-full bg-gray-200 text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-300 transition-colors flex items-center justify-center">
               <i class="fas fa-times-circle mr-2"></i>Clear All Filters
@@ -140,7 +133,6 @@
         </div>
       </div>
 
-      <!-- Product Listing -->
       <div class="w-full md:w-3/4">
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {{if .Products}}
@@ -188,9 +180,14 @@
                         <p class="text-indigo-600 font-bold text-lg">₹{{printf "%.2f" .Price}}</p>
                       {{end}}
                     </div>
-                    <button class="text-indigo-600 hover:text-indigo-800 transition-colors transform hover:scale-110" onclick="addToCart('{{.ID}}')">
-                      <i class="fas fa-cart-plus text-xl"></i>
-                    </button>
+                    <div class="flex items-center space-x-4">
+                      <button class="text-gray-400 hover:text-red-500 transition-colors transform hover:scale-110" onclick="toggleWishlist('{{.ID}}')">
+                        <i class="fas fa-heart text-xl"></i>
+                      </button>
+                      <button class="text-indigo-600 hover:text-indigo-800 transition-colors transform hover:scale-110" onclick="addToCart('{{.ID}}')">
+                        <i class="fas fa-cart-plus text-xl"></i>
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -203,7 +200,6 @@
     </div>
   </div>
 
-  <!-- Footer -->
   <footer class="bg-gray-900 text-white p-6 mt-auto">
     <div class="container mx-auto flex flex-col md:flex-row justify-between items-center">
       <p class="text-sm">© 2025 Your Company. All rights reserved.</p>
@@ -214,7 +210,6 @@
     </div>
   </footer>
 
-  <!-- JavaScript -->
   <script>
     document.addEventListener('DOMContentLoaded', function() {
       const searchInput = document.getElementById('search');
@@ -352,6 +347,43 @@
             });
           } else {
             Swal.fire('Error', data.error || 'Failed to add to cart', 'error');
+          }
+        } catch (error) {
+          Swal.fire('Error', 'Something went wrong', 'error');
+          console.error(error);
+        }
+      };
+
+      // Toggle Wishlist
+      window.toggleWishlist = async function(productId) {
+        try {
+          const response = await fetch(`/wishlist/add/${productId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include'
+          });
+          const data = await response.json();
+          
+          if (response.ok) {
+            if (data.status === 'REMOVED') {
+              Swal.fire({
+                icon: 'success',
+                title: 'Removed!',
+                text: 'Product removed from your wishlist.',
+                timer: 1500,
+                showConfirmButton: false
+              });
+            } else {
+              Swal.fire({
+                icon: 'success',
+                title: 'Added!',
+                text: 'Product added to your wishlist.',
+                timer: 1500,
+                showConfirmButton: false
+              });
+            }
+          } else {
+            Swal.fire('Error', data.error || 'Failed to update wishlist', 'error');
           }
         } catch (error) {
           Swal.fire('Error', 'Something went wrong', 'error');

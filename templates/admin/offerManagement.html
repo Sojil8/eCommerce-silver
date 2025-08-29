@@ -15,6 +15,14 @@
             transform: scale(1.05);
             transition: transform 0.2s ease-in-out;
         }
+        .error-input {
+            border-color: #ef4444 !important;
+            box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1) !important;
+        }
+        .success-input {
+            border-color: #10b981 !important;
+            box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1) !important;
+        }
     </style>
 </head>
 <body class="bg-gray-100 font-sans min-h-screen">
@@ -155,10 +163,18 @@
                                 <select id="item_select" class="border p-2 rounded">
                                     <!-- Options populated by JavaScript -->
                                 </select>
-                                <input type="text" id="offer_name" placeholder="Offer Name" class="border p-2 rounded">
-                                <input type="number" id="discount" placeholder="Discount (%)" step="0.01" class="border p-2 rounded">
-                                <input type="date" id="start_date" class="border p-2 rounded">
-                                <input type="date" id="end_date" class="border p-2 rounded">
+                                <input type="text" id="offer_name" placeholder="Offer Name (letters, numbers & spaces)" class="border p-2 rounded" 
+                                       oninput="validateOfferName(this)" onblur="validateOfferName(this)">
+                                <div id="offer_name_error" class="text-red-500 text-sm hidden">Offer name should contain only letters, numbers and spaces</div>
+                                
+                                <input type="number" id="discount" placeholder="Discount (%)" step="0.01" min="0" max="100" class="border p-2 rounded"
+                                       oninput="validateDiscount(this)" onblur="validateDiscount(this)">
+                                <div id="discount_error" class="text-red-500 text-sm hidden">Discount must be between 0 and 100</div>
+                                
+                                <input type="date" id="start_date" class="border p-2 rounded" onchange="validateDates()">
+                                <input type="date" id="end_date" class="border p-2 rounded" onchange="validateDates()">
+                                <div id="date_error" class="text-red-500 text-sm hidden">End date must be after start date</div>
+                                
                                 <label class="flex items-center">
                                     <input type="checkbox" id="is_active" class="mr-2">
                                     <span>Is Active</span>
@@ -178,10 +194,18 @@
                             <div class="grid grid-cols-1 gap-4">
                                 <input type="hidden" id="edit_offer_id">
                                 <input type="hidden" id="edit_offer_type">
-                                <input type="text" id="edit_offer_name" placeholder="Offer Name" class="border p-2 rounded">
-                                <input type="number" id="edit_discount" placeholder="Discount (%)" step="0.01" class="border p-2 rounded">
-                                <input type="date" id="edit_start_date" class="border p-2 rounded">
-                                <input type="date" id="edit_end_date" class="border p-2 rounded">
+                                <input type="text" id="edit_offer_name" placeholder="Offer Name (letters, numbers & spaces)" class="border p-2 rounded"
+                                       oninput="validateOfferName(this, 'edit')" onblur="validateOfferName(this, 'edit')">
+                                <div id="edit_offer_name_error" class="text-red-500 text-sm hidden">Offer name should contain only letters, numbers and spaces</div>
+                                
+                                <input type="number" id="edit_discount" placeholder="Discount (%)" step="0.01" min="0" max="100" class="border p-2 rounded"
+                                       oninput="validateDiscount(this, 'edit')" onblur="validateDiscount(this, 'edit')">
+                                <div id="edit_discount_error" class="text-red-500 text-sm hidden">Discount must be between 0 and 100</div>
+                                
+                                <input type="date" id="edit_start_date" class="border p-2 rounded" onchange="validateDates('edit')">
+                                <input type="date" id="edit_end_date" class="border p-2 rounded" onchange="validateDates('edit')">
+                                <div id="edit_date_error" class="text-red-500 text-sm hidden">End date must be after start date</div>
+                                
                                 <label class="flex items-center">
                                     <input type="checkbox" id="edit_is_active" class="mr-2">
                                     <span>Is Active</span>
@@ -218,187 +242,289 @@
             {{end}}
         ];
 
+        // Validation functions
+        function validateOfferName(input, prefix = '') {
+            const namePattern = /^[A-Za-z0-9\s]+$/;
+            const numbersOnlyPattern = /^[0-9\s]*$/;
+            const value = input.value.trim();
+            const errorDiv = document.getElementById(`${prefix ? prefix + '_' : ''}offer_name_error`);
+            
+            if (value === '') {
+                input.classList.remove('error-input', 'success-input');
+                errorDiv.classList.add('hidden');
+                return true;
+            }
+            
+            // Check if it contains only numbers and spaces
+            if (numbersOnlyPattern.test(value)) {
+                input.classList.add('error-input');
+                input.classList.remove('success-input');
+                errorDiv.textContent = 'Offer name cannot contain only numbers';
+                errorDiv.classList.remove('hidden');
+                return false;
+            }
+            
+            // Check if it contains invalid characters
+            if (!namePattern.test(value)) {
+                input.classList.add('error-input');
+                input.classList.remove('success-input');
+                errorDiv.textContent = 'Offer name should contain only letters, numbers and spaces';
+                errorDiv.classList.remove('hidden');
+                return false;
+            } else {
+                input.classList.add('success-input');
+                input.classList.remove('error-input');
+                errorDiv.classList.add('hidden');
+                return true;
+            }
+        }
+
+        function validateDiscount(input, prefix = '') {
+            const value = parseFloat(input.value);
+            const errorDiv = document.getElementById(`${prefix ? prefix + '_' : ''}discount_error`);
+            
+            if (input.value === '') {
+                input.classList.remove('error-input', 'success-input');
+                errorDiv.classList.add('hidden');
+                return true;
+            }
+            
+            if (isNaN(value) || value < 0 || value > 100) {
+                input.classList.add('error-input');
+                input.classList.remove('success-input');
+                errorDiv.classList.remove('hidden');
+                return false;
+            } else {
+                input.classList.add('success-input');
+                input.classList.remove('error-input');
+                errorDiv.classList.add('hidden');
+                return true;
+            }
+        }
+
+        function validateDates(prefix = '') {
+            const startDate = document.getElementById(`${prefix ? prefix + '_' : ''}start_date`).value;
+            const endDate = document.getElementById(`${prefix ? prefix + '_' : ''}end_date`).value;
+            const errorDiv = document.getElementById(`${prefix ? prefix + '_' : ''}date_error`);
+            
+            if (!startDate || !endDate) {
+                errorDiv.classList.add('hidden');
+                return true;
+            }
+            
+            if (new Date(endDate) <= new Date(startDate)) {
+                errorDiv.classList.remove('hidden');
+                return false;
+            } else {
+                errorDiv.classList.add('hidden');
+                return true;
+            }
+        }
+
+        function validateForm(prefix = '') {
+            const isNameValid = validateOfferName(document.getElementById(`${prefix ? prefix + '_' : ''}offer_name`), prefix);
+            const isDiscountValid = validateDiscount(document.getElementById(`${prefix ? prefix + '_' : ''}discount`), prefix);
+            const areDatesValid = validateDates(prefix);
+            
+            return isNameValid && isDiscountValid && areDatesValid;
+        }
+
         // Function to show the add modal
-        // Function to show the add modal
-function showAddOfferModal() {
-    document.getElementById('addOfferModal').classList.remove('hidden');
-    updateSelection();
-}
-
-// Function to hide the add modal
-function hideAddOfferModal() {
-    document.getElementById('addOfferModal').classList.add('hidden');
-    // Clear form inputs
-    document.getElementById('item_select').value = '';
-    document.getElementById('offer_name').value = '';
-    document.getElementById('discount').value = '';
-    document.getElementById('start_date').value = '';
-    document.getElementById('end_date').value = '';
-    document.getElementById('is_active').checked = false;
-}
-
-// Function to update the dropdown based on offer type
-function updateSelection() {
-    const offerType = document.querySelector('input[name="offer_type"]:checked').value;
-    const select = document.getElementById('item_select');
-    select.innerHTML = '<option value="">Select...</option>';
-
-    const items = offerType === 'product' ? products : categories;
-    items.forEach(item => {
-        const option = document.createElement('option');
-        option.value = item.id;
-        option.textContent = item.name;
-        select.appendChild(option);
-    });
-}
-
-// Initialize dropdown on page load
-document.addEventListener('DOMContentLoaded', updateSelection);
-
-// Add offer function
-async function addOffer() {
-    const offerType = document.querySelector('input[name="offer_type"]:checked').value;
-    const itemId = document.getElementById('item_select').value;
-    const offerName = document.getElementById('offer_name').value;
-    const discount = document.getElementById('discount').value;
-    const startDate = document.getElementById('start_date').value;
-    const endDate = document.getElementById('end_date').value;
-    const isActive = document.getElementById('is_active').checked;
-
-    if (!itemId) {
-        Swal.fire('Error', 'Please select a product or category', 'error');
-        return;
-    }
-    if (!offerName) {
-        Swal.fire('Error', 'Please enter an offer name', 'error');
-        return;
-    }
-
-    const endpoint = offerType === 'product' ? `/admin/product_offers/${itemId}` : `/admin/category_offers/${itemId}`;
-    const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            // Adjust field names to match Go struct tags
-            OfferName: offerName,
-            Discount: parseFloat(discount),
-            StartDate: new Date(startDate).toISOString(),
-            EndDate: new Date(endDate).toISOString(),
-            IsActive: isActive
-        }),
-        credentials: 'include'
-    });
-
-    const result = await response.json();
-    if (response.ok) {
-        Swal.fire('Success', result.message || 'Offer added successfully', 'success').then(() => {
-            hideAddOfferModal();
-            location.reload();
-        });
-    } else {
-        Swal.fire('Error', result.error || 'Failed to add offer', 'error');
-    }
-}
-
-// Show edit offer modal
-async function showEditOfferModal(type, id) {
-    try {
-        const endpoint = type === 'product' ? `/admin/product_offers/${id}` : `/admin/category_offers/${id}`;
-        const response = await fetch(endpoint, { credentials: 'include' });
-        const data = await response.json();
-        
-        // Debug log to see what's coming back
-        console.log("Response data:", data);
-        
-        if (!response.ok) {
-            Swal.fire('Error', data.error || 'Failed to fetch offer details', 'error');
-            return;
+        function showAddOfferModal() {
+            document.getElementById('addOfferModal').classList.remove('hidden');
+            updateSelection();
         }
 
-        // Check if data.offer exists before accessing its properties
-        if (!data.offer) {
-            console.error("No offer data found in response:", data);
-            Swal.fire('Error', 'Invalid response format', 'error');
-            return;
+        // Function to hide the add modal
+        function hideAddOfferModal() {
+            document.getElementById('addOfferModal').classList.add('hidden');
+            // Clear form inputs and validation states
+            const inputs = ['item_select', 'offer_name', 'discount', 'start_date', 'end_date'];
+            inputs.forEach(id => {
+                const input = document.getElementById(id);
+                input.value = '';
+                input.classList.remove('error-input', 'success-input');
+            });
+            document.getElementById('is_active').checked = false;
+            
+            // Hide all error messages
+            ['offer_name_error', 'discount_error', 'date_error'].forEach(id => {
+                document.getElementById(id).classList.add('hidden');
+            });
         }
 
-        // Populate modal fields
-        document.getElementById('edit_offer_id').value = id;
-        document.getElementById('edit_offer_type').value = type;
-        document.getElementById('edit_offer_name').value = data.offer.offer_name;
-        document.getElementById('edit_discount').value = data.offer.discount;
-        
-        // Check if date strings exist before splitting
-        if (typeof data.offer.start_date === 'string') {
-            document.getElementById('edit_start_date').value = data.offer.start_date.split('T')[0];
+        // Function to update the dropdown based on offer type
+        function updateSelection() {
+            const offerType = document.querySelector('input[name="offer_type"]:checked').value;
+            const select = document.getElementById('item_select');
+            select.innerHTML = '<option value="">Select...</option>';
+
+            const items = offerType === 'product' ? products : categories;
+            items.forEach(item => {
+                const option = document.createElement('option');
+                option.value = item.id;
+                option.textContent = item.name;
+                select.appendChild(option);
+            });
         }
-        if (typeof data.offer.end_date === 'string') {
-            document.getElementById('edit_end_date').value = data.offer.end_date.split('T')[0];
+
+        // Initialize dropdown on page load
+        document.addEventListener('DOMContentLoaded', updateSelection);
+
+        // Add offer function
+        async function addOffer() {
+            // Validate form before submitting
+            if (!validateForm()) {
+                Swal.fire('Validation Error', 'Please fix the validation errors before submitting', 'error');
+                return;
+            }
+            
+            const offerType = document.querySelector('input[name="offer_type"]:checked').value;
+            const itemId = document.getElementById('item_select').value;
+            const offerName = document.getElementById('offer_name').value.trim();
+            const discount = document.getElementById('discount').value;
+            const startDate = document.getElementById('start_date').value;
+            const endDate = document.getElementById('end_date').value;
+            const isActive = document.getElementById('is_active').checked;
+
+            if (!itemId) {
+                Swal.fire('Error', 'Please select a product or category', 'error');
+                return;
+            }
+            if (!offerName) {
+                Swal.fire('Error', 'Please enter an offer name', 'error');
+                return;
+            }
+
+            const endpoint = offerType === 'product' ? `/admin/product_offers/${itemId}` : `/admin/category_offers/${itemId}`;
+            const response = await fetch(endpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    OfferName: offerName,
+                    Discount: parseFloat(discount),
+                    StartDate: new Date(startDate).toISOString(),
+                    EndDate: new Date(endDate).toISOString(),
+                    IsActive: isActive
+                }),
+                credentials: 'include'
+            });
+
+            const result = await response.json();
+            if (response.ok) {
+                Swal.fire('Success', result.message || 'Offer added successfully', 'success').then(() => {
+                    hideAddOfferModal();
+                    location.reload();
+                });
+            } else {
+                Swal.fire('Error', result.error || 'Failed to add offer', 'error');
+            }
         }
-        
-        document.getElementById('edit_is_active').checked = Boolean(data.offer.is_active);
 
-        // Show modal
-        document.getElementById('editOfferModal').classList.remove('hidden');
-    } catch (error) {
-        console.error("Error fetching offer details:", error);
-        Swal.fire('Error', 'Failed to fetch offer details', 'error');
-    }
-}
+        // Show edit offer modal
+        async function showEditOfferModal(type, id) {
+            try {
+                const endpoint = type === 'product' ? `/admin/product_offers/${id}` : `/admin/category_offers/${id}`;
+                const response = await fetch(endpoint, { credentials: 'include' });
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    Swal.fire('Error', data.error || 'Failed to fetch offer details', 'error');
+                    return;
+                }
 
-// Hide edit offer modal
-function hideEditOfferModal() {
-    document.getElementById('editOfferModal').classList.add('hidden');
-    // Clear form inputs
-    document.getElementById('edit_offer_id').value = '';
-    document.getElementById('edit_offer_type').value = '';
-    document.getElementById('edit_offer_name').value = '';
-    document.getElementById('edit_discount').value = '';
-    document.getElementById('edit_start_date').value = '';
-    document.getElementById('edit_end_date').value = '';
-    document.getElementById('edit_is_active').checked = false;
-}
+                if (!data.offer) {
+                    console.error("No offer data found in response:", data);
+                    Swal.fire('Error', 'Invalid response format', 'error');
+                    return;
+                }
 
-// Update offer function
-async function updateOffer() {
-    const id = document.getElementById('edit_offer_id').value;
-    const type = document.getElementById('edit_offer_type').value;
-    const offerName = document.getElementById('edit_offer_name').value;
-    const discount = document.getElementById('edit_discount').value;
-    const startDate = document.getElementById('edit_start_date').value;
-    const endDate = document.getElementById('edit_end_date').value;
-    const isActive = document.getElementById('edit_is_active').checked;
+                // Populate modal fields
+                document.getElementById('edit_offer_id').value = id;
+                document.getElementById('edit_offer_type').value = type;
+                document.getElementById('edit_offer_name').value = data.offer.offer_name;
+                document.getElementById('edit_discount').value = data.offer.discount;
+                
+                if (typeof data.offer.start_date === 'string') {
+                    document.getElementById('edit_start_date').value = data.offer.start_date.split('T')[0];
+                }
+                if (typeof data.offer.end_date === 'string') {
+                    document.getElementById('edit_end_date').value = data.offer.end_date.split('T')[0];
+                }
+                
+                document.getElementById('edit_is_active').checked = Boolean(data.offer.is_active);
 
-    if (!offerName) {
-        Swal.fire('Error', 'Please enter an offer name', 'error');
-        return;
-    }
+                // Show modal
+                document.getElementById('editOfferModal').classList.remove('hidden');
+            } catch (error) {
+                console.error("Error fetching offer details:", error);
+                Swal.fire('Error', 'Failed to fetch offer details', 'error');
+            }
+        }
 
-    const endpoint = type === 'product' ? `/admin/product_offers/${id}` : `/admin/category_offers/${id}`;
-    const response = await fetch(endpoint, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            // Adjust field names to match Go struct tags
-            OfferName: offerName,
-            Discount: parseFloat(discount),
-            StartDate: new Date(startDate).toISOString(),
-            EndDate: new Date(endDate).toISOString(),
-            IsActive: isActive
-        }),
-        credentials: 'include'
-    });
+        // Hide edit offer modal
+        function hideEditOfferModal() {
+            document.getElementById('editOfferModal').classList.add('hidden');
+            // Clear form inputs and validation states
+            const inputs = ['edit_offer_id', 'edit_offer_type', 'edit_offer_name', 'edit_discount', 'edit_start_date', 'edit_end_date'];
+            inputs.forEach(id => {
+                const input = document.getElementById(id);
+                input.value = '';
+                input.classList.remove('error-input', 'success-input');
+            });
+            document.getElementById('edit_is_active').checked = false;
+            
+            // Hide all error messages
+            ['edit_offer_name_error', 'edit_discount_error', 'edit_date_error'].forEach(id => {
+                document.getElementById(id).classList.add('hidden');
+            });
+        }
 
-    const result = await response.json();
-    if (response.ok) {
-        Swal.fire('Success', result.message || 'Offer updated successfully', 'success').then(() => {
-            hideEditOfferModal();
-            location.reload();
-        });
-    } else {
-        Swal.fire('Error', result.error || 'Failed to update offer', 'error');
-    }
-}
+        // Update offer function
+        async function updateOffer() {
+            // Validate form before submitting
+            if (!validateForm('edit')) {
+                Swal.fire('Validation Error', 'Please fix the validation errors before submitting', 'error');
+                return;
+            }
+            
+            const id = document.getElementById('edit_offer_id').value;
+            const type = document.getElementById('edit_offer_type').value;
+            const offerName = document.getElementById('edit_offer_name').value.trim();
+            const discount = document.getElementById('edit_discount').value;
+            const startDate = document.getElementById('edit_start_date').value;
+            const endDate = document.getElementById('edit_end_date').value;
+            const isActive = document.getElementById('edit_is_active').checked;
+
+            if (!offerName) {
+                Swal.fire('Error', 'Please enter an offer name', 'error');
+                return;
+            }
+
+            const endpoint = type === 'product' ? `/admin/product_offers/${id}` : `/admin/category_offers/${id}`;
+            const response = await fetch(endpoint, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    OfferName: offerName,
+                    Discount: parseFloat(discount),
+                    StartDate: new Date(startDate).toISOString(),
+                    EndDate: new Date(endDate).toISOString(),
+                    IsActive: isActive
+                }),
+                credentials: 'include'
+            });
+
+            const result = await response.json();
+            if (response.ok) {
+                Swal.fire('Success', result.message || 'Offer updated successfully', 'success').then(() => {
+                    hideEditOfferModal();
+                    location.reload();
+                });
+            } else {
+                Swal.fire('Error', result.error || 'Failed to update offer', 'error');
+            }
+        }
 
         // Delete product offer
         async function deleteProductOffer(id) {

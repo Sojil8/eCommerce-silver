@@ -108,16 +108,18 @@ func RemoveWishList(c *gin.Context) {
 		return
 	}
 
-	wishlistIDStr := c.Param("id")
-	wishlistID, err := strconv.Atoi(wishlistIDStr)
+	// Change this to expect product ID instead of wishlist ID
+	productIDStr := c.Param("id")
+	productID, err := strconv.Atoi(productIDStr)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid wishlist ID"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid product ID"})
 		return
 	}
 
 	c.Writer.Header().Set("Content-Type", "application/json")
 
-	result := database.DB.Where("id = ? AND user_id = ?", wishlistID, userID).Delete(&userModels.Wishlist{})
+	// Change the query to use product_id instead of wishlist id
+	result := database.DB.Where("product_id = ? AND user_id = ?", productID, userID).Delete(&userModels.Wishlist{})
 	if result.Error != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to remove from wishlist", "details": result.Error.Error()})
 		return

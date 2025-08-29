@@ -2,109 +2,108 @@ package controllers
 
 import (
 	"fmt"
-	"log"
 	"net/http"
 
-	"github.com/Sojil8/eCommerce-silver/config"
 	"github.com/Sojil8/eCommerce-silver/database"
 	"github.com/Sojil8/eCommerce-silver/models/userModels"
 	"github.com/Sojil8/eCommerce-silver/utils/helper"
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 )
 
-//showrefral page is pending to do
-
 func ShowRefralPage(c *gin.Context) {
-	userID, _ := c.Get("id")
+	userID, exists := c.Get("id")
+	if !exists {
+		helper.ResponseWithErr(c, http.StatusUnauthorized, "User not authenticated", "User ID not found in context", "")
+		return
+	}
 
 	var user userModels.Users
 	if err := database.DB.Where("id = ?", userID).First(&user).Error; err != nil {
-		helper.ResponseWithErr(c, http.StatusNotFound, "user refral code not found", "user refral code not found", "")
+		helper.ResponseWithErr(c, http.StatusNotFound, "User not found", "User referral code not found", err.Error())
 		return
 	}
+
 	const baseUrl = "http://localhost:8888"
 	refralLink := fmt.Sprintf("%s/signup?ref=%s", baseUrl, user.ReferralToken)
 
-	var refralUser userModels.Refral
-	if err := database.DB.Where("refred_user_id = ?", userID).Find(&refralUser).Error; err != nil {
 
+	var referrals []userModels.Refral
+	if err := database.DB.Where("user_id = ?", userID).Find(&referrals).Error; err != nil {
+		helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to fetch referrals", "Database error", err.Error())
+		return
+	}
+
+	totalReferrals := len(referrals)
+	var totalRewards uint
+	var activeReferrals int
+	for _, referral := range referrals {
+		totalRewards += referral.RewardUser
+		if referral.ReferralIsUsed {
+			activeReferrals++
+		}
 	}
 
 	c.HTML(http.StatusOK, "refral.html", gin.H{
-		"userCode": refralLink,
+		"userCode":        refralLink,
+		"totalReferrals":  totalReferrals,
+		"totalRewards":    totalRewards,
+		"activeReferrals": activeReferrals,
+		"referrals":       referrals,
 	})
 }
 
-func VerifiRefralCode(newUserID uint, refralCode string) error {
-
-	// newUserID, ok := id.(int)
-	// if !ok {
-	// 	return fmt.Errorf("can't convert user id in verify refral api")
-	// }
-
-	if refralCode == "" {
-		return nil
+func GetReferralData(c *gin.Context) {
+	userID, exists := c.Get("id")
+	if !exists {
+		helper.ResponseWithErr(c, http.StatusUnauthorized, "User not authenticated", "User ID not found in context", "")
+		return
 	}
 
-	return database.DB.Transaction(func(tx *gorm.DB) error {
-		var currentUser userModels.Users
-		if err := tx.Where("id = ?", newUserID).First(&currentUser).Error; err != nil {
-			return fmt.Errorf("current user not found %s", err)
-		}
-		if currentUser.ReferralToken == refralCode {
-			return fmt.Errorf("can't use user own code")
-		}
+	var user userModels.Users
+	if err := database.DB.Where("id = ?", userID).First(&user).Error; err != nil {
+		helper.ResponseWithErr(c, http.StatusNotFound, "User not found", "User referral code not found", err.Error())
+		return
+	}
 
-		var existingRefral userModels.Refral
-		if err :=tx.Where("user_id = ?", newUserID).First(&existingRefral).Error; err == nil {
-			return fmt.Errorf("user %d has already used a referral code", newUserID)
-		} else if err != nil && err != gorm.ErrRecordNotFound {
-			return fmt.Errorf("database error checking referral usage: %w", err)
-		}
+	var referrals []userModels.Refral
+	if err := database.DB.Where("user_id = ?", userID).Preload("RefredUser").Find(&referrals).Error; err != nil {
+		helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to fetch referrals", "Database error", err.Error())
+		return
+	}
 
-		var refredUser userModels.Users
-		if err :=tx.Where("referral_token = ?", refralCode).First(&refredUser).Error; err != nil {
-			return fmt.Errorf("invalid Code %s", err)
-		}
+	type ReferralResponse struct {
+		FriendName string `json:"friendName"`
+		Status     bool   `json:"status"`
+		Reward     uint   `json:"reward"`
+		Date       string `json:"date"`
+	}
 
-		if currentUser.CreatedAt.Before(refredUser.CreatedAt) || currentUser.CreatedAt.Equal(refredUser.CreatedAt) {
-			return fmt.Errorf("you cannot use this referral code because the code owner joined after you")
-		}
+	var referralData []ReferralResponse
+	totalReferrals := len(referrals)
+	var totalRewards uint
+	var activeReferrals int
 
-		wallet,err:=config.EnshureWallet(tx,newUserID)
-		if err!=nil{
-			return err
+	for _, referral := range referrals {
+		var friend userModels.Users
+		if err := database.DB.Where("id = ?", referral.RefredUserID).First(&friend).Error; err != nil {
+			continue 
 		}
-		wallet.Balance += 200
-		if err :=tx.Save(&wallet).Error; err != nil {
-			return fmt.Errorf("error giving reward to user")
+		referralData = append(referralData, ReferralResponse{
+			FriendName: friend.First_name,
+			Status:     referral.ReferralIsUsed,
+			Reward:     referral.RewardUser,
+			Date:       referral.CreatedAt.Format("2006-01-02"),
+		})
+		totalRewards += referral.RewardUser
+		if referral.ReferralIsUsed {
+			activeReferrals++
 		}
-		log.Println("got enshure wallet*************")
+	}
 
-		var invitePersonWallet userModels.Wallet
-		if err :=tx.Where("user_id = ?", refredUser.ID).First(&invitePersonWallet).Error; err != nil {
-			return fmt.Errorf("user wallet not found")
-		}
-		invitePersonWallet.Balance += 100
-		if err :=tx.Save(&invitePersonWallet).Error; err != nil {
-			return fmt.Errorf("error giving reward to user %s", err)
-		}
-
-		createUserRefral := userModels.Refral{
-			UserID:             uint(newUserID),
-			RefredUserID:       refredUser.ID,
-			RewardUser:         200,
-			RewardInvitePerson: 100,
-			RefralCode:         refralCode,
-			ReferralIsUsed:     true,
-		}
-
-		if err :=tx.Create(&createUserRefral).Error; err != nil {
-			return fmt.Errorf("refral data create error %s", err)
-		}
-
-		return nil
+	c.JSON(http.StatusOK, gin.H{
+		"totalReferrals":  totalReferrals,
+		"totalRewards":    totalRewards,
+		"activeReferrals": activeReferrals,
+		"referrals":       referralData,
 	})
-
 }

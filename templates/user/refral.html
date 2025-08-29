@@ -83,7 +83,7 @@
                             </div>
                         </div>
                         
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <!-- <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <button onclick="shareViaWhatsApp()" 
                                     class="bg-green-500 hover:bg-green-600 px-4 py-2 rounded-lg text-sm font-medium transition-colors">
                                 <i class="fab fa-whatsapp mr-2"></i>WhatsApp
@@ -95,22 +95,6 @@
                             <button onclick="shareViaSMS()" 
                                     class="bg-purple-500 hover:bg-purple-600 px-4 py-2 rounded-lg text-sm font-medium transition-colors">
                                 <i class="fas fa-sms mr-2"></i>SMS
-                            </button>
-                        </div>
-                    </div>
-
-                    <div class="bg-white rounded-xl shadow-md p-6 mb-6 border border-gray-200">
-                        <h4 class="text-xl font-semibold text-gray-900 mb-4 flex items-center">
-                            <i class="fas fa-tag text-indigo-600 text-2xl mr-2"></i>
-                            Have a Referral Code?
-                        </h4>
-                        <p class="text-gray-600 mb-4">Enter a friend's referral code to receive your reward!</p>
-                        <div class="flex flex-col sm:flex-row gap-4">
-                            <input type="text" id="referral-code-input" placeholder="Enter referral code"
-                                   class="flex-1 border border-gray-300 rounded-lg p-3 profile-input text-gray-800">
-                            <button onclick="submitReferralCode()"
-                                    class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-200">
-                                Apply Code
                             </button>
                         </div>
                     </div>
@@ -197,12 +181,12 @@
                                     </tr>
                                 </tbody>
                             </table>
-                        </div>
+                        </div>-->
                     </div>
                 </div>
             </div>
         </div>
-    </div>
+    </div> 
 
     <footer class="bg-gray-900 text-white p-6 mt-auto">
         <div class="container mx-auto flex flex-col md:flex-row justify-between items-center">
@@ -280,6 +264,66 @@
             window.location.href = smsUrl;
         }
 
+        async function fetchReferralData() {
+            try {
+                const response = await fetch('/referral-data', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                });
+
+                const data = await response.json();
+                if (response.ok) {
+                    // Update stats
+                    document.getElementById('total-referrals').textContent = data.totalReferrals || 0;
+                    document.getElementById('total-rewards').textContent = `₹${data.totalRewards || 0}`;
+                    document.getElementById('active-referrals').textContent = data.activeReferrals || 0;
+
+                    // Update referral history
+                    const referralHistory = document.getElementById('referral-history');
+                    referralHistory.innerHTML = ''; // Clear existing content
+
+                    if (data.referrals && data.referrals.length > 0) {
+                        data.referrals.forEach(referral => {
+                            const row = document.createElement('tr');
+                            row.innerHTML = `
+                                <td class="py-3 px-4 text-gray-600">${referral.friendName || 'Unknown'}</td>
+                                <td class="py-3 px-4 text-gray-600">${referral.status ? 'Active' : 'Pending'}</td>
+                                <td class="py-3 px-4 text-gray-600">₹${referral.reward || 0}</td>
+                                <td class="py-3 px-4 text-gray-600">${new Date(referral.date).toLocaleDateString()}</td>
+                            `;
+                            referralHistory.appendChild(row);
+                        });
+                    } else {
+                        referralHistory.innerHTML = `
+                            <tr>
+                                <td colspan="4" class="text-center py-8 text-gray-500">
+                                    <i class="fas fa-users text-4xl mb-3 block"></i>
+                                    No referrals yet. Start sharing your code!
+                                </td>
+                            </tr>
+                        `;
+                    }
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: data.error || 'Failed to fetch referral data.',
+                        confirmButtonColor: '#4f46e5'
+                    });
+                }
+            } catch (error) {
+                console.error('Error fetching referral data:', error);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Network Error',
+                    text: 'Could not connect to the server. Please try again.',
+                    confirmButtonColor: '#4f46e5'
+                });
+            }
+        }
+
         async function submitReferralCode() {
             const refralCodeInput = document.getElementById('referral-code-input');
             const refralCode = refralCodeInput.value.trim();
@@ -295,7 +339,7 @@
             }
 
             try {
-                const response = await fetch('refral-invite', { // Assuming this is your verify endpoint
+                const response = await fetch('/refral-invite', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -312,13 +356,13 @@
                         text: 'Referral code applied successfully! Your wallet has been credited.',
                         confirmButtonColor: '#4f46e5'
                     }).then(() => {
-                        window.location.reload(); // Reload to reflect changes, e.g., wallet balance
+                        window.location.reload();
                     });
                 } else {
                     let errorMessage = 'Failed to apply referral code.';
                     if (data.error) {
                         errorMessage = data.error;
-                    } else if (data.message) { // Assuming your helper.ResponseWithErr uses "message" or "error" field for user-facing error
+                    } else if (data.message) {
                         errorMessage = data.message;
                     }
                     Swal.fire({
@@ -338,6 +382,9 @@
                 });
             }
         }
+
+        // Fetch referral data when the page loads
+        window.onload = fetchReferralData;
     </script>
 </body>
-</html>
+</html> 

@@ -10,6 +10,7 @@ import (
 func UserRoutes(c *gin.Engine) {
 	userGroup := c.Group("/")
 	{
+		userGroup.Use(middleware.ClearCache())
 		userGroup.GET("/signup", controllers.ShowSignUp)
 		userGroup.POST("/signup", controllers.UserSignUp)
 		userGroup.GET("/signup/otp", controllers.ShowOTPPage)
@@ -25,6 +26,10 @@ func UserRoutes(c *gin.Engine) {
 		userGroup.POST("/forgot-password/otp", controllers.VerifyResetOTP)
 		userGroup.GET("/forgot-password/reset", controllers.ShowResetPassword)
 		userGroup.POST("/forgot-password/reset", controllers.ResetPassword)
+
+		authGroup := c.Group("/auth")
+		authGroup.GET("/google", services.GoogleLogin)
+		authGroup.GET("/google/callback", services.GoogleCallback)
 
 		protected := userGroup.Group("")
 		protected.Use(middleware.Authenticate("jwt_token", "User", "/login"), middleware.ClearCache())
@@ -44,6 +49,7 @@ func UserRoutes(c *gin.Engine) {
 			protected.POST("/profile/change-password", controllers.ChangePassword)
 			protected.GET("/wallet", controllers.ShowWallet)
 			protected.GET("/refral", controllers.ShowRefralPage)
+			// protected.GET("/referral-data", controllers.GetReferralData)
 			// protected.POST("/refral-invite", controllers.VerifiRefralCode)
 
 			// Cart
@@ -75,7 +81,8 @@ func UserRoutes(c *gin.Engine) {
 			protected.POST("/orders/return/:order_id", controllers.ReturnOrder)
 			protected.GET("/orders/details/:order_id", controllers.ShowOrderDetails)
 			protected.GET("/orders/invoice/:order_id", controllers.DownloadInvoice)
-			protected.GET("/orders/search", controllers.SearchOrders)
+			protected.GET("/orders/search", controllers.GetOrderList)
+			protected.POST("/orders/retry-payment/:order_id", controllers.RetryPayment) 
 
 			//wishlist
 			protected.GET("/wishlist", controllers.ShowWishlist)
@@ -88,10 +95,8 @@ func UserRoutes(c *gin.Engine) {
 			protected.GET("/checkout/available-coupons", controllers.GetAvailableCoupons)
 
 			protected.POST("/logout", controllers.LogoutUser)
-		}
-		authGroup := c.Group("/auth")
-		authGroup.GET("/google", services.GoogleLogin)
-		authGroup.GET("/google/callback", services.GoogleCallback)
+		}	
+
 		c.NoRoute(controllers.NotFound)
 	}
 }

@@ -5,8 +5,11 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/mail"
+	"regexp"
 	"time"
 
+	"github.com/Sojil8/eCommerce-silver/config"
 	"github.com/Sojil8/eCommerce-silver/database"
 	"github.com/Sojil8/eCommerce-silver/middleware"
 	"github.com/Sojil8/eCommerce-silver/models/userModels"
@@ -33,7 +36,14 @@ func ShowSignUp(c *gin.Context) {
 			return
 		}
 	}
-	c.HTML(http.StatusOK, "signup.html", nil)
+	errorMessage := c.Query("error")
+    if errorMessage == "" {
+        errorMessage = c.Query("message") 
+    }
+
+	c.HTML(http.StatusOK, "signup.html", gin.H{
+		"error":errorMessage,
+	})
 }
 
 var signupRequest struct {
@@ -44,11 +54,23 @@ var signupRequest struct {
 	ConfirmPassword string `json:"confirmpassword" form:"confirmpassword" binding:"required"`
 }
 
-//add the code of user in the marshal field and only call the func on veryfiy otp
-
 func UserSignUp(c *gin.Context) {
 	if err := c.ShouldBind(&signupRequest); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input", "field": "all"})
+		return
+	}
+
+	usernameRegex := regexp.MustCompile(`^[a-zA-Z]{2,}$`)
+	if !usernameRegex.MatchString(signupRequest.UserName) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Username must be at least 2 letters (no spaces allowed)"})
+		return
+	}
+
+	_, err := mail.ParseAddress(signupRequest.Email)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "not valid email",
+		})
 		return
 	}
 
@@ -82,7 +104,7 @@ func UserSignUp(c *gin.Context) {
 	fmt.Println(otp)
 
 	referral := c.Query("ref")
-	// log.Println("got refral from signup page",referral)
+
 
 	newUser := map[string]interface{}{
 		"name":       signupRequest.UserName,
@@ -179,7 +201,6 @@ func VerifyOTP(c *gin.Context) {
 	password, _ := storedData["password"].(string)
 	phone, _ := storedData["phone"].(string)
 	ref, _ := storedData["ref"].(string)
-	// log.Println("got the referal code",ref)
 
 	refralCode, err := helper.GenerateReferralCode()
 	if err != nil {
@@ -201,9 +222,19 @@ func VerifyOTP(c *gin.Context) {
 		return
 	}
 
+	newWallet := userModels.Wallet{
+		UserID:  newUser.ID,
+		Balance: 0,
+	}
+
+	if err := database.DB.Create(&newWallet).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not create user wallet"})
+		return
+	}
+
 	if ref != "" {
-		if err := VerifiRefralCode(newUser.ID, ref); err != nil {
-			helper.ResponseWithErr(c,http.StatusInternalServerError,"Referral code verification failed","Referral code verification failed","")
+		if err := config.VerifiRefralCode(newUser.ID, ref); err != nil {
+			helper.ResponseWithErr(c, http.StatusInternalServerError, "Referral code verification failed", "Referral code verification failed", "")
 			log.Printf("Referral code verification failed for user %d (code: %s): %v", newUser.ID, ref, err)
 			return
 		}
@@ -244,7 +275,6 @@ func ResendOTP(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate new OTP"})
 		return
 	}
-	// fmt.Println(otp)
 	data, err := storage.RedisClient.Get(storage.Ctx, userKey).Result()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve user data"})

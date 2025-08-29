@@ -10,7 +10,6 @@ import (
 	"github.com/Sojil8/eCommerce-silver/database"
 	"github.com/Sojil8/eCommerce-silver/models/adminModels"
 	"github.com/Sojil8/eCommerce-silver/models/userModels"
-	"github.com/Sojil8/eCommerce-silver/utils/helper"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt"
 )
@@ -100,7 +99,8 @@ func Authenticate(cookieName, expectedRole, loginRedirect string) gin.HandlerFun
 				return
 			}
 			if user.Is_blocked {
-				helper.ResponseWithErr(c, http.StatusForbidden, "Account blocked", "Your account has been blocked", "")
+				c.SetCookie(cookieName, "", -1, "/", "", false, true)
+				c.Redirect(http.StatusSeeOther, "/login?error=Your+account+has+been+blocked")
 				c.Abort()
 				return
 			}

@@ -6,8 +6,8 @@
     <title>Order Details | Silver eCommerce</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11" defer></script>
     <style>
-        /* Custom styles unchanged */
         .status-badge {
             display: inline-flex;
             align-items: center;
@@ -17,6 +17,10 @@
             font-size: 0.875rem;
             font-weight: 500;
         }
+        .status-confirmed { @apply bg-green-100 text-green-800; }
+        .status-failed { @apply bg-red-100 text-red-800; }
+        .status-pending { @apply bg-yellow-100 text-yellow-800; }
+        .status-cancelled { @apply bg-gray-100 text-gray-800; }
         .collapsible-header {
             cursor: pointer;
             transition: background-color 0.2s ease;
@@ -45,6 +49,10 @@
             background-color: #3b82f6;
             color: white;
         }
+        .progress-step.failed .step-icon {
+            background-color: #ef4444;
+            color: white;
+        }
         .progress-step .step-icon {
             width: 2rem;
             height: 2rem;
@@ -66,6 +74,9 @@
         }
         .progress-line.completed {
             background-color: #10b981;
+        }
+        .progress-line.failed {
+            background-color: #ef4444;
         }
         .modal {
             display: none;
@@ -90,6 +101,11 @@
         .modal-content textarea {
             resize: vertical;
             min-height: 100px;
+        }
+        .policy-text {
+            font-size: 0.875rem;
+            color: #dc2626;
+            margin-bottom: 1rem;
         }
         @media (max-width: 640px) {
             .order-progress {
@@ -147,32 +163,44 @@
             </ol>
         </nav>
 
+        {{ if .Order.OrderError }}
+        <div class="bg-red-50 text-red-700 p-4 rounded-lg mb-6">
+            <p class="text-sm font-medium">Error: {{ .Order.OrderError }}</p>
+        </div>
+        {{ end }}
+
         <div class="bg-white shadow-lg rounded-lg mb-8">
             <div class="px-6 py-5 flex flex-col sm:flex-row justify-between items-center">
                 <div>
                     <h1 class="text-2xl font-bold text-gray-900">Order #{{ .Order.OrderIdUnique }}</h1>
                     <p class="mt-1 text-sm text-gray-500">Placed on {{ .Order.OrderDate.Format "January 2, 2006" }}</p>
+                    <p class="mt-1 text-sm status-badge status-{{ .Order.Status }}">{{ .Order.Status }}</p>
                 </div>
                 <a href="/orders/invoice/{{ .Order.OrderIdUnique }}" class="mt-4 sm:mt-0 bg-indigo-600 text-white px-5 py-2 rounded-lg hover:bg-indigo-700 transition flex items-center">
                     <i class="fas fa-download mr-2"></i>Download Invoice
                 </a>
+                {{ if eq .Order.Status "Failed" }}
+                <button onclick="retryPayment('{{ .Order.OrderIdUnique }}')" class="bg-yellow-600 text-white px-5 py-2 rounded-lg hover:bg-yellow-700 transition flex items-center">
+                    <i class="fas fa-redo mr-2"></i>Retry Payment
+                </button>
+                {{ end }}
             </div>
             <div class="px-6 py-5 border-t border-gray-200">
                 <div class="order-progress">
-                    <div class="progress-line {{ if or (eq .Order.Status "Confirmed") (eq .Order.Status "Processing") (eq .Order.Status "Delivered") }}completed{{ end }}"></div>
-                    <div class="progress-step {{ if eq .Order.Status "Pending" }}active{{ else if or (eq .Order.Status "Confirmed") (eq .Order.Status "Processing") (eq .Order.Status "Delivered") }}completed{{ end }}">
+                    <div class="progress-line {{ if or (eq .Order.Status "Confirmed") (eq .Order.Status "Processing") (eq .Order.Status "Delivered") }}completed{{ else if eq .Order.Status "Failed" }}failed{{ end }}"></div>
+                    <div class="progress-step {{ if eq .Order.Status "Pending" }}active{{ else if or (eq .Order.Status "Confirmed") (eq .Order.Status "Processing") (eq .Order.Status "Delivered") }}completed{{ else if eq .Order.Status "Failed" }}failed{{ end }}">
                         <div class="step-icon"><i class="fas fa-shopping-bag"></i></div>
                         <span class="text-xs mt-1 text-gray-600">Pending</span>
                     </div>
-                    <div class="progress-step {{ if eq .Order.Status "Confirmed" }}active{{ else if or (eq .Order.Status "Processing") (eq .Order.Status "Delivered") }}completed{{ end }}">
+                    <div class="progress-step {{ if eq .Order.Status "Confirmed" }}active{{ else if or (eq .Order.Status "Processing") (eq .Order.Status "Delivered") }}completed{{ else if eq .Order.Status "Failed" }}failed{{ end }}">
                         <div class="step-icon"><i class="fas fa-check-circle"></i></div>
                         <span class="text-xs mt-1 text-gray-600">Confirmed</span>
                     </div>
-                    <div class="progress-step {{ if eq .Order.Status "Processing" }}active{{ else if eq .Order.Status "Delivered" }}completed{{ end }}">
+                    <div class="progress-step {{ if eq .Order.Status "Processing" }}active{{ else if eq .Order.Status "Delivered" }}completed{{ else if eq .Order.Status "Failed" }}failed{{ end }}">
                         <div class="step-icon"><i class="fas fa-truck"></i></div>
                         <span class="text-xs mt-1 text-gray-600">Processing</span>
                     </div>
-                    <div class="progress-step {{ if eq .Order.Status "Delivered" }}completed{{ end }}">
+                    <div class="progress-step {{ if eq .Order.Status "Delivered" }}completed{{ else if eq .Order.Status "Failed" }}failed{{ end }}">
                         <div class="step-icon"><i class="fas fa-box-open"></i></div>
                         <span class="text-xs mt-1 text-gray-600">Delivered</span>
                     </div>
@@ -197,11 +225,8 @@
                                 <p class="text-sm text-gray-500">{{ .VariantAttributes }}</p>
                                 <p class="text-sm text-gray-500">Quantity: {{ .Quantity }}</p>
                                 <p class="text-sm">
-                                    <span class="status-badge
-                                        {{ if eq .Status "Active" }}bg-green-100 text-green-800
-                                        {{ else if eq .Status "Cancelled" }}bg-red-100 text-red-800
-                                        {{ else }}bg-gray-100 text-gray-800{{ end }}">
-                                        <i class="fas {{ if eq .Status "Active" }}fa-check{{ else if eq .Status "Cancelled" }}fa-times{{ else }}fa-info-circle{{ end }}"></i>
+                                    <span class="status-badge status-{{ .Status }}">
+                                        <i class="fas {{ if eq .Status "Active" }}fa-check{{ else if eq .Status "Cancelled" }}fa-times{{ else if eq .Status "Failed" }}fa-exclamation-triangle{{ else }}fa-info-circle{{ end }}"></i>
                                         {{ .Status }}
                                     </span>
                                 </p>
@@ -209,29 +234,25 @@
                                 <p class="text-sm text-green-600">Offer: {{ .OfferName }}</p>
                                 {{ end }}
                             </div>
-                           <div class="text-right">
+                            <div class="text-right">
                                 <p class="text-base font-semibold text-gray-700 line-through">
                                     ${{ printf "%.2f" (add .Product.Price .Variants.ExtraPrice) }}
                                 </p>
-
                                 <p class="text-base font-semibold text-green-600">
                                     ${{ printf "%.2f" .UnitPrice }}
                                 </p>
-
                                 {{ if and (or (eq .Status "Active") (eq .Status "")) (or (eq $.Order.Status "Pending") (eq $.Order.Status "Confirmed")) }}
-                                <button onclick="openModal('cancel-item', '/orders/cancel-item/{{ $.Order.OrderIdUnique }}/{{ .ID }}')"
+                                <button onclick="confirmCancel('{{ $.Order.OrderIdUnique }}', '{{ .ID }}', {{ .UnitPrice }}, {{ $.Order.Subtotal }}, {{ $.Order.CouponDiscount }})"
                                     class="text-sm text-red-600 hover:text-red-800 transition mt-2">Cancel Item</button>
                                 {{ end }}
                             </div>
-
-
                         </div>
                         {{ else }}
                         <p class="py-4 text-sm text-gray-500">No items found in this order.</p>
                         {{ end }}
                     </div>
                 </div>
-                {{ if and (ne .Order.Status "Delivered") (ne .Order.Status "Cancelled") (ne .Order.Status "Return Requested") }}
+                {{ if and (ne .Order.Status "Delivered") (ne .Order.Status "Cancelled") (ne .Order.Status "Return Requested") (ne .Order.Status "Failed") }}
                 <div class="mt-6 flex justify-end">
                     <button onclick="openModal('cancel-order', '/orders/cancel/{{ .Order.OrderIdUnique }}')"
                         class="bg-red-600 text-white px-5 py-2 rounded-lg hover:bg-red-700 transition flex items-center">
@@ -257,53 +278,53 @@
                     </div>
                     <div id="order-summary" class="border-t border-gray-200 px-6 py-5 space-y-4">
                         {{ if or (eq .Order.Status "Cancelled") .AllItemsCancelled }}
-                            <p class="text-sm text-red-600 font-semibold mb-2">This order has been cancelled.</p>
-                            {{ if .HasBackup }}
-                                <div class="text-sm text-gray-700 italic">Original values at time of order:</div>
-                                <div class="flex justify-between text-sm">
-                                    <span class="font-medium text-gray-700">Original Total Price</span>
-                                    <span>${{ printf "%.2f" .OrderBackup.Subtotal }}</span>
-                                </div>
-                                <div class="flex justify-between text-sm">
-                                    <span class="font-medium text-green-600">Original Offer Discounts</span>
-                                    <span class="text-green-600">-${{ printf "%.2f" .OrderBackup.OfferDiscount }}</span>
-                                </div>
-                                <div class="flex justify-between text-sm">
-                                    <span class="font-medium text-green-600">ShippingCost</span>
-                                    <span class="text-green-600">-${{ printf "%.2f" .OrderBackup.ShippingCost }}</span>
-                                </div>
-                                <div class="flex justify-between text-lg font-bold border-t pt-4">
-                                    <span class="text-gray-900">Final Amount Paid (approx.)</span>
-                                    <span class="text-indigo-600">${{ printf "%.2f" .OrderBackup.TotalPrice }}</span>
-                                </div>
-                            {{ else }}
-                                <p class="text-sm text-gray-500">Original order details are unavailable.</p>
-                            {{ end }}
+                        <p class="text-sm text-red-600 font-semibold mb-2">This order has been cancelled.</p>
+                        {{ if .HasBackup }}
+                        <div class="text-sm text-gray-700 italic">Original values at time of order:</div>
+                        <div class="flex justify-between text-sm">
+                            <span class="font-medium text-gray-700">Original Total Price</span>
+                            <span>${{ printf "%.2f" .OrderBackup.Subtotal }}</span>
+                        </div>
+                        <div class="flex justify-between text-sm">
+                            <span class="font-medium text-green-600">Original Offer Discounts</span>
+                            <span class="text-green-600">-${{ printf "%.2f" .OrderBackup.OfferDiscount }}</span>
+                        </div>
+                        <div class="flex justify-between text-sm">
+                            <span class="font-medium text-gray-700">Shipping Cost</span>
+                            <span>${{ printf "%.2f" .OrderBackup.ShippingCost }}</span>
+                        </div>
+                        <div class="flex justify-between text-lg font-bold border-t pt-4">
+                            <span class="text-gray-900">Final Amount Paid (approx.)</span>
+                            <span class="text-indigo-600">${{ printf "%.2f" .OrderBackup.TotalPrice }}</span>
+                        </div>
                         {{ else }}
-                            <div class="flex justify-between text-sm">
-                                <span class="font-medium text-gray-700">Subtotal</span>
-                                <span>${{ printf "%.2f" .Order.Subtotal }}</span>
-                            </div>
-                            {{ if gt .CurrentTotalOfferDiscount 0.0 }}
-                            <div class="flex justify-between text-sm">
-                                <span class="font-medium text-green-600">Offer Discounts</span>
-                                <span class="text-green-600">-${{ printf "%.2f" .CurrentTotalOfferDiscount }}</span>
-                            </div>
-                            {{ end }}
-                            {{ if gt .Order.CouponDiscount 0.0 }}
-                            <div class="flex justify-between text-sm">
-                                <span class="font-medium text-green-600">Coupon Discount</span>
-                                <span class="text-green-600">-${{ printf "%.2f" .Order.CouponDiscount }}</span>
-                            </div>
-                            {{ end }}
-                            <div class="flex justify-between text-sm">
-                                <span class="font-medium text-gray-700">Shipping</span>
-                                <span>${{ printf "%.2f" .Order.ShippingCost }}</span>
-                            </div>
-                            <div class="flex justify-between text-lg font-bold border-t pt-4">
-                                <span class="text-gray-900">Grand Total</span>
-                                <span class="text-indigo-600">${{ printf "%.2f" .Order.TotalPrice }}</span>
-                            </div>
+                        <p class="text-sm text-gray-500">Original order details are unavailable.</p>
+                        {{ end }}
+                        {{ else }}
+                        <div class="flex justify-between text-sm">
+                            <span class="font-medium text-gray-700">Subtotal</span>
+                            <span>${{ printf "%.2f" .Order.Subtotal }}</span>
+                        </div>
+                        {{ if gt .CurrentTotalOfferDiscount 0.0 }}
+                        <div class="flex justify-between text-sm">
+                            <span class="font-medium text-green-600">Offer Discounts</span>
+                            <span class="text-green-600">-${{ printf "%.2f" .CurrentTotalOfferDiscount }}</span>
+                        </div>
+                        {{ end }}
+                        {{ if gt .Order.CouponDiscount 0.0 }}
+                        <div class="flex justify-between text-sm">
+                            <span class="font-medium text-green-600">Coupon Discount</span>
+                            <span class="text-green-600">-${{ printf "%.2f" .Order.CouponDiscount }}</span>
+                        </div>
+                        {{ end }}
+                        <div class="flex justify-between text-sm">
+                            <span class="font-medium text-gray-700">Shipping</span>
+                            <span>${{ printf "%.2f" .Order.ShippingCost }}</span>
+                        </div>
+                        <div class="flex justify-between text-lg font-bold border-t pt-4">
+                            <span class="text-gray-900">Grand Total</span>
+                            <span class="text-indigo-600">${{ printf "%.2f" .Order.TotalPrice }}</span>
+                        </div>
                         {{ end }}
                     </div>
                 </div>
@@ -332,6 +353,8 @@
         <div id="action-modal" class="modal">
             <div class="modal-content">
                 <h2 id="modal-title" class="text-lg font-semibold text-gray-900 mb-4"></h2>
+                <p id="modal-policy" class="policy-text">Note: Canceling this item may remove coupon eligibility, resulting in a deduction from your wallet to cover the coupon loss. This may lead to a negative wallet balance, which must be cleared before using your wallet for future purchases.</p>
+                <p id="modal-warning" class="text-sm text-gray-600 mb-4"></p>
                 <p class="text-sm text-gray-600 mb-4">Please provide a reason for your request:</p>
                 <textarea id="reason-input" class="w-full border border-gray-300 rounded-lg p-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600" placeholder="Enter reason..."></textarea>
                 <div class="flex justify-end space-x-3 mt-4">
@@ -342,6 +365,7 @@
         </div>
     </div>
 
+    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
     <script>
         function toggleSection(sectionId) {
             const section = document.getElementById(sectionId);
@@ -357,25 +381,84 @@
             }
         }
 
-        function openModal(action, url) {
+        function confirmCancel(orderId, itemId, itemPrice, orderSubtotal, couponDiscount) {
+            // Assume coupon minimum is 2600 (hardcoded for simplicity; ideally fetch from backend)
+            const couponMinAmount = 2600;
+            let couponLoss = 0;
+            let refundedAmount = 0;
+            
+            // Calculate new subtotal after cancellation
+            const newSubtotal = orderSubtotal - itemPrice;
+            
+            // Check if coupon becomes ineligible
+            if (couponDiscount > 0 && newSubtotal < couponMinAmount) {
+                const couponAdjustment = couponDiscount;
+                refundedAmount = itemPrice - couponAdjustment;
+                if (refundedAmount < 0) {
+                    couponLoss = -refundedAmount;
+                    refundedAmount = 0;
+                }
+            } else {
+                refundedAmount = itemPrice;
+            }
+
+            if (couponLoss > 0) {
+                Swal.fire({
+                    title: 'Warning: Coupon Loss',
+                    text: `Canceling this item will remove your coupon discount, resulting in a deduction of $${couponLoss.toFixed(2)} from your wallet, which may lead to a negative balance. Proceed?`,
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#3b82f6',
+                    cancelButtonColor: '#d1d5db',
+                    confirmButtonText: 'Proceed'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        openModal('cancel-item', `/orders/cancel-item/${orderId}/${itemId}`, { couponLoss, refundedAmount });
+                    }
+                });
+            } else {
+                openModal('cancel-item', `/orders/cancel-item/${orderId}/${itemId}`, { couponLoss, refundedAmount });
+            }
+        }
+
+        function openModal(action, url, data = null) {
             const modal = document.getElementById('action-modal');
             const title = document.getElementById('modal-title');
             const submitButton = document.getElementById('submit-action');
             const reasonInput = document.getElementById('reason-input');
+            const warningText = document.getElementById('modal-warning');
+            const policyText = document.getElementById('modal-policy');
 
             reasonInput.value = '';
             if (action === 'cancel-order') {
                 title.textContent = 'Cancel Order';
+                policyText.style.display = 'none';
+                warningText.textContent = 'Are you sure you want to cancel the entire order?';
             } else if (action === 'cancel-item') {
                 title.textContent = 'Cancel Item';
+                policyText.style.display = 'block';
+                if (data && data.couponLoss > 0) {
+                    warningText.textContent = `Canceling this item will deduct $${data.couponLoss.toFixed(2)} from your wallet, potentially resulting in a negative balance.`;
+                } else if (data && data.refundedAmount > 0) {
+                    warningText.textContent = `Canceling this item will refund $${data.refundedAmount.toFixed(2)} to your wallet.`;
+                } else {
+                    warningText.textContent = 'Canceling this item will not affect your wallet balance.';
+                }
             } else if (action === 'return-order') {
                 title.textContent = 'Return Order';
+                policyText.style.display = 'none';
+                warningText.textContent = 'Please provide a reason for returning the order.';
             }
 
             submitButton.onclick = function() {
                 const reason = reasonInput.value.trim();
                 if (!reason) {
-                    alert('Please provide a reason.');
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Reason Required',
+                        text: 'Please provide a reason.',
+                        confirmButtonColor: '#3b82f6',
+                    });
                     return;
                 }
 
@@ -389,16 +472,32 @@
                 .then(response => response.json())
                 .then(data => {
                     if (data.status === 'ok') {
-                        alert(data.message);
-                        window.location.reload();
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Success',
+                            text: data.message,
+                            confirmButtonColor: '#3b82f6',
+                        }).then(() => {
+                            window.location.reload();
+                        });
                     } else {
-                        alert(data.error || 'An error occurred.');
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: data.error || 'An error occurred.',
+                            confirmButtonColor: '#3b82f6',
+                        });
                     }
                     closeModal();
                 })
                 .catch(error => {
                     console.error('Error:', error);
-                    alert('Failed to process request.');
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: 'Failed to process request.',
+                        confirmButtonColor: '#3b82f6',
+                    });
                     closeModal();
                 });
             };
@@ -416,6 +515,161 @@
                 closeModal();
             }
         });
+
+        // Display error message from OrderError if present
+        document.addEventListener('DOMContentLoaded', () => {
+            {{ if .Order.OrderError }}
+            Swal.fire({
+                icon: 'error',
+                title: 'Order Failed',
+                text: '{{ .Order.OrderError }}',
+                confirmButtonColor: '#3b82f6',
+                toast: true,
+                position: 'top-end',
+                showConfirmButton: false,
+                timer: 3000
+            });
+            {{ end }}
+        });
+
+        function retryPayment(orderId) {
+            Swal.fire({
+                title: 'Initiating Payment...',
+                allowOutsideClick: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+
+            fetch(`/orders/retry-payment/${orderId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                Swal.close();
+                if (data.status === 'payment_required') {
+                    const options = {
+                        key: data.key_id,
+                        amount: data.amount,
+                        currency: data.currency,
+                        order_id: data.razorpay_order_id,
+                        name: 'Silver eCommerce',
+                        description: `Payment for Order #${data.order_id}`,
+                        prefill: data.prefill,
+                        notes: data.notes,
+                        theme: {
+                            color: '#3b82f6'
+                        },
+                        handler: function(response) {
+                            Swal.fire({
+                                title: 'Verifying Payment...',
+                                allowOutsideClick: false,
+                                didOpen: () => {
+                                    Swal.showLoading();
+                                }
+                            });
+
+                            fetch('/checkout/verify-payment', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                },
+                                body: JSON.stringify({
+                                    razorpay_payment_id: response.razorpay_payment_id,
+                                    razorpay_order_id: response.razorpay_order_id,
+                                    razorpay_signature: response.razorpay_signature,
+                                }),
+                            })
+                            .then(resp => {
+                                if (!resp.ok) {
+                                    throw new Error(`HTTP error! status: ${resp.status}`);
+                                }
+                                return resp.json();
+                            })
+                            .then(result => {
+                                Swal.close();
+                                if (result.status === 'ok') {
+                                    Swal.fire({
+                                        icon: 'success',
+                                        title: 'Payment Successful!',
+                                        text: result.message,
+                                        confirmButtonColor: '#3b82f6',
+                                        timer: 3000
+                                    }).then(() => {
+                                        window.location.href = result.redirect;
+                                    });
+                                } else {
+                                    throw new Error(result.error || 'Payment verification failed');
+                                }
+                            })
+                            .catch(error => {
+                                console.error('Verification Error:', error);
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: 'Payment Verification Failed',
+                                    text: error.message || 'Payment verification failed.',
+                                    confirmButtonColor: '#3b82f6',
+                                }).then(() => {
+                                    window.location.href = `/order/failure?order_id=${orderId}`;
+                                });
+                            });
+                        },
+                        modal: {
+                            ondismiss: function() {
+                                console.log('Payment modal dismissed by user');
+                                window.location.href = `/order/failure?order_id=${orderId}`;
+                            },
+                            escape: false,
+                            backdropclose: false
+                        }
+                    };
+
+                    const rzp = new Razorpay(options);
+                    rzp.on('payment.failed', function(response) {
+                        console.log('Payment failed:', response);
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Payment Failed',
+                            text: response.error.description || 'Payment failed due to an error.',
+                            confirmButtonColor: '#3b82f6',
+                        }).then(() => {
+                            window.location.href = `/order/failure?order_id=${orderId}`;
+                        });
+                    });
+
+                    rzp.open();
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Payment Retry Failed',
+                        text: data.error || 'Unable to initiate payment retry.',
+                        confirmButtonColor: '#3b82f6',
+                    }).then(() => {
+                        window.location.href = `/order/failure?order_id=${orderId}`;
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('Retry Payment Error:', error);
+                Swal.close();
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Connection Error',
+                    text: 'Failed to connect to payment service. Please check your connection and try again.',
+                    confirmButtonColor: '#3b82f6',
+                }).then(() => {
+                    window.location.href = `/order/failure?order_id=${orderId}`;
+                });
+            });
+        }
     </script>
 </body>
 </html>

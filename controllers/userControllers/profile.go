@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"github.com/Sojil8/eCommerce-silver/database"
-	"github.com/Sojil8/eCommerce-silver/utils/helper"
 	"github.com/Sojil8/eCommerce-silver/models/userModels"
 	"github.com/Sojil8/eCommerce-silver/services"
+	"github.com/Sojil8/eCommerce-silver/utils/helper"
 	"github.com/Sojil8/eCommerce-silver/utils/storage"
 	"github.com/gin-gonic/gin"
 	"golang.org/x/crypto/bcrypt"
@@ -38,10 +38,9 @@ func ShowProfile(c *gin.Context) {
 	userData := user.(userModels.Users)
 	userNameStr := userName.(string)
 
-	// Fetch wallet
+	
 	var wallet userModels.Wallet
 	if err := database.DB.Where("user_id = ?", userIDUint).First(&wallet).Error; err != nil {
-		// Wallet not found, create a new one
 		wallet = userModels.Wallet{
 			UserID:  userIDUint,
 			Balance: 0.0,
@@ -52,7 +51,6 @@ func ShowProfile(c *gin.Context) {
 		}
 	}
 
-	// Fetch addresses, orders, etc.
 	var addresses []userModels.Address
 	database.DB.Where("user_id = ?", userIDUint).Find(&addresses)
 
@@ -256,6 +254,11 @@ func ChangePassword(c *gin.Context) {
 		return
 	}
 
+	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(changePasswordRequest.NewPassword)); err == nil {
+		helper.ResponseWithErr(c, http.StatusUnauthorized, "Can't put original password as new password", "Can't put original password as new password", "")
+		return
+	}
+
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(changePasswordRequest.CurrentPassword)); err != nil {
 		helper.ResponseWithErr(c, http.StatusUnauthorized, "Incorrect current password", "Password mismatch", "")
 		return
@@ -416,7 +419,7 @@ func ShowWallet(c *gin.Context) {
 	userID, _ := c.Get("id")
 	var wallet userModels.Wallet
 	if err := database.DB.Where("user_id = ?", userID).First(&wallet).Error; err != nil {
-		// Create a new wallet if not found
+
 		wallet = userModels.Wallet{
 			UserID:  userID.(uint),
 			Balance: 0,
@@ -425,6 +428,11 @@ func ShowWallet(c *gin.Context) {
 			helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to initialize wallet", "Error creating wallet", "")
 			return
 		}
+	}
+	var walletData userModels.WalletTransaction
+	if err:=database.DB.Find(&walletData,wallet.ID).Error;err!=nil{
+		helper.ResponseWithErr(c,http.StatusNotFound,"Transaction history not found","Transaction history not found","")
+		return
 	}
 
 	user, exists := c.Get("user")
@@ -454,5 +462,6 @@ func ShowWallet(c *gin.Context) {
 		"CartCount":     cartCount,
 		"UserData":      userData,
 		"ActiveTab":     "wallet",
+		"WalletHistory":walletData,
 	})
 }

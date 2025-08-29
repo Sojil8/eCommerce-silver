@@ -50,8 +50,10 @@
                 <div class="relative w-full max-w-md">
                     <input type="text" id="searchInput" placeholder="Search by Product or Status" 
                            class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg search-input bg-white text-gray-900 placeholder-gray-500"
-                           onkeyup="debouncedSearchOrders()">
-                    <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                           value="{{.SearchQuery}}"
+                           onkeyup="if(event.key === 'Enter') searchOrders()">
+                    <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 cursor-pointer" 
+                       onclick="searchOrders()"></i>
                 </div>
             </div>
 
@@ -87,7 +89,7 @@
                                 </h3>
                                 <div class="mt-2 space-y-1 text-sm text-gray-600">
                                     <p><span class="font-medium">Order ID:</span> {{.OrderIdUnique}}</p>
-                                    <p><span class="font-medium">Date:</span> {{.OrderDate.Format "Jan 02, 2006"}}</p>
+                                    <p><span class="font-medium">Date:</span> {{.OrderDate.Format "Jan 02, 2006 03:04 PM"}}</p>
                                     <p><span class="font-medium">Total:</span> ${{printf "%.2f" .TotalPrice}}</p>
                                     <p><span class="font-medium">Items:</span> {{len .OrderItems}}</p>
                                 </div>
@@ -127,17 +129,40 @@
                 {{else}}
                 <div class="text-center py-12">
                     <i class="fas fa-shopping-bag text-5xl text-gray-300 mb-4"></i>
-                    <p class="text-gray-500 text-lg">You haven't placed any orders yet.</p>
+                    <p class="text-gray-500 text-lg">
+                        {{if .SearchQuery}}No orders found matching "{{.SearchQuery}}".{{else}}You haven't placed any orders yet.{{end}}
+                    </p>
+                    {{if .SearchQuery}}
+                    <button onclick="clearSearch()" class="mt-4 inline-block bg-indigo-600 text-white px-6 py-2 rounded-full hover:bg-indigo-700 transition-colors">Clear Search</button>
+                    {{else}}
                     <a href="/shop" class="mt-4 inline-block bg-indigo-600 text-white px-6 py-2 rounded-full hover:bg-indigo-700 transition-colors">Start Shopping</a>
+                    {{end}}
                 </div>
                 {{end}}
             </div>
 
-            <!-- Pagination Placeholder -->
+            <!-- Pagination -->
+            {{if gt .TotalPages 1}}
             <div class="mt-8 flex justify-center gap-2">
-                <button class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:bg-gray-400" disabled>Previous</button>
-                <button class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">Next</button>
+                {{if gt .CurrentPage 1}}
+                <a href="/orders?page={{sub .CurrentPage 1}}{{if .SearchQuery}}&search={{.SearchQuery}}{{end}}" 
+                   class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">Previous</a>
+                {{else}}
+                <button class="px-4 py-2 bg-gray-400 text-white rounded-lg cursor-not-allowed" disabled>Previous</button>
+                {{end}}
+
+                <span class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg">
+                    Page {{.CurrentPage}} of {{.TotalPages}}
+                </span>
+
+                {{if lt .CurrentPage .TotalPages}}
+                <a href="/orders?page={{add .CurrentPage 1}}{{if .SearchQuery}}&search={{.SearchQuery}}{{end}}" 
+                   class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">Next</a>
+                {{else}}
+                <button class="px-4 py-2 bg-gray-400 text-white rounded-lg cursor-not-allowed" disabled>Next</button>
+                {{end}}
             </div>
+            {{end}}
         </main>
     </div>
 
@@ -153,18 +178,31 @@
     </footer>
 
     <script>
-        // Debounce function to limit search requests
-        function debounce(func, wait) {
-            let timeout;
-            return function executedFunction(...args) {
-                const later = () => {
-                    clearTimeout(timeout);
-                    func(...args);
-                };
-                clearTimeout(timeout);
-                timeout = setTimeout(later, wait);
-            };
+        // Search Orders Function
+        function searchOrders() {
+            const query = document.getElementById('searchInput').value.trim();
+            if (query) {
+                window.location.href = `/orders?page=1&search=${encodeURIComponent(query)}`;
+            } else {
+                window.location.href = '/orders?page=1';
+            }
         }
+
+        // Clear Search Function
+        function clearSearch() {
+            window.location.href = '/orders?page=1';
+        }
+
+        // Event listener for Enter key
+        document.addEventListener('DOMContentLoaded', () => {
+            const searchInput = document.getElementById('searchInput');
+            searchInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    searchOrders();
+                }
+            });
+        });
 
         // Cancel Order
         function cancelOrder(orderId) {
@@ -241,95 +279,6 @@
                 }
             });
         }
-
-        // Search Orders with Debouncing
-        const debouncedSearchOrders = debounce(function() {
-            const query = document.getElementById('searchInput').value.trim();
-            const orderList = document.getElementById('orderList');
-
-            if (query === '') {
-                location.reload(); // Reset to original list if query is empty
-                return;
-            }
-
-            fetch(`/orders/search?q=${encodeURIComponent(query)}`, {
-                method: 'GET',
-                credentials: 'include',
-                headers: { 'Accept': 'application/json' }
-            })
-            .then(response => response.json())
-            .then(orders => {
-                if (Array.isArray(orders) && orders.length > 0) {
-                    orderList.innerHTML = orders.map(order => {
-                        const productName = order.OrderItems && order.OrderItems[0] && order.OrderItems[0].Product
-                            ? order.OrderItems[0].Product.ProductName
-                            : `Order #${order.OrderIdUnique}`;
-                        const orderDate = new Date(order.OrderDate).toLocaleDateString('en-US', {
-                            year: 'numeric', month: 'short', day: '2-digit'
-                        });
-                        const imageSrc = order.OrderItems && order.OrderItems[0] && order.OrderItems[0].Product.Images && order.OrderItems[0].Product.Images.length > 0
-                            ? order.OrderItems[0].Product.Images[0]
-                            : '';
-                        return `
-                            <div class="order-card bg-white rounded-xl shadow-md p-6">
-                                <div class="flex flex-col md:flex-row gap-6">
-                                    <div class="w-full md:w-32 flex-shrink-0">
-                                        ${imageSrc ? 
-                                            `<img src="${imageSrc}" alt="${productName}" class="w-full h-32 rounded-lg border border-gray-200 order-image">` :
-                                            `<div class="w-full h-32 bg-gray-200 rounded-lg flex items-center justify-center text-gray-500">
-                                                <i class="fas fa-image text-2xl"></i>
-                                            </div>`}
-                                    </div>
-                                    <div class="flex-1 flex flex-col md:flex-row justify-between items-start gap-4">
-                                        <div>
-                                            <h3 class="text-xl font-semibold text-gray-900">${productName}</h3>
-                                            <div class="mt-2 space-y-1 text-sm text-gray-600">
-                                                <p><span class="font-medium">Order ID:</span> ${order.OrderIdUnique}</p>
-                                                <p><span class="font-medium">Date:</span> ${orderDate}</p>
-                                                <p><span class="font-medium">Total:</span> $${parseFloat(order.TotalPrice).toFixed(2)}</p>
-                                                <p><span class="font-medium">Items:</span> ${order.OrderItems ? order.OrderItems.length : 0}</p>
-                                            </div>
-                                        </div>
-                                        <div class="flex flex-col items-start md:items-end gap-2">
-                                            <span class="status-badge font-medium text-white 
-                                                ${order.Status === 'Cancelled' ? 'bg-red-600' : 
-                                                  order.Status === 'Delivered' ? 'bg-green-600' : 
-                                                  order.Status === 'Shipped' ? 'bg-blue-600' : 
-                                                  order.Status === 'Pending' ? 'bg-yellow-600' : 'bg-gray-600'}">
-                                                ${order.Status}
-                                            </span>
-                                            <div class="flex gap-3 text-sm">
-                                                <a href="/orders/details/${order.OrderIdUnique}" class="text-indigo-600 hover:text-indigo-800 transition-colors">
-                                                    <i class="fas fa-eye mr-1"></i> View Details
-                                                </a>
-                                                ${order.Status === 'Pending' ? `<button onclick="cancelOrder('${order.OrderIdUnique}')" class="text-red-600 hover:text-red-800 transition-colors"><i class="fas fa-times mr-1"></i> Cancel</button>` : ''}
-                                                ${order.Status === 'Delivered' ? `<button onclick="returnOrder('${order.OrderIdUnique}')" class="text-orange-600 hover:text-orange-800 transition-colors"><i class="fas fa-undo mr-1"></i> Return</button>` : ''}
-                                                <a href="/orders/invoice/${order.OrderIdUnique}" class="text-green-600 hover:text-green-800 transition-colors">
-                                                    <i class="fas fa-file-download mr-1"></i> Invoice
-                                                </a>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>`;
-                    }).join('');
-                } else {
-                    orderList.innerHTML = `
-                        <div class="text-center py-12">
-                            <i class="fas fa-search text-5xl text-gray-300 mb-4"></i>
-                            <p class="text-gray-500 text-lg">No orders found matching your search.</p>
-                        </div>`;
-                }
-            })
-            .catch(error => {
-                console.error("Search error:", error);
-                orderList.innerHTML = `
-                    <div class="text-center py-12">
-                        <i class="fas fa-exclamation-triangle text-5xl text-red-300 mb-4"></i>
-                        <p class="text-red-500 text-lg">An error occurred while searching. Please try again.</p>
-                    </div>`;
-            });
-        }, 300); // 300ms debounce delay
     </script>
 </body>
 </html>

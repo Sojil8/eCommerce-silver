@@ -4,6 +4,7 @@ import (
 	"github.com/Sojil8/eCommerce-silver/config"
 	"github.com/Sojil8/eCommerce-silver/database"
 	"github.com/Sojil8/eCommerce-silver/middleware"
+	"github.com/Sojil8/eCommerce-silver/pkg"
 	"github.com/Sojil8/eCommerce-silver/routes"
 	"github.com/Sojil8/eCommerce-silver/services"
 	"github.com/Sojil8/eCommerce-silver/utils/storage"
@@ -25,6 +26,7 @@ func init() {
 	middleware.SecretKeyCheck()
 	database.MigrageHandler()
 	storage.InitRedis()
+	pkg.LoggerInit()
 }
 
 func main() {
@@ -32,4 +34,6 @@ func main() {
 	routes.UserRoutes(router)
 
 	router.Run()
+
+	
 }
