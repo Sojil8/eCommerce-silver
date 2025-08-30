@@ -360,7 +360,6 @@ func CancelOrderItem(c *gin.Context) {
 			return fmt.Errorf("item not found")
 		}
 
-		// Restore variant stock
 		var variant adminModels.Variants
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&variant, cancelItem.VariantsID).Error; err != nil {
 			pkg.Log.Error("Variant not found", zap.Uint("variantID", cancelItem.VariantsID), zap.Error(err))
@@ -373,7 +372,6 @@ func CancelOrderItem(c *gin.Context) {
 			return fmt.Errorf("failed to update variant stock: %v", err)
 		}
 
-		// Calculate new subtotal
 		remainingSubtotal := order.Subtotal - (cancelItem.UnitPrice+cancelItem.DiscountAmount/float64(cancelItem.Quantity))*float64(cancelItem.Quantity)
 		pkg.Log.Info("CancelItem",
 			zap.Uint("itemID", cancelItem.ID),
@@ -411,7 +409,6 @@ func CancelOrderItem(c *gin.Context) {
 			}
 		}
 
-		// Handle refund and coupon loss
 		refundedAmount := cancelItem.ItemTotal - couponAdjustment
 		var couponLoss float64
 		if refundedAmount < 0 {
@@ -423,7 +420,6 @@ func CancelOrderItem(c *gin.Context) {
 				zap.Float64("couponLoss", couponLoss))
 		}
 
-		// Cap negative balance
 		const maxNegativeBalance = -1000.0
 		if order.PaymentMethod == "ONLINE" || order.PaymentMethod == "Wallet" {
 			var payment adminModels.PaymentDetails
@@ -439,7 +435,6 @@ func CancelOrderItem(c *gin.Context) {
 				return fmt.Errorf("failed to ensure wallet: %v", err)
 			}
 
-			// Check negative balance limit
 			if couponLoss > 0 && wallet.Balance-couponLoss < maxNegativeBalance {
 				pkg.Log.Warn("Negative balance exceeds limit",
 					zap.Float64("currentBalance", wallet.Balance),
@@ -448,14 +443,12 @@ func CancelOrderItem(c *gin.Context) {
 				return fmt.Errorf("deduction would exceed maximum negative balance of %.2f", maxNegativeBalance)
 			}
 
-			// Handle refund
 			if refundedAmount > 0 {
 				wallet.Balance += refundedAmount
 				if err := tx.Save(&wallet).Error; err != nil {
 					pkg.Log.Error("Failed to update wallet balance for refund", zap.Uint("userID", userID), zap.Error(err))
 					return fmt.Errorf("failed to update wallet balance: %v", err)
 				}
-				// Record refund transaction
 				walletTransaction := userModels.WalletTransaction{
 					UserID:        userID,
 					WalletID:      wallet.ID,
@@ -474,14 +467,12 @@ func CancelOrderItem(c *gin.Context) {
 				}
 			}
 
-			// Deduct coupon loss
 			if couponLoss > 0 {
 				wallet.Balance -= couponLoss
 				if err := tx.Save(&wallet).Error; err != nil {
 					pkg.Log.Error("Failed to update wallet balance for coupon loss", zap.Uint("userID", userID), zap.Error(err))
 					return fmt.Errorf("failed to update wallet balance for coupon loss: %v", err)
 				}
-				// Record loss deduction transaction
 				walletTransaction := userModels.WalletTransaction{
 					UserID:        userID,
 					WalletID:      wallet.ID,
@@ -512,7 +503,6 @@ func CancelOrderItem(c *gin.Context) {
 			}
 		}
 
-		// Update order fields
 		order.Subtotal = remainingSubtotal
 		order.CouponDiscount = couponDiscount
 		order.OfferDiscount -= cancelItem.DiscountAmount
@@ -540,7 +530,6 @@ func CancelOrderItem(c *gin.Context) {
 			return fmt.Errorf("failed to create cancellation record: %v", err)
 		}
 
-		// Check if all items are cancelled
 		allCancelled := true
 		for _, item := range order.OrderItems {
 			if item.Status != "Cancelled" {
@@ -566,7 +555,6 @@ func CancelOrderItem(c *gin.Context) {
 						pkg.Log.Error("Failed to update wallet balance for full cancellation", zap.Uint("userID", userID), zap.Error(err))
 						return fmt.Errorf("failed to update wallet balance: %v", err)
 					}
-					// Record full refund transaction
 					walletTransaction := userModels.WalletTransaction{
 						UserID:        userID,
 						WalletID:      wallet.ID,
@@ -686,7 +674,6 @@ func RetryPayment(c *gin.Context) {
 	userID := helper.FetchUserID(c)
 	orderID := c.Param("order_id")
 
-	// Fetch the order
 	var order userModels.Orders
 	if err := database.DB.Preload("OrderItems").Where("order_id_unique = ? AND user_id = ?", orderID, userID).First(&order).Error; err != nil {
 		pkg.Log.Error("Order not found", zap.String("orderID", orderID), zap.Uint("userID", userID), zap.Error(err))
@@ -694,21 +681,18 @@ func RetryPayment(c *gin.Context) {
 		return
 	}
 
-	// Check if payment can be retried
 	if order.PaymentStatus != "Failed" && order.PaymentStatus != "Pending" {
 		pkg.Log.Warn("Payment retry not allowed", zap.String("orderID", orderID), zap.String("paymentStatus", order.PaymentStatus))
 		helper.ResponseWithErr(c, http.StatusBadRequest, "Payment retry not allowed", "Order payment status does not allow retry", "/orders")
 		return
 	}
 
-	// Check if payment method is Razorpay
 	if order.PaymentMethod != "ONLINE" {
 		pkg.Log.Warn("Invalid payment method for retry", zap.String("method", order.PaymentMethod))
 		helper.ResponseWithErr(c, http.StatusBadRequest, "Invalid payment method", "Only Razorpay payments can be retried", "/orders")
 		return
 	}
 
-	// Fetch user details
 	var user userModels.Users
 	if err := database.DB.First(&user, userID).Error; err != nil {
 		pkg.Log.Error("User not found", zap.Uint("userID", userID), zap.Error(err))
@@ -716,7 +700,6 @@ func RetryPayment(c *gin.Context) {
 		return
 	}
 
-	// Fetch shipping address
 	var shippingAddress adminModels.ShippingAddress
 	if err := database.DB.Where("order_id = ? AND user_id = ?", orderID, userID).First(&shippingAddress).Error; err != nil {
 		pkg.Log.Error("Shipping address not found", zap.String("orderID", orderID), zap.Error(err))
@@ -724,7 +707,6 @@ func RetryPayment(c *gin.Context) {
 		return
 	}
 
-	// Start a transaction
 	tx := database.DB.Begin()
 	defer func() {
 		if r := recover(); r != nil {
@@ -733,7 +715,6 @@ func RetryPayment(c *gin.Context) {
 		}
 	}()
 
-	// Verify stock availability (check only, no deduction)
 	stockOk := true
 	for _, item := range order.OrderItems {
 		var variant adminModels.Variants
@@ -754,7 +735,6 @@ func RetryPayment(c *gin.Context) {
 		return
 	}
 
-	// Create a new Razorpay order
 	amountInPaise := int(math.Round(order.TotalPrice * 100))
 
 	razorpayOrder, err := services.CreateRazorpayOrder(amountInPaise)
@@ -773,10 +753,9 @@ func RetryPayment(c *gin.Context) {
 		return
 	}
 
-	// Update order with new Razorpay order ID and reset payment status
 	order.RazorpayOrderID = razorpayOrderID
 	order.PaymentStatus = "Pending"
-	order.OrderError = "" // Clear any previous error
+	order.OrderError = "" 
 	if err := tx.Save(&order).Error; err != nil {
 		pkg.Log.Error("Failed to update order with Razorpay ID", zap.String("razorpayOrderID", razorpayOrderID), zap.Error(err))
 		tx.Rollback()
@@ -784,10 +763,8 @@ func RetryPayment(c *gin.Context) {
 		return
 	}
 
-	// Update or create payment record
 	var payment adminModels.PaymentDetails
 	if err := tx.Where("order_id = ? AND payment_method = ?", order.ID, "ONLINE").First(&payment).Error; err == nil {
-		// Update existing payment record
 		payment.RazorpayOrderID = razorpayOrderID
 		payment.Status = "Pending"
 		payment.Attempts++
@@ -799,7 +776,6 @@ func RetryPayment(c *gin.Context) {
 			return
 		}
 	} else {
-		// Create new payment record
 		payment = adminModels.PaymentDetails{
 			OrderID:         order.ID,
 			UserID:          userID,

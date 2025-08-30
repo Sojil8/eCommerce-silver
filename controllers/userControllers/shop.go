@@ -20,7 +20,6 @@ type ShopQuery struct {
 	PriceMax float64 `json:"price_max"`
 }
 
-// Enhanced Product struct for shop display with offer information
 type ShopProduct struct {
 	adminModels.Product
 	IsOffer            bool    `json:"is_offer"`
