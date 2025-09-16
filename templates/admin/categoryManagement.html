@@ -8,29 +8,9 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
     <style>
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.5);
-            z-index: 50;
-        }
+       
 
-        .modal-content {
-            position: relative;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-        }
-
-        .hover-scale:hover {
-            transform: scale(1.05);
-            transition: transform 0.2s ease-in-out;
-        }
-
+        
         a {
             text-decoration: none;
         }
@@ -45,17 +25,7 @@
                 <h2 class="text-2xl font-bold text-center">Admin Panel</h2>
             </div>
             <div class="sidebar-menu space-y-2 flex-grow">
-                <a href="/admin/user-management" class="block py-2 px-3 rounded hover:bg-gray-700 hover:text-white transition-colors">Customers</a>
-                <a href="/admin/category" class="block py-2 px-3 rounded bg-blue-600 text-white hover:bg-blue-700 transition-colors">Categories</a>
-                <a href="/admin/products" class="block py-2 px-3 rounded hover:bg-gray-700 hover:text-white transition-colors">Products</a>
-                <a href="/admin/orders" class="block py-2 px-3 rounded hover:bg-gray-700 hover:text-white transition-colors">Orders</a>
-                <a href="/admin/returns" class="block py-2 px-3 rounded hover:bg-gray-700 hover:text-white transition-colors">Return</a>
-                <a href="/admin/offers" class="block py-2 px-3 rounded hover:bg-gray-700 hover:text-white transition-colors">offers</a>
-                <a href="/admin/coupons" class="block py-2 px-3 rounded hover:bg-gray-700 hover:text-white transition-colors">Coupons</a>
-                <a href="#" class="block py-2 px-3 rounded hover:bg-gray-700 hover:text-white transition-colors logout-btn">Logout</a>
-                <form id="logoutForm" action="/admin/logout" method="POST" style="display: none;">
-                    <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
-                </form>
+                {{template "adminSideBar.html"}}
             </div>
         </div>
 

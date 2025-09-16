@@ -100,3 +100,4 @@ func UserRoutes(c *gin.Engine) {
 		c.NoRoute(controllers.NotFound)
 	}
 }
+

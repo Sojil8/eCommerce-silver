@@ -175,12 +175,16 @@
                     <div class="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
                         <dt class="text-sm font-medium text-gray-500">Shipping Address</dt>
                         <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
+                            {{if .Address.ID}}
                             <p>{{.Address.Name}}</p>
                             <p>{{.Address.Landmark}}</p>
                             <p>{{.Address.City}}, {{.Address.State}} {{.Address.Pincode}}</p>
                             <p>Phone: {{.Address.Phone}}</p>
                             {{if .Address.AlternatePhone}}<p>Alt Phone: {{.Address.AlternatePhone}}</p>{{end}}
                             {{if .Address.Instructions}}<p class="mt-2 text-gray-500">Instructions: {{.Address.Instructions}}</p>{{end}}
+                            {{else}}
+                            <p class="text-gray-500">No shipping address available</p>
+                            {{end}}
                         </dd>
                     </div>
                     <div class="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
@@ -260,21 +264,22 @@
 
         <div class="bg-white shadow overflow-hidden sm:rounded-lg">
             <div class="px-4 py-5 sm:px-6">
-                <h3 class="text-lg leading-6 font-medium text-gray-900">Order Summary</h3>
+                <h3 class="text-lg leading-6 font-medium text-gray-900">Order Summary (Original Amounts)</h3>
+                <p class="mt-1 text-sm text-gray-500">Reflects the order amounts at the time of placement</p>
             </div>
             <div class="border-t border-gray-200">
                 <dl>
                     <div class="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
                         <dt class="text-sm font-medium text-gray-500">Subtotal</dt>
-                        <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">${{printf "%.2f" .Order.Subtotal}}</dd>
+                        <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">${{printf "%.2f" .OrderBackUp.Subtotal}}</dd>
                     </div>
                     <div class="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-                        <dt class="text-sm font-medium text-gray-500">Discount</dt>
-                        <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">-${{printf "%.2f" (add .Order.OfferDiscount .Order.CouponDiscount)}}</dd>
+                        <dt class="text-sm font-medium text-gray-500">Offer Discount</dt>
+                        <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">-${{printf "%.2f" .OrderBackUp.OfferDiscount}}</dd>
                     </div>
                     <div class="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
                         <dt class="text-sm font-medium text-gray-500">Total</dt>
-                        <dd class="mt-1 text-sm font-medium text-gray-900 sm:mt-0 sm:col-span-2">${{printf "%.2f" .Order.TotalPrice}}</dd>
+                        <dd class="mt-1 text-sm font-medium text-gray-900 sm:mt-0 sm:col-span-2">${{printf "%.2f" .OrderBackUp.TotalPrice}}</dd>
                     </div>
                 </dl>
             </div>

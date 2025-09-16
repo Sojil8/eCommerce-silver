@@ -2,42 +2,86 @@ package controllers
 
 import (
 	"fmt"
+	"math/rand"
 	"net/http"
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/Sojil8/eCommerce-silver/config"
 	"github.com/Sojil8/eCommerce-silver/database"
-	"github.com/Sojil8/eCommerce-silver/utils/helper"
 	"github.com/Sojil8/eCommerce-silver/models/adminModels"
 	"github.com/Sojil8/eCommerce-silver/models/userModels"
+	"github.com/Sojil8/eCommerce-silver/pkg"
+	"github.com/Sojil8/eCommerce-silver/utils/helper"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
+	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
 func ListOrder(c *gin.Context) {
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
-	search := c.Query("search")
+	// Parse query parameters with defaults
+	page, err := strconv.Atoi(c.DefaultQuery("page", "1"))
+	if err != nil || page < 1 {
+		page = 1
+	}
+	limit, err := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	if err != nil || limit < 1 || limit > 100 {
+		limit = 10
+	}
+	search := strings.TrimSpace(c.Query("search"))
+	filterStatus := strings.TrimSpace(c.Query("status"))
 	sort := c.DefaultQuery("sort", "order_date desc")
-	filterStatus := c.Query("status")
+
+	// Validate sort parameter to prevent SQL injection
+	allowedSorts := map[string]bool{
+		"order_date desc":  true,
+		"order_date asc":   true,
+		"total_price desc": true,
+		"total_price asc":  true,
+	}
+	if !allowedSorts[sort] {
+		pkg.Log.Warn("Invalid sort parameter", zap.String("sort", sort))
+		sort = "order_date desc"
+	}
 
 	offset := (page - 1) * limit
-	var orders []userModels.Orders
-	query := database.DB.Preload("OrderItems.Product").Preload("OrderItems.Variants").Preload("User")
 
+	// Build query
+	query := database.DB.Preload("OrderItems.Product").Preload("OrderItems.Variants").Preload("User")
 	if search != "" {
-		query = query.Where("order_id_unique iLIKE ? OR users.user_name iLIKE ? OR users.email iLIKE ?", "%"+search+"%", "%"+search+"%", "%"+search+"%")
+		query = query.Joins("JOIN users ON users.id = orders.user_id").
+			Where("orders.order_id_unique ILIKE ? OR users.user_name ILIKE ? OR users.email ILIKE ?", "%"+search+"%", "%"+search+"%", "%"+search+"%")
 	}
 	if filterStatus != "" {
-		query = query.Where("status = ?", filterStatus)
+		query = query.Where("orders.status = ?", filterStatus)
 	}
-	query = query.Where("status <> ?", "Failed")
+	query = query.Where("orders.status <> ?", "Failed")
 
+	// Count total orders
 	var total int64
-	totalPages := int((total + int64(limit) - 1) / int64(limit))
-	query.Model(&userModels.Orders{}).Count(&total)
-	query.Order(sort).Limit(limit).Offset(offset).Find(&orders)
+	if err := query.Model(&userModels.Orders{}).Count(&total).Error; err != nil {
+		pkg.Log.Error("Failed to count orders", zap.Error(err))
+		helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to fetch orders", err.Error(), "")
+		return
+	}
 
+	// Calculate total pages
+	totalPages := int((total + int64(limit) - 1) / int64(limit))
+	if totalPages < 1 {
+		totalPages = 1
+	}
+
+	// Fetch orders
+	var orders []userModels.Orders
+	if err := query.Order(sort).Limit(limit).Offset(offset).Find(&orders).Error; err != nil {
+		pkg.Log.Error("Failed to fetch orders", zap.Error(err))
+		helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to fetch orders", err.Error(), "")
+		return
+	}
+
+	// Render template
 	c.HTML(http.StatusOK, "adminOrder.html", gin.H{
 		"Orders":     orders,
 		"Page":       page,
@@ -93,7 +137,7 @@ func UpdateOrderStatus(c *gin.Context) {
 				}
 			}
 		}
-		if req.Status == "Delivered"{
+		if req.Status == "Delivered" {
 			order.Status = "Paid"
 		}
 		order.Status = req.Status
@@ -119,11 +163,19 @@ func ViewOrdetailsAdmin(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Order not found"})
 		return
 	}
+
+	var orderBackUp userModels.OrderBackUp
+	if err := database.DB.Where("order_id_unique = ?", orderID).First(&orderBackUp).Error; err != nil {
+		helper.ResponseWithErr(c, http.StatusNotFound, "", "", "")
+		return
+	}
+
 	var address adminModels.ShippingAddress
 	database.DB.Where("order_id = ?", orderID).First(&address)
 	c.HTML(http.StatusOK, "orderDetailsAdmin.html", gin.H{
-		"Order":   order,
-		"Address": address,
+		"Order":       order,
+		"Address":     address,
+		"OrderBackUp": orderBackUp,
 	})
 }
 func ListReturnRequests(c *gin.Context) {
@@ -168,28 +220,43 @@ func VerifyReturnRequest(c *gin.Context) {
 		}
 
 		if returnRequest.Approve {
-			// Handle wallet and payment for non-COD orders
 			if returnReq.Order.PaymentMethod != "Cash On Delivery" {
 				wallet, err := config.EnshureWallet(tx, returnReq.Order.UserID)
 				if err != nil {
 					return fmt.Errorf("failed to ensure wallet: %v", err)
 				}
+				currentBalance := wallet.Balance
 				wallet.Balance += returnReq.Order.TotalPrice
 				if err := tx.Save(&wallet).Error; err != nil {
 					return fmt.Errorf("failed to update wallet balance: %v", err)
+				}
+
+				walletTransaction := userModels.WalletTransaction{
+					UserID:        returnReq.Order.UserID,
+					WalletID:      wallet.ID,
+					Amount:        returnReq.Order.TotalPrice,
+					LastBalance:   currentBalance,
+					Description:   fmt.Sprintf("Refund for approved return of order %s", returnReq.Order.OrderIdUnique),
+					Type:          "Credited",
+					Receipt:       "rcpt-" + uuid.New().String(),
+					OrderID:       returnReq.Order.OrderIdUnique,
+					TransactionID: fmt.Sprintf("TXN-%d-%d", time.Now().UnixNano(), rand.Intn(10000)),
+					PaymentMethod: returnReq.Order.PaymentMethod,
+				}
+				if err:=tx.Create(&walletTransaction).Error;err!=nil{
+					pkg.Log.Error("Failed to create wallet transaction for return refund", zap.Uint("userID", returnReq.Order.UserID), zap.Error(err))
+                    return fmt.Errorf("failed to create wallet transaction: %v", err)
 				}
 
 				var payment adminModels.PaymentDetails
 				if err := tx.Where("order_id = ? AND status IN ?", returnReq.Order.ID, []string{"Success", "PartiallyRefundedToWallet"}).
 					First(&payment).Error; err != nil {
 					if err == gorm.ErrRecordNotFound {
-						// Log warning but proceed if payment details are missing (e.g., COD or manual order)
 						fmt.Printf("Warning: No payment details found for order_id=%d\n", returnReq.Order.ID)
 					} else {
 						return fmt.Errorf("failed to fetch payment details: %v", err)
 					}
 				} else {
-					// Update payment status if payment record exists
 					payment.Status = "RefundedToWallet"
 					payment.Amount = 0
 					if err := tx.Save(&payment).Error; err != nil {
@@ -198,7 +265,6 @@ func VerifyReturnRequest(c *gin.Context) {
 				}
 			}
 
-			// Restock items
 			for _, item := range returnReq.Order.OrderItems {
 				if item.Status == "Active" || item.Status == "Delivered" {
 					if err := incrementStock(tx, item.VariantsID, item.Quantity); err != nil {
@@ -213,7 +279,6 @@ func VerifyReturnRequest(c *gin.Context) {
 
 			returnReq.Order.Status = "Returned"
 		} else {
-			// Reject return request
 			for _, item := range returnReq.Order.OrderItems {
 				if item.Status == "Active" || item.Status == "Delivered" {
 					item.Status = "Return Rejected"

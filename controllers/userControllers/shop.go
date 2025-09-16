@@ -69,19 +69,21 @@ func GetUserShop(c *gin.Context) {
 		db = db.Where("products.category_name = ?", query.Category)
 	}
 
+	// Adjust price filtering to account for variant extra price
 	if query.PriceMin > 0 {
-		db = db.Where("products.price >= ?", query.PriceMin)
+		db = db.Where("(products.price + COALESCE((SELECT variants.extra_price FROM variants WHERE variants.product_id = products.id LIMIT 1), 0)) >= ?", query.PriceMin)
 	}
 
 	if query.PriceMax > 0 {
-		db = db.Where("products.price <= ?", query.PriceMax)
+		db = db.Where("(products.price + COALESCE((SELECT variants.extra_price FROM variants WHERE variants.product_id = products.id LIMIT 1), 0)) <= ?", query.PriceMax)
 	}
 
+	// Adjust sorting to include variant extra price
 	switch query.Sort {
 	case "price_low_to_high":
-		db = db.Order("products.price ASC")
+		db = db.Order("(products.price + COALESCE((SELECT variants.extra_price FROM variants WHERE variants.product_id = products.id LIMIT 1), 0)) ASC")
 	case "price_high_to_low":
-		db = db.Order("products.price DESC")
+		db = db.Order("(products.price + COALESCE((SELECT variants.extra_price FROM variants WHERE variants.product_id = products.id LIMIT 1), 0)) DESC")
 	case "a_to_z":
 		db = db.Order("products.product_name ASC")
 	case "z_to_a":
@@ -101,24 +103,28 @@ func GetUserShop(c *gin.Context) {
 		if p.IsListed {
 			availableProducts = append(availableProducts, p)
 		}
-
 	}
 
 	var shopProducts []ShopProduct
 	for _, product := range availableProducts {
-		var variants adminModels.Variants
-		if err := database.DB.Find(&variants, product.Variants).Error; err != nil {
-			helper.ResponseWithErr(c, http.StatusNotFound, "Product varinats not found", "", "")
-			return
+		variantExtraPrice := 0.0
+		if len(product.Variants) > 0 {
+			variantExtraPrice = product.Variants[0].ExtraPrice
 		}
 
-		offerDetails := helper.GetBestOfferForProduct(&product, variants.ExtraPrice)
+		offerDetails := helper.GetBestOfferForProduct(&product, variantExtraPrice)
+
+		// Calculate original price including variant extra price
+		originalPrice := product.Price
+		if len(product.Variants) > 0 {
+			originalPrice += product.Variants[0].ExtraPrice
+		}
 
 		shopProduct := ShopProduct{
 			Product:            product,
 			IsOffer:            offerDetails.IsOfferApplied,
 			OfferPrice:         offerDetails.DiscountedPrice,
-			OriginalPrice:      offerDetails.OriginalPrice,
+			OriginalPrice:      originalPrice,
 			DiscountPercentage: offerDetails.DiscountPercentage,
 			OfferName:          offerDetails.OfferName,
 		}

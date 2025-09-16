@@ -18,18 +18,14 @@ func SendOTP(email, otp string) error {
 	m.SetHeader("To", email)
 	m.SetHeader("Subject", "🎉 Welcome! Complete Your Signup")
 
-	// Set message ID for tracking
 	m.SetHeader("Message-ID", fmt.Sprintf("<%d@yourdomain.com>", time.Now().Unix()))
 
-	// Get email content
 	htmlBody := getSignupHTMLTemplate(otp)
 	plainBody := getSignupPlainTextTemplate(otp)
 
-	// Set both HTML and plain text versions
 	m.SetBody("text/plain", plainBody)
 	m.AddAlternative("text/html", htmlBody)
 
-	// Configure SMTP
 	d := gomail.NewDialer("smtp.gmail.com", 587, os.Getenv("EMAIL_USER"), os.Getenv("EMAIL_PASS"))
 
 	if err := d.DialAndSend(m); err != nil {

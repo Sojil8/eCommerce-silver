@@ -25,12 +25,11 @@ func InitRazorPay() {
 func CreateRazorpayOrder(amountPaise int) (map[string]interface{}, error) {
 	client := razorpay.NewClient(os.Getenv("RAZORPAY_KEY_ID"), os.Getenv("RAZORPAY_KEY_SECRET"))
 
-	// Generate a receipt string within 40 characters
 	rand.Seed(time.Now().UnixNano())
 	receipt := fmt.Sprintf("r-%d-%d", time.Now().UnixNano(), rand.Intn(10000))
 
 	data := map[string]interface{}{
-		"amount":   amountPaise, // ✅ integer paise
+		"amount":   amountPaise,
 		"currency": "INR",
 		"receipt":  receipt,
 	}
@@ -51,17 +50,13 @@ func CreateRazorpayOrder(amountPaise int) (map[string]interface{}, error) {
 }
 
 
-// VerifyRazorpaySignature verifies the Razorpay payment signature.
 func VerifyRazorpaySignature(orderID, paymentID, signature string) error {
-	// Concatenate orderID and paymentID with a | separator
 	payload := orderID + "|" + paymentID
 
-	// Create HMAC-SHA256 hash using the Razorpay secret key
 	mac := hmac.New(sha256.New, []byte(os.Getenv("RAZORPAY_KEY_SECRET")))
 	mac.Write([]byte(payload))
 	expectedSignature := hex.EncodeToString(mac.Sum(nil))
 
-	// Compare the generated signature with the provided signature
 	if expectedSignature != signature {
 		pkg.Log.Error("Razorpay signature verification failed",
 			zap.String("orderID", orderID),

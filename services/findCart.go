@@ -21,7 +21,6 @@ func FetchCartByUserID(userID uint) (*userModels.Cart, error) {
 	return &cart, nil
 }
 
-// ValidateCartItems validates cart items and calculates prices.
 func ValidateCartItems(cart *userModels.Cart, tx *gorm.DB) (totalPrice, originalTotalPrice, offerDiscount float64, validCartItems []userModels.CartItem, err error) {
 	totalPrice = 0.0
 	originalTotalPrice = 0.0

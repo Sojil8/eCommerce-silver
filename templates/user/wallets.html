@@ -7,7 +7,6 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-
     <style>
         .swal2-container {
             z-index: 9999;
@@ -25,6 +24,19 @@
             background-color: #4f46e5;
             color: white;
         }
+        .transaction-table {
+            min-width: 100%;
+        }
+        .transaction-table th, .transaction-table td {
+            padding: 0.75rem 1rem;
+        }
+        @media (max-width: 640px) {
+            .transaction-table {
+                display: block;
+                overflow-x: auto;
+                white-space: nowrap;
+            }
+        }
     </style>
 </head>
 <body class="bg-gray-50 flex flex-col min-h-screen">
@@ -34,9 +46,9 @@
     <div class="container mx-auto p-6 flex-grow">
         <div class="flex flex-col md:flex-row gap-6">
             <!-- Sidebar Navigation -->
-           <aside class="w-64 bg-white shadow-md hidden md:block">
-                    {{template "userSideBar.html" .}}
-                </aside>    
+            <aside class="w-64 bg-white shadow-md hidden md:block">
+                {{template "userSideBar.html" .}}
+            </aside>    
 
             <!-- Main Content Area -->
             <div class="flex-1">
@@ -48,8 +60,56 @@
                     <div class="mb-6">
                         <div class="bg-indigo-50 rounded-lg p-4">
                             <p class="text-sm text-gray-500">Current Balance</p>
-                            <p class="text-2xl font-bold text-indigo-600">${{printf "%.2f" .Wallet.Balance}}</p>
+                            <p class="text-2xl font-bold">
+                                ${{printf "%.2f" .Wallet.Balance}}
+                            </p>
                         </div>
+                    </div>
+
+                    <!-- Transaction History -->
+                    <div class="mt-6">
+                        <h4 class="text-lg font-semibold text-gray-900 mb-4">Transaction History</h4>
+                        {{if .WalletHistory}}
+                        <div class="overflow-x-auto">
+                            <table class="transaction-table border-collapse">
+                                <thead>
+                                    <tr class="bg-gray-100">
+                                        <th class="text-left text-sm font-medium text-gray-700">Date</th>
+                                        <th class="text-left text-sm font-medium text-gray-700">Transaction ID</th>
+                                        <th class="text-left text-sm font-medium text-gray-700">Description</th>
+                                        <th class="text-left text-sm font-medium text-gray-700">Order ID</th>
+                                        <th class="text-left text-sm font-medium text-gray-700">Payment Method</th>
+                                        <th class="text-right text-sm font-medium text-gray-700">Amount</th>
+                                        <th class="text-left text-sm font-medium text-gray-700">Type</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {{range .WalletHistory}}
+                                    <tr class="border-b border-gray-200 hover:bg-gray-50">
+                                        <td class="text-sm text-gray-600">{{.CreatedAt.Format "Jan 2, 2006 15:04"}}</td>
+                                        <td class="text-sm text-gray-600">{{.TransactionID}}</td>
+                                        <td class="text-sm text-gray-600">{{.Description}}</td>
+                                        <td class="text-sm text-gray-600">{{if .OrderID}}{{.OrderID}}{{else}}-{{end}}</td>
+                                        <td class="text-sm text-gray-600">{{if .PaymentMethod}}{{.PaymentMethod}}{{else}}-{{end}}</td>
+                                        <td class="text-right text-sm font-medium {{if eq .Type "Credited"}}text-green-600{{else}}text-red-600{{end}}">
+                                            {{if eq .Type "Credited"}}+{{else}}-{{end}}${{printf "%.2f" .Amount}}
+                                        </td>
+                                        <td class="text-sm {{if eq .Type "Credited"}}text-green-600{{else}}text-red-600{{end}}">{{.Type}}</td>
+                                    </tr>
+                                    {{else}}
+                                    <tr>
+                                        <td colspan="7" class="text-center py-4 text-sm text-gray-500">No transactions found.</td>
+                                    </tr>
+                                    {{end}}
+                                </tbody>
+                            </table>
+                        </div>
+                        {{else}}
+                        <div class="text-center py-8">
+                            <i class="fas fa-history text-4xl text-gray-300 mb-4"></i>
+                            <p class="text-gray-500">No transaction history available.</p>
+                        </div>
+                        {{end}}
                     </div>
                     {{else}}
                     <div class="text-center py-8">
@@ -79,6 +139,7 @@
         document.addEventListener('DOMContentLoaded', () => {
             console.log('ActiveTab:', '{{.ActiveTab}}');
             console.log('Wallet:', JSON.stringify({{.Wallet}}));
+            console.log('WalletHistory:', JSON.stringify({{.WalletHistory}}));
         });
     </script>
 </body>

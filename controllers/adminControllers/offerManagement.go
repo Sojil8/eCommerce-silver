@@ -81,7 +81,7 @@ func AddProductOffer(c *gin.Context) {
 		return
 	}
 
-	today := time.Now().Truncate(24 * time.Hour) // Truncate time to start of day
+	today := time.Now().Truncate(24 * time.Hour) 
 	if req.StartDate.Before(today) {
 		helper.ResponseWithErr(c, http.StatusBadRequest, "start date Should be today or in the future", "start date Should be today or in the future", "")
 		return
@@ -124,7 +124,7 @@ func AddCategoryOffer(c *gin.Context) {
 		return
 	}
 
-	today := time.Now().Truncate(24 * time.Hour) // Truncate time to start of day
+	today := time.Now().Truncate(24 * time.Hour)
 	if req.StartDate.Before(today) {
 		helper.ResponseWithErr(c, http.StatusBadRequest, "start date Should be today or in the future", "start date Should be today or in the future", "")
 		return
@@ -218,7 +218,7 @@ func EditProductOffer(c *gin.Context) {
 		return
 	}
 
-	today := time.Now().Truncate(24 * time.Hour) // Truncate time to start of day
+	today := time.Now().Truncate(24 * time.Hour) 
 	if req.StartDate.Before(today) {
 		helper.ResponseWithErr(c, http.StatusBadRequest, "start date Should be today or in the future", "start date Should be today or in the future", "")
 		return
@@ -326,7 +326,7 @@ func EditCategoryOffer(c *gin.Context) {
 		return
 	}
 
-	today := time.Now().Truncate(24 * time.Hour) // Truncate time to start of day
+	today := time.Now().Truncate(24 * time.Hour) 
 	if req.StartDate.Before(today) {
 		helper.ResponseWithErr(c, http.StatusBadRequest, "start date Should be today or in the future", "start date Should be today or in the future", "")
 		return

@@ -1,8 +1,11 @@
-<div class="container-fluid">
-    <div class="row">
-        <div class="col-md-2 sidebar bg-gray-900 text-white p-4">
-            <a href="/admin/user-management" class="block py-2 px-3 rounded hover:bg-gray-700 hover:text-white transition-colors">Customers</a>
-            <a href="/admin/category" class="block py-2 px-3 rounded hover:bg-gray-700 hover:text-white transition-colors">Categories</a>
-            <a href="/admin/products" class="block py-2 px-3 rounded bg-blue-600 text-white hover:bg-blue-700 transition-colors">Products</a>
-            <a href="#" class="block py-2 px-3 rounded hover:bg-gray-700 hover:text-white transition-colors" onclick="logout(event)">Logout</a>
-        </div>
+<div class="col-md-2 sidebar bg-gray-900 text-white p-4">
+    <a href="/admin/user-management" class="block py-2 px-3 rounded hover:bg-gray-700 hover:text-white transition-colors {{if eq .ActivePage "customers"}}bg-blue-600 text-white{{end}}">Dashboard</a>
+    <a href="/admin/user-management" class="block py-2 px-3 rounded hover:bg-gray-700 hover:text-white transition-colors {{if eq .ActivePage "customers"}}bg-blue-600 text-white{{end}}">Customers</a>
+    <a href="/admin/category" class="block py-2 px-3 rounded hover:bg-gray-700 hover:text-white transition-colors {{if eq .ActivePage "categories"}}bg-blue-600 text-white{{end}}">Categories</a>
+    <a href="/admin/products" class="block py-2 px-3 rounded hover:bg-gray-700 hover:text-white transition-colors {{if eq .ActivePage "products"}}bg-blue-600 text-white{{end}}">Products</a>
+    <a href="/admin/orders" class="block py-2 px-3 rounded hover:bg-gray-700 hover:text-white transition-colors {{if eq .ActivePage "orders"}}bg-blue-600 text-white{{end}}">Orders</a>
+    <a href="/admin/returns" class="block py-2 px-3 rounded hover:bg-gray-700 hover:text-white transition-colors {{if eq .ActivePage "returns"}}bg-blue-600 text-white{{end}}">Returns</a>
+    <a href="/admin/offers" class="block py-2 px-3 rounded hover:bg-gray-700 hover:text-white transition-colors {{if eq .ActivePage "offers"}}bg-blue-600 text-white{{end}}">Offers</a>
+    <a href="/admin/coupons" class="block py-2 px-3 rounded hover:bg-gray-700 hover:text-white transition-colors {{if eq .ActivePage "coupons"}}bg-blue-600 text-white{{end}}">Coupons</a>
+    <a href="#" class="block py-2 px-3 rounded hover:bg-gray-700 hover:text-white transition-colors" onclick="logout(event)">Logout</a>
+</div>

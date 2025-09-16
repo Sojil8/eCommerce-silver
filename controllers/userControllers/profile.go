@@ -8,11 +8,14 @@ import (
 
 	"github.com/Sojil8/eCommerce-silver/database"
 	"github.com/Sojil8/eCommerce-silver/models/userModels"
+	"github.com/Sojil8/eCommerce-silver/pkg"
 	"github.com/Sojil8/eCommerce-silver/services"
 	"github.com/Sojil8/eCommerce-silver/utils/helper"
 	"github.com/Sojil8/eCommerce-silver/utils/storage"
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
+	"gorm.io/gorm"
 )
 
 func ShowProfile(c *gin.Context) {
@@ -38,7 +41,6 @@ func ShowProfile(c *gin.Context) {
 	userData := user.(userModels.Users)
 	userNameStr := userName.(string)
 
-	
 	var wallet userModels.Wallet
 	if err := database.DB.Where("user_id = ?", userIDUint).First(&wallet).Error; err != nil {
 		wallet = userModels.Wallet{
@@ -416,22 +418,32 @@ func GetEditAddress(c *gin.Context) {
 }
 
 func ShowWallet(c *gin.Context) {
-	userID, _ := c.Get("id")
+	userID := helper.FetchUserID(c)
+
 	var wallet userModels.Wallet
 	if err := database.DB.Where("user_id = ?", userID).First(&wallet).Error; err != nil {
-
-		wallet = userModels.Wallet{
-			UserID:  userID.(uint),
-			Balance: 0,
-		}
-		if err := database.DB.Create(&wallet).Error; err != nil {
-			helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to initialize wallet", "Error creating wallet", "")
+		if err == gorm.ErrRecordNotFound {
+			wallet = userModels.Wallet{
+				UserID:  userID,
+				Balance: 0,
+			}
+			if err := database.DB.Create(&wallet).Error; err != nil {
+				helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to initialize wallet", "Error creating wallet", "")
+				return
+			}
+		} else {
+			pkg.Log.Error("Failed to fetch wallet", zap.Uint("userID", userID), zap.Error(err))
+			helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to fetch wallet", err.Error(), "")
 			return
 		}
+
 	}
-	var walletData userModels.WalletTransaction
-	if err:=database.DB.Find(&walletData,wallet.ID).Error;err!=nil{
-		helper.ResponseWithErr(c,http.StatusNotFound,"Transaction history not found","Transaction history not found","")
+
+
+	var transactionHistory []userModels.WalletTransaction
+	if err := database.DB.Where("wallet_id = ?", wallet.ID).Order("created_at DESC").Find(&transactionHistory).Error; err != nil {
+		pkg.Log.Error("Failed to fetch wallet transactions", zap.Uint("walletID", wallet.ID), zap.Error(err))
+		helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to fetch transaction history", err.Error(), "")
 		return
 	}
 
@@ -454,14 +466,13 @@ func ShowWallet(c *gin.Context) {
 	}
 
 	c.HTML(http.StatusOK, "wallets.html", gin.H{
-		"Wallet": wallet,
-
+		"Wallet":        wallet,
+		"WalletHistory": transactionHistory,
 		"UserName":      userNameStr,
 		"ProfileImage":  userData.ProfileImage,
 		"WishlistCount": wishlistCount,
 		"CartCount":     cartCount,
 		"UserData":      userData,
 		"ActiveTab":     "wallet",
-		"WalletHistory":walletData,
 	})
 }

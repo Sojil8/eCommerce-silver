@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Sojil8/eCommerce-silver/config"
 	"github.com/Sojil8/eCommerce-silver/database"
 	"github.com/Sojil8/eCommerce-silver/models/adminModels"
 	"github.com/Sojil8/eCommerce-silver/models/userModels"
@@ -31,17 +32,77 @@ var req struct {
 func GetOrderList(c *gin.Context) {
 	userID, _ := c.Get("id")
 
+	// Get query parameters
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	limit := 10
 	offset := (page - 1) * limit
+	search := c.Query("search")
+	sortBy := c.DefaultQuery("sort", "order_date desc")
+	statusFilter := c.Query("status")
 
+	// Build base query
+	query := database.DB.Model(&userModels.Orders{}).Where("user_id = ?", userID)
+
+	// Apply search filter
+	if search != "" {
+		// Enhanced search for order IDs - supports partial matches from beginning, middle, and end
+		query = query.Where(`
+			order_id_unique ILIKE ? OR 
+			order_id_unique ILIKE ? OR 
+			order_id_unique ILIKE ? OR 
+			EXISTS (SELECT 1 FROM users WHERE users.id = orders.user_id AND (users.user_name ILIKE ? OR users.email ILIKE ?))`,
+			search+"%",     // Starts with search term
+			"%"+search,     // Ends with search term
+			"%"+search+"%", // Contains search term
+			"%"+search+"%", "%"+search+"%")
+	}
+
+	// Apply status filter
+	if statusFilter != "" {
+		query = query.Where("status = ?", statusFilter)
+	}
+
+	// Count total orders with filters applied
 	var totalOrders int64
-	database.DB.Model(&userModels.Orders{}).Where("user_id = ?", userID).Count(&totalOrders)
+	query.Count(&totalOrders)
 
+	// Build final query with preloads and sorting
+	finalQuery := database.DB.Where("user_id = ?", userID).Preload("OrderItems.Product").Preload("User")
+
+	// Apply same filters to final query
+	if search != "" {
+		finalQuery = finalQuery.Where(`
+			order_id_unique ILIKE ? OR 
+			order_id_unique ILIKE ? OR 
+			order_id_unique ILIKE ? OR 
+			EXISTS (SELECT 1 FROM users WHERE users.id = orders.user_id AND (users.user_name ILIKE ? OR users.email ILIKE ?))`,
+			search+"%",     // Starts with search term
+			"%"+search,     // Ends with search term
+			"%"+search+"%", // Contains search term
+			"%"+search+"%", "%"+search+"%")
+	}
+
+	if statusFilter != "" {
+		finalQuery = finalQuery.Where("status = ?", statusFilter)
+	}
+
+	// Apply sorting
+	switch sortBy {
+	case "order_date desc":
+		finalQuery = finalQuery.Order("order_date DESC")
+	case "order_date asc":
+		finalQuery = finalQuery.Order("order_date ASC")
+	case "total_price desc":
+		finalQuery = finalQuery.Order("total_price DESC")
+	case "total_price asc":
+		finalQuery = finalQuery.Order("total_price ASC")
+	default:
+		finalQuery = finalQuery.Order("order_date DESC")
+	}
+
+	// Apply pagination and execute query
 	var orders []userModels.Orders
-	if err := database.DB.Where("user_id = ?", userID).
-		Preload("OrderItems.Product").Order("created_at DESC").Limit(limit).Offset(offset).
-		Find(&orders).Error; err != nil {
+	if err := finalQuery.Limit(limit).Offset(offset).Find(&orders).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch orders"})
 		return
 	}
@@ -60,6 +121,12 @@ func GetOrderList(c *gin.Context) {
 			"ProfileImage":  "",
 			"TotalPages":    totalPages,
 			"CurrentPage":   page,
+			"Page":          page,
+			"Total":         totalOrders,
+			"Limit":         limit,
+			"Search":        search,
+			"Sort":          sortBy,
+			"Filter":        statusFilter,
 		})
 		return
 	}
@@ -83,6 +150,12 @@ func GetOrderList(c *gin.Context) {
 		"CartCount":     cartCount,
 		"TotalPages":    totalPages,
 		"CurrentPage":   page,
+		"Page":          page,
+		"Total":         totalOrders,
+		"Limit":         limit,
+		"Search":        search,
+		"Sort":          sortBy,
+		"Filter":        statusFilter,
 	})
 }
 
@@ -202,7 +275,7 @@ func ShowOrderDetails(c *gin.Context) {
 }
 
 func CancelOrder(c *gin.Context) {
-	userID, _ := c.Get("id")
+	userID := helper.FetchUserID(c)
 	orderID := c.Param("order_id")
 	if err := c.ShouldBindJSON(&req); err != nil {
 		helper.ResponseWithErr(c, http.StatusBadRequest, "Invalid request", "Please provide valid data", "")
@@ -223,14 +296,14 @@ func CancelOrder(c *gin.Context) {
 			return gin.Error{Meta: gin.H{"error": "Order is already cancelled"}}
 		}
 
-		if order.PaymentMethod == "ONLINE" {
+		if order.PaymentMethod == "ONLINE" || order.PaymentMethod == "WALLET" {
 			var payment adminModels.PaymentDetails
-			if err := tx.Where("order_id = ? AND status IN ?", order.ID, []string{"Paid", "PartiallyRefundedToWallet"}).
+			if err := tx.Where("order_id = ? AND status IN ?", order.ID, []string{"Paid", "Completed", "PartiallyRefundedToWallet"}).
 				First(&payment).Error; err != nil {
 				return fmt.Errorf("payment details not found: %v", err)
 			}
 
-			wallet, err := EnshureWallet(tx, uint(userID.(uint)))
+			wallet, err := config.EnshureWallet(tx, uint(userID))
 			if err != nil {
 				return err
 			}
@@ -239,6 +312,22 @@ func CancelOrder(c *gin.Context) {
 			wallet.Balance += refundAmount
 			if err := tx.Save(&wallet).Error; err != nil {
 				return fmt.Errorf("failed to update wallet balance: %v", err)
+			}
+			walletTransaction := userModels.WalletTransaction{
+				UserID:        userID,
+				WalletID:      wallet.ID,
+				Amount:        refundAmount,
+				LastBalance:   wallet.Balance - refundAmount,
+				Description:   fmt.Sprintf("Full refund for cancelled order %s", order.OrderIdUnique),
+				Type:          "Credited",
+				Receipt:       "rcpt-" + uuid.New().String(),
+				OrderID:       order.OrderIdUnique,
+				TransactionID: fmt.Sprintf("TXN-%d-%d", time.Now().UnixNano(), rand.Intn(10000)),
+				PaymentMethod: order.PaymentMethod,
+			}
+			if err := tx.Create(&walletTransaction).Error; err != nil {
+				pkg.Log.Error("Failed to create wallet transaction", zap.Uint("userID", userID), zap.Error(err))
+				return fmt.Errorf("failed to create wallet transaction: %v", err)
 			}
 
 			payment.Status = "RefundedToWallet"
@@ -321,7 +410,7 @@ func CancelOrderItem(c *gin.Context) {
 	itemID := c.Param("item_id")
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		helper.ResponseWithErr(c, http.StatusBadRequest, "Invalid request", "Please provide valid data", "")
+		helper.ResponseWithErr(c, http.StatusBadRequest, "Invalid request", "Please provide a valid reason", "")
 		return
 	}
 
@@ -423,13 +512,12 @@ func CancelOrderItem(c *gin.Context) {
 		const maxNegativeBalance = -1000.0
 		if order.PaymentMethod == "ONLINE" || order.PaymentMethod == "Wallet" {
 			var payment adminModels.PaymentDetails
-			if err := tx.Where("order_id = ? AND status IN ?", order.ID, []string{"Paid", "PartiallyRefundedToWallet"}).
-				First(&payment).Error; err != nil {
-				pkg.Log.Error("Payment details not found", zap.Uint("orderID", order.ID), zap.Error(err))
-				return fmt.Errorf("payment details not found: %v", err)
+			if err := tx.Where("order_id = ?", order.ID).First(&payment).Error; err != nil && err != gorm.ErrRecordNotFound {
+				pkg.Log.Error("Failed to fetch payment details", zap.Uint("orderID", order.ID), zap.Error(err))
+				return fmt.Errorf("failed to fetch payment details: %v", err)
 			}
 
-			wallet, err := EnshureWallet(tx, userID)
+			wallet, err := config.EnshureWallet(tx, userID)
 			if err != nil {
 				pkg.Log.Error("Failed to ensure wallet", zap.Uint("userID", userID), zap.Error(err))
 				return fmt.Errorf("failed to ensure wallet: %v", err)
@@ -444,6 +532,7 @@ func CancelOrderItem(c *gin.Context) {
 			}
 
 			if refundedAmount > 0 {
+				currentBalance := wallet.Balance
 				wallet.Balance += refundedAmount
 				if err := tx.Save(&wallet).Error; err != nil {
 					pkg.Log.Error("Failed to update wallet balance for refund", zap.Uint("userID", userID), zap.Error(err))
@@ -453,8 +542,8 @@ func CancelOrderItem(c *gin.Context) {
 					UserID:        userID,
 					WalletID:      wallet.ID,
 					Amount:        refundedAmount,
-					LastBalance:   wallet.Balance - refundedAmount,
-					Description:   fmt.Sprintf("Refund for cancelled item %d in order %s", cancelItem.ID, order.OrderIdUnique),
+					LastBalance:   currentBalance,
+					Description:   fmt.Sprintf("Refund for cancelled item %s in order %s", cancelItem.Product.ProductName, order.OrderIdUnique),
 					Type:          "Credited",
 					Receipt:       "rcpt-" + uuid.New().String(),
 					OrderID:       order.OrderIdUnique,
@@ -468,7 +557,8 @@ func CancelOrderItem(c *gin.Context) {
 			}
 
 			if couponLoss > 0 {
-				wallet.Balance -= couponLoss
+				currentBalance := wallet.Balance
+				wallet.Balance -= couponLoss	
 				if err := tx.Save(&wallet).Error; err != nil {
 					pkg.Log.Error("Failed to update wallet balance for coupon loss", zap.Uint("userID", userID), zap.Error(err))
 					return fmt.Errorf("failed to update wallet balance for coupon loss: %v", err)
@@ -477,8 +567,8 @@ func CancelOrderItem(c *gin.Context) {
 					UserID:        userID,
 					WalletID:      wallet.ID,
 					Amount:        couponLoss,
-					LastBalance:   wallet.Balance + couponLoss,
-					Description:   fmt.Sprintf("Coupon loss deduction for cancelled item %d in order %s", cancelItem.ID, order.OrderIdUnique),
+					LastBalance:   currentBalance,
+					Description:   fmt.Sprintf("Coupon loss deduction for cancelled item %d in order %s", cancelItem.Product.ProductName, order.OrderIdUnique),
 					Type:          "Debited",
 					Receipt:       "rcpt-" + uuid.New().String(),
 					OrderID:       order.OrderIdUnique,
@@ -491,15 +581,17 @@ func CancelOrderItem(c *gin.Context) {
 				}
 			}
 
-			payment.Amount -= refundedAmount
-			if payment.Amount <= 0 {
-				payment.Status = "RefundedToWallet"
-			} else {
-				payment.Status = "PartiallyRefundedToWallet"
-			}
-			if err := tx.Save(&payment).Error; err != nil {
-				pkg.Log.Error("Failed to update payment amount", zap.Uint("orderID", order.ID), zap.Error(err))
-				return fmt.Errorf("failed to update payment amount: %v", err)
+			if payment.ID != 0 {
+				payment.Amount -= refundedAmount
+				if payment.Amount <= 0 {
+					payment.Status = "RefundedToWallet"
+				} else {
+					payment.Status = "PartiallyRefundedToWallet"
+				}
+				if err := tx.Save(&payment).Error; err != nil {
+					pkg.Log.Error("Failed to update payment amount", zap.Uint("orderID", order.ID), zap.Error(err))
+					return fmt.Errorf("failed to update payment amount: %v", err)
+				}
 			}
 		}
 
@@ -507,7 +599,9 @@ func CancelOrderItem(c *gin.Context) {
 		order.CouponDiscount = couponDiscount
 		order.OfferDiscount -= cancelItem.DiscountAmount
 		order.TotalDiscount = order.OfferDiscount + order.CouponDiscount
+
 		order.TotalPrice = order.Subtotal - order.CouponDiscount - order.OfferDiscount + order.ShippingCost
+
 		if err := tx.Save(&order).Error; err != nil {
 			pkg.Log.Error("Failed to update order", zap.Uint("orderID", order.ID), zap.Error(err))
 			return fmt.Errorf("failed to update order: %v", err)
@@ -539,47 +633,59 @@ func CancelOrderItem(c *gin.Context) {
 		}
 
 		if allCancelled {
-			if order.PaymentMethod == "ONLINE" || order.PaymentMethod == "Wallet" {
-				var payment adminModels.PaymentDetails
-				if err := tx.Where("order_id = ? AND status IN ?", order.ID, []string{"Paid", "PartiallyRefundedToWallet"}).
-					First(&payment).Error; err != nil {
-					pkg.Log.Warn("Payment details not found for full cancellation", zap.Uint("orderID", order.ID), zap.Error(err))
-				} else if payment.Amount > 0 {
-					wallet, err := EnshureWallet(tx, userID)
-					if err != nil {
-						pkg.Log.Error("Failed to ensure wallet for full cancellation", zap.Uint("userID", userID), zap.Error(err))
-						return fmt.Errorf("failed to ensure wallet: %v", err)
-					}
-					wallet.Balance += payment.Amount
-					if err := tx.Save(&wallet).Error; err != nil {
-						pkg.Log.Error("Failed to update wallet balance for full cancellation", zap.Uint("userID", userID), zap.Error(err))
-						return fmt.Errorf("failed to update wallet balance: %v", err)
-					}
-					walletTransaction := userModels.WalletTransaction{
-						UserID:        userID,
-						WalletID:      wallet.ID,
-						Amount:        payment.Amount,
-						LastBalance:   wallet.Balance - payment.Amount,
-						Description:   fmt.Sprintf("Full refund for cancelled order %s", order.OrderIdUnique),
-						Type:          "Credited",
-						Receipt:       "rcpt-" + uuid.New().String(),
-						OrderID:       order.OrderIdUnique,
-						TransactionID: fmt.Sprintf("TXN-%d-%d", time.Now().UnixNano(), rand.Intn(10000)),
-						PaymentMethod: order.PaymentMethod,
-					}
-					if err := tx.Create(&walletTransaction).Error; err != nil {
-						pkg.Log.Error("Failed to create wallet transaction for full refund", zap.Uint("userID", userID), zap.Error(err))
-						return fmt.Errorf("failed to create wallet transaction: %v", err)
-					}
-					payment.Status = "RefundedToWallet"
-					payment.Amount = 0
-					if err := tx.Save(&payment).Error; err != nil {
-						pkg.Log.Error("Failed to update payment status for full cancellation", zap.Uint("orderID", order.ID), zap.Error(err))
-						return fmt.Errorf("failed to update payment status: %v", err)
-					}
+			remainingRefund := order.TotalPrice
+			if remainingRefund < 0 {
+				pkg.Log.Error("Invalid remaining refund amount", zap.Float64("remainingRefund", remainingRefund), zap.String("orderID", order.OrderIdUnique))
+				return fmt.Errorf("invalid remaining refund amount: %.2f", remainingRefund)
+			}
+
+			if remainingRefund > 0 && (order.PaymentMethod == "ONLINE" || order.PaymentMethod == "Wallet") {
+				wallet, err := config.EnshureWallet(tx, userID)
+				if err != nil {
+					pkg.Log.Error("Failed to ensure wallet for full cancellation", zap.Uint("userID", userID), zap.Error(err))
+					return fmt.Errorf("failed to ensure wallet: %v", err)
+				}
+				currentBalance := wallet.Balance
+				wallet.Balance += remainingRefund
+				if err := tx.Save(&wallet).Error; err != nil {
+					pkg.Log.Error("Failed to update wallet balance for full cancellation", zap.Uint("userID", userID), zap.Error(err))
+					return fmt.Errorf("failed to update wallet balance: %v", err)
+				}
+				walletTransaction := userModels.WalletTransaction{
+					UserID:        userID,
+					WalletID:      wallet.ID,
+					Amount:        remainingRefund,
+					LastBalance:   currentBalance,
+					Description:   fmt.Sprintf("Full refund for cancelled order %s", order.OrderIdUnique),
+					Type:          "Credited",
+					Receipt:       "rcpt-" + uuid.New().String(),
+					OrderID:       order.OrderIdUnique,
+					TransactionID: fmt.Sprintf("TXN-%d-%d", time.Now().UnixNano(), rand.Intn(10000)),
+					PaymentMethod: order.PaymentMethod,
+				}
+				if err := tx.Create(&walletTransaction).Error; err != nil {
+					pkg.Log.Error("Failed to create wallet transaction for full refund", zap.Uint("userID", userID), zap.Error(err))
+					return fmt.Errorf("failed to create wallet transaction: %v", err)
 				}
 			}
 
+			var payment adminModels.PaymentDetails
+			if err := tx.Where("order_id = ?", order.ID).First(&payment).Error; err == nil {
+				payment.Status = "RefundedToWallet"
+				payment.Amount = 0
+				if err := tx.Save(&payment).Error; err != nil {
+					pkg.Log.Error("Failed to update payment status for full cancellation", zap.Uint("orderID", order.ID), zap.Error(err))
+					return fmt.Errorf("failed to update payment status: %v", err)
+				}
+			} else if err != gorm.ErrRecordNotFound {
+				pkg.Log.Error("Failed to fetch payment details for full cancellation", zap.Uint("orderID", order.ID), zap.Error(err))
+				return fmt.Errorf("failed to fetch payment details: %v", err)
+			}
+			var orderBackUp userModels.OrderBackUp
+			if err := tx.Where("order_id_unique = ?", orderID).First(&orderBackUp).Error; err != nil {
+				return err
+			}
+			order.TotalPrice = orderBackUp.TotalPrice
 			order.Status = "Cancelled"
 			if err := tx.Save(&order).Error; err != nil {
 				pkg.Log.Error("Failed to update order status to Cancelled", zap.Uint("orderID", order.ID), zap.Error(err))
@@ -607,6 +713,7 @@ func CancelOrderItem(c *gin.Context) {
 		"message": "Item cancelled successfully",
 	})
 }
+
 func ReturnOrder(c *gin.Context) {
 	userID, _ := c.Get("id")
 	orderID := c.Param("order_id")
@@ -755,7 +862,7 @@ func RetryPayment(c *gin.Context) {
 
 	order.RazorpayOrderID = razorpayOrderID
 	order.PaymentStatus = "Pending"
-	order.OrderError = "" 
+	order.OrderError = ""
 	if err := tx.Save(&order).Error; err != nil {
 		pkg.Log.Error("Failed to update order with Razorpay ID", zap.String("razorpayOrderID", razorpayOrderID), zap.Error(err))
 		tx.Rollback()

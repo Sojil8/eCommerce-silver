@@ -21,20 +21,17 @@ func SetupTemplateFunctions() template.FuncMap {
 		},
 
 		"add": func(a, b interface{}) interface{} {
-			// Handle integer addition
 			if aInt, ok := a.(int); ok {
 				if bInt, ok := b.(int); ok {
 					return aInt + bInt
 				}
 			}
 
-			// Handle float addition
 			aFloat := toFloat64(a)
 			bFloat := toFloat64(b)
 			return aFloat + bFloat
 		},
 		"until": func(count interface{}) []int {
-			// Convert count to int regardless of whether it's float64 or int
 			countInt := 0
 			switch v := count.(type) {
 			case int:
@@ -83,7 +80,6 @@ func SetupTemplateFunctions() template.FuncMap {
 	}
 }
 
-// Helper function to convert various numeric types to float64
 func toFloat64(n interface{}) float64 {
 	switch v := n.(type) {
 	case int:

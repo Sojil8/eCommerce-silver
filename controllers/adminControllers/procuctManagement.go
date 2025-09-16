@@ -175,7 +175,6 @@ func EditProduct(c *gin.Context) {
         return
     }
 
-    // Update product fields if provided
     if name := c.PostForm("productName"); name != "" {
         product.ProductName = name
     }
@@ -200,7 +199,6 @@ func EditProduct(c *gin.Context) {
         product.CategoryID = category.ID
     }
 
-    // Handle image updates
     files := form.File["images"]
     if len(files) > 0 {
         if len(files)+len(product.Images) < 3 && len(files) < 3 {
@@ -230,7 +228,6 @@ func EditProduct(c *gin.Context) {
         }
     }
 
-    // Handle variant updates
     colors := form.Value["color[]"]
     variantPrices := form.Value["variantPrice[]"]
     variantStocks := form.Value["variantStock[]"]
@@ -240,13 +237,11 @@ func EditProduct(c *gin.Context) {
             return
         }
 
-        // Create a map of existing variants by color for easy lookup
         existingVariants := make(map[string]*adminModels.Variants)
         for i, v := range product.Variants {
             existingVariants[v.Color] = &product.Variants[i]
         }
 
-        // Process each variant from the form
         for i, color := range colors {
             extraPrice, err := strconv.ParseFloat(variantPrices[i], 64)
             if err != nil {
@@ -260,9 +255,7 @@ func EditProduct(c *gin.Context) {
             }
           
 
-            // If variant exists, update it in the database; otherwise, create a new one
             if variant, exists := existingVariants[color]; exists {
-                // Update existing variant
                 if err := database.DB.Model(variant).Updates(map[string]interface{}{
                     "ExtraPrice": extraPrice,
                     "Stock":      uint(stock),
@@ -271,7 +264,6 @@ func EditProduct(c *gin.Context) {
                     return
                 }
             } else {
-                // Create new variant
                 newVariant := adminModels.Variants{
                     ProductID:  product.ID,
                     Color:      color,
@@ -286,7 +278,6 @@ func EditProduct(c *gin.Context) {
             }
         }
 
-        // Delete variants that are no longer in the input
         for color, variant := range existingVariants {
             found := false
             for _, inputColor := range colors {
@@ -307,7 +298,6 @@ func EditProduct(c *gin.Context) {
         return
     }
 
-    // Update stock status based on variants
     product.InStock = false
     for _, variant := range product.Variants {
         if variant.Stock > 0 {
@@ -316,7 +306,6 @@ func EditProduct(c *gin.Context) {
         }
     }
 
-    // Save the product
     if err := database.DB.Save(&product).Error; err != nil {
         c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update product"})
         return

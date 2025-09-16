@@ -481,3 +481,4 @@ func updateCartTotal(cart *userModels.Cart, tx *gorm.DB) error {
 	cart.TotalPrice = total
 	return tx.Save(cart).Error
 }
+

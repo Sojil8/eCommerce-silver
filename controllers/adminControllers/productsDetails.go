@@ -54,7 +54,6 @@ func ProductDetailsHandler(c *gin.Context) {
         "Product":           product,
         "OfferDetails":      baseOfferDetails,
         "VariantOffers":     variantOffers,
-        // "DiscountPercentage": discountPercentage, // Removed as unused
-        // "RelatedProducts":   relatedProducts,     // Removed as unused
+        
     })
 }

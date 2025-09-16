@@ -81,18 +81,15 @@ func GetDashboardData(c *gin.Context) {
 	var dashboardData DashboardData
 	db := database.GetDB()
 
-	// Get total counts
 	db.Model(&userModels.Users{}).Count(&dashboardData.TotalUsers)
 	db.Model(&userModels.Orders{}).Count(&dashboardData.TotalOrders)
 	db.Model(&adminModels.Product{}).Count(&dashboardData.TotalProducts)
 	db.Model(&adminModels.Coupons{}).Where("is_active = ?", true).Count(&dashboardData.ActiveCoupons)
 
-	// Get order status counts
 	db.Model(&userModels.Orders{}).Where("status IN ?", []string{"Pending", "Confirmed", "Shipped", "Out for Delivery"}).Count(&dashboardData.PendingOrders)
 	db.Model(&userModels.Orders{}).Where("status = ?", "Delivered").Count(&dashboardData.CompletedOrders)
 	db.Model(&userModels.Orders{}).Where("status IN ?", []string{"Return Rejected", "Cancelled", "Returned"}).Count(&dashboardData.CancelledOrders)
 
-	// Calculate total revenue
 	var revenue struct {
 		Total float64
 	}
@@ -102,25 +99,18 @@ func GetDashboardData(c *gin.Context) {
 		Scan(&revenue)
 	dashboardData.TotalRevenue = revenue.Total
 
-	// Get top selling products
 	getTopProducts(db, &dashboardData)
 
-	// Get recent orders
 	getRecentOrders(db, &dashboardData)
 
-	// Get sales data based on filter
 	getSalesData(db, &dashboardData, filter)
 
-	// Get user activity data
 	getUserActivityData(db, &dashboardData, filter)
 
-	// Get inventory status
 	getInventoryStatus(db, &dashboardData)
 
-	// Get coupon usage
 	getCouponUsage(db, &dashboardData)
 
-	// Get monthly revenue
 	getMonthlyRevenue(db, &dashboardData)
 
 	c.JSON(http.StatusOK, gin.H{
@@ -344,10 +334,8 @@ func ExportSalesReport(c *gin.Context) {
 		writer := csv.NewWriter(c.Writer)
 		defer writer.Flush()
 
-		// Write header
 		writer.Write([]string{"Date", "Orders", "Revenue", "Products Sold"})
 
-		// Write data
 		for _, record := range salesData {
 			writer.Write([]string{
 				record.Date,
@@ -377,8 +365,6 @@ func LogAdminAction(c *gin.Context) {
 		return
 	}
 
-	// Here you would typically save to an admin_logs table
-	// For now, we'll just return success
 	c.JSON(http.StatusOK, gin.H{
 		"status":  "success",
 		"message": "Action logged successfully",

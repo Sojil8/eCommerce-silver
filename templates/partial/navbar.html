@@ -8,8 +8,23 @@
 
     <!-- Navigation -->
     <nav class="hidden md:flex items-center space-x-6">
-      <a href="/home" class="text-gray-300 hover:text-indigo-400 font-medium text-sm uppercase tracking-wider px-3 py-2 rounded-md transition-colors duration-300">Home</a>
-      <a href="/shop" class="text-indigo-400 font-semibold text-sm uppercase tracking-wider px-3 py-2 rounded-md bg-indigo-400/10 border-b-2 border-indigo-400 hover:bg-indigo-400 hover:text-gray-900 transition-colors duration-300">Shop</a>
+      <!-- Home Link - Active when on home page -->
+      <a href="/home" class="{{if eq .CurrentPage "home"}}text-indigo-400 font-semibold bg-indigo-400/10 border-b-2 border-indigo-400{{else}}text-gray-300 hover:text-indigo-400 font-medium{{end}} text-sm uppercase tracking-wider px-3 py-2 rounded-md transition-colors duration-300 {{if eq .CurrentPage "home"}}hover:bg-indigo-400 hover:text-gray-900{{end}} relative" 
+         {{if eq .CurrentPage "home"}}aria-current="page"{{end}}>
+        Home
+        {{if eq .CurrentPage "home"}}
+        <span class="absolute -right-1 top-1 w-2 h-2 bg-indigo-400 rounded-full animate-pulse"></span>
+        {{end}}
+      </a>
+      
+      <!-- Shop Link - Active when on shop page -->
+      <a href="/shop" class="{{if eq .CurrentPage "shop"}}text-indigo-400 font-semibold bg-indigo-400/10 border-b-2 border-indigo-400{{else}}text-gray-300 hover:text-indigo-400 font-medium{{end}} text-sm uppercase tracking-wider px-3 py-2 rounded-md transition-colors duration-300 {{if eq .CurrentPage "shop"}}hover:bg-indigo-400 hover:text-gray-900{{end}} relative"
+         {{if eq .CurrentPage "shop"}}aria-current="page"{{end}}>
+        Shop
+        {{if eq .CurrentPage "shop"}}
+        <span class="absolute -right-1 top-1 w-2 h-2 bg-indigo-400 rounded-full animate-pulse"></span>
+        {{end}}
+      </a>
     </nav>
 
     <!-- User Actions -->

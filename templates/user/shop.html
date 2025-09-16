@@ -104,23 +104,23 @@
               </label>
               <label class="flex items-center">
                 <input type="radio" name="price-range" value="0-500" {{if and (eq .Query.PriceMin 0.0) (eq .Query.PriceMax 500.0)}}checked{{end}} class="h-4 w-4 text-indigo-600 focus:ring-indigo-500">
-                <span class="ml-2 text-sm text-gray-700">₹0 - ₹500</span>
+                <span class="ml-2 text-sm text-gray-700">$0 - $500</span>
               </label>
               <label class="flex items-center">
                 <input type="radio" name="price-range" value="500-1000" {{if and (eq .Query.PriceMin 500.0) (eq .Query.PriceMax 1000.0)}}checked{{end}} class="h-4 w-4 text-indigo-600 focus:ring-indigo-500">
-                <span class="ml-2 text-sm text-gray-700">₹500 - ₹1,000</span>
+                <span class="ml-2 text-sm text-gray-700">$500 - $1,000</span>
               </label>
               <label class="flex items-center">
                 <input type="radio" name="price-range" value="1000-2000" {{if and (eq .Query.PriceMin 1000.0) (eq .Query.PriceMax 2000.0)}}checked{{end}} class="h-4 w-4 text-indigo-600 focus:ring-indigo-500">
-                <span class="ml-2 text-sm text-gray-700">₹1,000 - ₹2,000</span>
+                <span class="ml-2 text-sm text-gray-700">$1,000 - $2,000</span>
               </label>
               <label class="flex items-center">
                 <input type="radio" name="price-range" value="2000-5000" {{if and (eq .Query.PriceMin 2000.0) (eq .Query.PriceMax 5000.0)}}checked{{end}} class="h-4 w-4 text-indigo-600 focus:ring-indigo-500">
-                <span class="ml-2 text-sm text-gray-700">₹2,000 - ₹5,000</span>
+                <span class="ml-2 text-sm text-gray-700">$2,000 - $5,000</span>
               </label>
               <label class="flex items-center">
                 <input type="radio" name="price-range" value="5000-" {{if and (eq .Query.PriceMin 5000.0) (eq .Query.PriceMax 0.0)}}checked{{end}} class="h-4 w-4 text-indigo-600 focus:ring-indigo-500">
-                <span class="ml-2 text-sm text-gray-700">₹5,000+</span>
+                <span class="ml-2 text-sm text-gray-700">$5,000+</span>
               </label>
             </div>
           </div>
@@ -168,16 +168,18 @@
                         <div class="flex flex-col">
                           <div class="flex items-center">
                             <p class="text-red-600 font-bold text-lg">
-                              ₹{{printf "%.2f" .OfferPrice}}
+                              ${{printf "%.2f" .OfferPrice}}
                             </p>
                             <span class="line-through text-gray-400 text-sm ml-2">
-                              ₹{{printf "%.2f" .OriginalPrice}}
+                              ${{printf "%.2f" .OriginalPrice}}
                             </span>
                           </div>
                           <p class="text-xs text-green-600 font-medium">{{.OfferName}}</p>
                         </div>
                       {{else}}
-                        <p class="text-indigo-600 font-bold text-lg">₹{{printf "%.2f" .Price}}</p>
+                        <p class="text-indigo-600 font-bold text-lg">
+                          ${{printf "%.2f" .OriginalPrice}}
+                        </p>
                       {{end}}
                     </div>
                     <div class="flex items-center space-x-4">

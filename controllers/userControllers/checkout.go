@@ -308,7 +308,7 @@ func PlaceOrder(c *gin.Context) {
 			cart.CouponID = 0
 			database.DB.Save(&cart)
 		} else if coupon.IsActive && coupon.ExpiryDate.After(time.Now()) && coupon.UsedCount < coupon.UsageLimit && cart.OriginalTotalPrice >= coupon.MinPurchaseAmount {
-			couponDiscount = cart.OriginalTotalPrice * (coupon.DiscountPercentage / 100) // Fixed: Use * for percentage
+			couponDiscount = cart.OriginalTotalPrice * (coupon.DiscountPercentage / 100)
 			couponCode = coupon.CouponCode
 			couponID = coupon.ID
 		} else {
@@ -390,7 +390,6 @@ func PlaceOrder(c *gin.Context) {
 		return
 	}
 
-	// Create order items (common for all payment methods)
 	for _, item := range validCartItems {
 		orderItem := userModels.OrderItem{
 			OrderID:        order.ID,
@@ -412,7 +411,6 @@ func PlaceOrder(c *gin.Context) {
 		}
 	}
 
-	// Stock check/deduction logic
 	stockOk := true
 	for _, item := range validCartItems {
 		var variant adminModels.Variants
@@ -449,7 +447,6 @@ func PlaceOrder(c *gin.Context) {
 
 	switch req.PaymentMethod {
 	case "COD":
-		// Deduct stock for COD
 		for _, item := range validCartItems {
 			var variant adminModels.Variants
 			tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&variant, item.VariantsID)
@@ -460,7 +457,6 @@ func PlaceOrder(c *gin.Context) {
 				helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to update stock", "Something went wrong", "/checkout")
 				return
 			}
-			// Update product InStock
 			var product adminModels.Product
 			if err := tx.Preload("Variants").First(&product, item.ProductID).Error; err != nil {
 				pkg.Log.Error("Product not found", zap.Uint("productID", item.ProductID), zap.Error(err))
@@ -522,81 +518,80 @@ func PlaceOrder(c *gin.Context) {
 		})
 
 	case "ONLINE":
-		// No stock deduction here - only checked above
-		razorpayOrder, err := services.CreateRazorpayOrder(int(math.Round(finalPrice))) // Fixed: Use finalPrice
-		if err != nil {
-			pkg.Log.Error("Failed to create Razorpay order", zap.Float64("amount", finalPrice), zap.Error(err))
-			tx.Rollback()
-			helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to create Razorpay order", "Something went wrong", "/checkout")
-			return
-		}
+		 amountInPaise := int(math.Round(finalPrice * 100))
+    
+    razorpayOrder, err := services.CreateRazorpayOrder(amountInPaise)
+    if err != nil {
+        pkg.Log.Error("Failed to create Razorpay order", zap.Float64("amount", finalPrice), zap.Error(err))
+        tx.Rollback()
+        helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to create Razorpay order", "Something went wrong", "/checkout")
+        return
+    }
 
-		razorpayOrderID, ok := razorpayOrder["id"].(string)
-		if !ok {
-			pkg.Log.Error("Failed to extract Razorpay order ID", zap.Any("razorpayOrder", razorpayOrder))
-			tx.Rollback()
-			helper.ResponseWithErr(c, http.StatusInternalServerError, "Invalid Razorpay response", "Something went wrong", "/checkout")
-			return
-		}
+    razorpayOrderID, ok := razorpayOrder["id"].(string)
+    if !ok {
+        pkg.Log.Error("Failed to extract Razorpay order ID", zap.Any("razorpayOrder", razorpayOrder))
+        tx.Rollback()
+        helper.ResponseWithErr(c, http.StatusInternalServerError, "Invalid Razorpay response", "Something went wrong", "/checkout")
+        return
+    }
 
-		order.RazorpayOrderID = razorpayOrderID
-		if err := tx.Save(&order).Error; err != nil {
-			pkg.Log.Error("Failed to update order with Razorpay ID", zap.String("razorpayOrderID", razorpayOrderID), zap.Error(err))
-			tx.Rollback()
-			helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to process Razorpay", "Something went wrong", "/checkout")
-			return
-		}
+    order.RazorpayOrderID = razorpayOrderID
+    if err := tx.Save(&order).Error; err != nil {
+        pkg.Log.Error("Failed to update order with Razorpay ID", zap.String("razorpayOrderID", razorpayOrderID), zap.Error(err))
+        tx.Rollback()
+        helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to process Razorpay", "Something went wrong", "/checkout")
+        return
+    }
 
-		payment := adminModels.PaymentDetails{
-			OrderID:         order.ID,
-			UserID:          userID,
-			AddressID:       req.AddressID,
-			PaymentMethod:   "ONLINE",
-			Amount:          finalPrice,
-			Status:          "Pending",
-			RazorpayOrderID: razorpayOrderID,
-			Attempts:        1,
-			CreatedAt:       time.Now(),
-		}
-		if err := tx.Create(&payment).Error; err != nil {
-			pkg.Log.Error("Failed to create payment record", zap.Uint("orderID", order.ID), zap.Error(err))
-			tx.Rollback()
-			helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to create payment record", "Something went wrong", "/checkout")
-			return
-		}
+    payment := adminModels.PaymentDetails{
+        OrderID:         order.ID,
+        UserID:          userID,
+        AddressID:       req.AddressID,
+        PaymentMethod:   "ONLINE",
+        Amount:          finalPrice, // Store actual amount in database
+        Status:          "Pending",
+        RazorpayOrderID: razorpayOrderID,
+        Attempts:        1,
+        CreatedAt:       time.Now(),
+    }
+    if err := tx.Create(&payment).Error; err != nil {
+        pkg.Log.Error("Failed to create payment record", zap.Uint("orderID", order.ID), zap.Error(err))
+        tx.Rollback()
+        helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to create payment record", "Something went wrong", "/checkout")
+        return
+    }
 
-		tx.Commit()
-		pkg.Log.Info("Razorpay order initiated", zap.String("razorpayOrderID", razorpayOrderID), zap.Uint("userID", userID))
-		c.JSON(http.StatusOK, gin.H{
-			"status":            "payment_required",
-			"key_id":            os.Getenv("RAZORPAY_KEY_ID"),
-			"razorpay_order_id": razorpayOrderID,
-			"amount":            int(math.Round(finalPrice) * 100),
-			"currency":          "INR",
-			"order_id":          order.OrderIdUnique,
-			"prefill": gin.H{
-				"name":    user.UserName,
-				"email":   user.Email,
-				"contact": address.Phone,
-			},
-			"notes": gin.H{
-				"address":  address.City,
-				"user_id":  userID,
-				"order_id": order.ID,
-			},
-		})
-
-	case "Wallet":
-		// Similar to COD: deduct stock here
+    tx.Commit()
+    pkg.Log.Info("Razorpay order initiated", zap.String("razorpayOrderID", razorpayOrderID), zap.Uint("userID", userID))
+    
+    c.JSON(http.StatusOK, gin.H{
+        "status":            "payment_required",
+        "key_id":            os.Getenv("RAZORPAY_KEY_ID"),
+        "razorpay_order_id": razorpayOrderID,
+        "amount":            amountInPaise, // Send paise to frontend for Razorpay
+        "currency":          "INR",
+        "order_id":          order.OrderIdUnique,
+        "prefill": gin.H{
+            "name":    user.UserName,
+            "email":   user.Email,
+            "contact": address.Phone,
+        },
+        "notes": gin.H{
+            "address":  address.City,
+            "user_id":  userID,
+            "order_id": order.ID,
+        },
+    })
+	case "WALLET":
 		var wallet userModels.Wallet
-		if err := tx.First(&wallet, "user_id = ?", userID).Error; err != nil || wallet.Balance < finalPrice { // Fixed: Use finalPrice
+		if err := tx.First(&wallet, "user_id = ?", userID).Error; err != nil || wallet.Balance < finalPrice {
 			pkg.Log.Error("Insufficient wallet balance or wallet not found", zap.Uint("userID", userID), zap.Error(err))
 			tx.Rollback()
 			helper.ResponseWithErr(c, http.StatusBadRequest, "Insufficient wallet balance", "Add funds to your wallet", "/cart")
 			return
 		}
 
-		// Deduct stock for Wallet
 		for _, item := range validCartItems {
 			var variant adminModels.Variants
 			tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&variant, item.VariantsID)
@@ -607,7 +602,6 @@ func PlaceOrder(c *gin.Context) {
 				helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to update stock", "Something went wrong", "/checkout")
 				return
 			}
-			// Update product InStock
 			var product adminModels.Product
 			if err := tx.Preload("Variants").First(&product, item.ProductID).Error; err != nil {
 				pkg.Log.Error("Product not found", zap.Uint("productID", item.ProductID), zap.Error(err))
@@ -691,7 +685,14 @@ func PlaceOrder(c *gin.Context) {
 
 		tx.Commit()
 		pkg.Log.Info("Wallet order placed successfully", zap.String("orderID", order.OrderIdUnique), zap.Uint("userID", userID))
-		c.Redirect(http.StatusFound, "/order/success?order_id="+order.OrderIdUnique)
+
+		// CHANGED: Return JSON instead of redirect (like COD does)
+		c.JSON(http.StatusOK, gin.H{
+			"status":   "ok",
+			"message":  "Order placed successfully",
+			"order_id": order.OrderIdUnique,
+			"redirect": fmt.Sprintf("/order/success?order_id=%s", order.OrderIdUnique),
+		})
 
 	default:
 		pkg.Log.Warn("Invalid payment method", zap.String("method", req.PaymentMethod))
@@ -746,7 +747,6 @@ func VerifyPayment(c *gin.Context) {
 		return
 	}
 
-	// Check and deduct stock (for ONLINE only)
 	stockOk := true
 	for _, item := range order.OrderItems {
 		var variant adminModels.Variants
@@ -766,7 +766,6 @@ func VerifyPayment(c *gin.Context) {
 			stockOk = false
 			break
 		}
-		// Update product InStock
 		var product adminModels.Product
 		if err := tx.Preload("Variants").First(&product, item.ProductID).Error; err != nil {
 			pkg.Log.Error("Product not found during verification", zap.Uint("productID", item.ProductID), zap.Error(err))
@@ -795,7 +794,6 @@ func VerifyPayment(c *gin.Context) {
 		payment.FailureReason = "Insufficient stock"
 		tx.Save(&payment)
 		order.Status = "Failed"
-		// order.PaymentStatus = "Refunded"
 		order.OrderError = "Insufficient stock after payment"
 		tx.Save(&order)
 		tx.Commit()

@@ -82,8 +82,6 @@
             color: white;
             border-color: #4f46e5;
         }
-        
-        /* Enhanced offer display styling */
         .price-tag {
             position: relative;
             display: inline-block;
@@ -114,7 +112,6 @@
         .offer-container:hover {
             transform: translateY(-2px);
         }
-        /* Enhanced offer timer styling */
         .countdown-wrapper {
             display: inline-flex;
             align-items: center;
@@ -140,7 +137,6 @@
             transform: translateY(-1px);
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
-        /* Existing offer display styling enhancements */
         .offer-container {
             transition: all 0.5s ease;
             box-shadow: 0 2px 4px rgba(0,0,0,0.05);
@@ -149,14 +145,6 @@
             transform: translateY(-2px);
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         }
-        .offer-badge {
-            animation: pulse 2s infinite;
-        }
-        @keyframes fadeIn {
-            0% { opacity: 0.5; }
-            100% { opacity: 1; }
-        }
-        /* Animation for urgent offers */
         .animate-pulse {
             animation: urgentPulse 1.5s infinite;
         }
@@ -164,15 +152,9 @@
             0%, 100% { opacity: 1; }
             50% { opacity: 0.8; }
         }
-        /* Ensure related products are clickable */
-        .related-products .group {
-            z-index: 0;
-        }
-        .related-products .group:hover {
-            z-index: 10;
-        }
-        .related-products a {
-            pointer-events: auto !important;
+        @keyframes fadeIn {
+            0% { opacity: 0.5; }
+            100% { opacity: 1; }
         }
     </style>
 </head>
@@ -199,7 +181,6 @@
                             <img src="{{ index .Product.Images 0 }}" alt="{{ .Product.ProductName }}"
                                 class="zoomed-img" id="zoomed-image">
                         </div>
-                        <!-- Discount Badge -->
                         {{ if .Product.IsOffer }}
                         <div class="absolute top-3 left-3">
                             <div class="discount-pill bg-gradient-to-r from-green-500 to-emerald-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-md">
@@ -207,7 +188,6 @@
                             </div>
                         </div>
                         {{ end }}
-                        <!-- Out of Stock Badge -->
                         {{ if not .HasStock }}
                         <div class="absolute top-3 right-3 bg-gradient-to-r from-red-500 to-red-600 text-white text-xs font-semibold px-3 py-1 rounded-full shadow-sm">
                             Out of Stock
@@ -235,35 +215,29 @@
                 <div class="space-y-4">
                     <h1 class="text-2xl font-bold text-gray-900">{{ .Product.ProductName }}</h1>
 
-                    <!-- Enhanced Price and Offer Display -->
+                    <!-- Price and Offer Display -->
                     <div class="price-tag">
                         {{ if .Product.IsOffer }}
                         <div class="offer-container bg-gradient-to-r from-green-50 to-emerald-50 p-3 rounded-lg border border-green-200 mb-3">
                             <div class="flex items-center space-x-2">
-                                <span class="text-2xl font-bold text-red-600" id="current-price">${{ printf "%.2f" .Product.OfferPrice }}</span>
-                                <span class="line-through text-gray-400 text-base">${{ printf "%.2f" .Product.OriginalPrice }}</span>
+                                <span class="text-2xl font-bold text-red-600" id="current-price">₹{{ printf "%.2f" .Product.OfferPrice }}</span>
+                                <span class="line-through text-gray-400 text-base">₹{{ printf "%.2f" .Product.OriginalPrice }}</span>
                                 <span class="offer-badge bg-red-100 text-red-600 text-xs font-semibold px-2 py-1 rounded-md">
-                                    Save ${{ printf "%.2f" (sub .Product.OriginalPrice .Product.OfferPrice) }}
+                                    Save ₹{{ printf "%.2f" (sub .Product.OriginalPrice .Product.OfferPrice) }}
                                 </span>
                             </div>
                             <p class="text-sm text-green-600 font-medium mt-1">{{ .Product.OfferName }}</p>
                             <div class="mt-2 flex items-center justify-between">
                                 <div class="offer-timer text-indigo-600 flex items-center"
-                                     {{ if not .Product.OfferEndTime.IsZero }}
-                                     data-end-time="{{ .Product.OfferEndTime.Format "2006-01-02T15:04:05Z07:00" }}"
-                                     {{ end }}>
+                                     {{ if not .Product.OfferEndTime.IsZero }}data-end-time="{{ .Product.OfferEndTime.Format "2006-01-02T15:04:05Z07:00" }}"{{ end }}>
                                     <i class="far fa-clock mr-1"></i>
-                                    {{ if .Product.OfferEndTime.IsZero }}
-                                    Limited time offer
-                                    {{ else }}
-                                    Loading offer time...
-                                    {{ end }}
+                                    {{ if .Product.OfferEndTime.IsZero }}Limited time offer{{ else }}<span class="countdown-wrapper"><i class="far fa-clock mr-2"></i>Loading...</span>{{ end }}
                                 </div>
                                 <div id="days-remaining-badge" class="ml-2 hidden bg-indigo-100 text-indigo-800 text-xs font-semibold px-2 py-1 rounded-full"></div>
                             </div>
                         </div>
                         {{ else }}
-                        <span class="text-2xl font-bold text-indigo-600" id="current-price">${{ printf "%.2f" .Product.Price }}</span>
+                        <span class="text-2xl font-bold text-indigo-600" id="current-price">₹{{ printf "%.2f" .Product.Price }}</span>
                         {{ end }}
                     </div>
 
@@ -278,7 +252,10 @@
                             {{ range .Product.Variants }}
                             <button class="variant-btn px-3 py-1 bg-gray-100 rounded-md hover:bg-indigo-100 focus:ring-2 focus:ring-indigo-500"
                                 data-variant-id="{{ .ID }}" data-color="{{ .Color }}"
-                                data-extra-price="{{ .ExtraPrice }}" data-stock="{{ .Stock }}">
+                                data-offer-price="{{ if .IsOffer }}{{ .OfferPrice }}{{ else }}0{{ end }}"
+                                data-original-price="{{ if .IsOffer }}{{ .OriginalPrice }}{{ else }}0{{ end }}"
+                                data-price="{{ .ExtraPrice }}"
+                                data-stock="{{ .Stock }}">
                                 {{ .Color }}
                             </button>
                             {{ end }}
@@ -317,7 +294,6 @@
                         </span>)</span>
                     </div>
 
-                    <!-- Additional Offer Information (if applicable) -->
                     {{ if .Product.IsOffer }}
                     <div class="mt-3 p-3 bg-indigo-50 rounded-md border border-indigo-100">
                         <div class="flex items-center">
@@ -328,18 +304,15 @@
                     {{ end }}
                 </div>
             </div>
-        </div>
-    </section>
+        </section>
 
-    <!-- Related Products Section -->
-    <section class="py-8 bg-gray-50 related-products">
-        <div class="container mx-auto px-4">
-            <h2 class="text-xl font-bold text-gray-900 text-center mb-8">Related Products</h2>
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {{ range .RelatedProducts }}
-                <div class="bg-white rounded-lg shadow-md hover:shadow-lg transition-all group relative cursor-pointer">
-                    <a href="/product/details/{{ .ID }}" class="block">
-                        <!-- Product Image -->
+        <!-- Related Products Section -->
+        <section class="py-8 bg-gray-50">
+            <div class="container mx-auto px-4">
+                <h2 class="text-xl font-bold text-gray-900 text-center mb-8">Related Products</h2>
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {{ range .RelatedProducts }}
+                    <div class="bg-white rounded-lg shadow-md hover:shadow-lg transition-all group relative">
                         {{ if gt (len .Images) 0 }}
                         <img src="{{ index .Images 0 }}" alt="{{ .ProductName }}"
                             class="w-full h-48 object-cover group-hover:scale-105 transition-transform rounded-t-lg">
@@ -347,8 +320,6 @@
                         <img src="/static/default-product.jpg" alt="{{ .ProductName }}"
                             class="w-full h-48 object-cover group-hover:scale-105 transition-transform rounded-t-lg">
                         {{ end }}
-
-                        <!-- Offer Badge for Related Products -->
                         {{ if .IsOffer }}
                         <div class="absolute top-3 left-3">
                             <div class="discount-pill bg-gradient-to-r from-green-500 to-emerald-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-md">
@@ -356,52 +327,44 @@
                             </div>
                         </div>
                         {{ end }}
-
-                        <!-- Out of Stock Badge -->
-                        {{ $hasStock := false }}
-                        {{ range .Variants }}
-                        {{ if gt .Stock 0 }}
-                        {{ $hasStock = true }}
-                        {{ end }}
-                        {{ end }}
-                        {{ if not $hasStock }}
-                        <div class="absolute top-3 right-3 bg-gradient-to-r from-red-500 to-red-600 text-white text-xs font-semibold px-3 py-1 rounded-full shadow-sm">
-                            Out of Stock
-                        </div>
-                        {{ end }}
-                    </a>
-
-                    <div class="p-3">
-                        <a href="/product/details/{{ .ID }}"
-                            class="block text-gray-900 font-semibold hover:text-indigo-600">{{ .ProductName }}</a>
-                        <div class="flex justify-between items-center mt-2">
-                            <!-- Price Display for Related Products -->
-                            {{ if .IsOffer }}
-                            <div class="flex items-center space-x-2">
-                                <span class="text-lg font-bold text-red-600">${{ printf "%.2f" .OfferPrice }}</span>
-                                <span class="line-through text-gray-400 text-sm">${{ printf "%.2f" .OriginalPrice }}</span>
-                                <span class="offer-badge bg-red-100 text-red-600 text-xs font-semibold px-2 py-1 rounded-md">
-                                    Save ${{ printf "%.2f" (sub .OriginalPrice .OfferPrice) }}
-                                </span>
+                        <div class="p-3">
+                            <a href="/product/details/{{ .ID }}"
+                                class="block text-gray-900 font-semibold hover:text-indigo-600">{{ .ProductName }}</a>
+                            <div class="flex justify-between items-center mt-2">
+                                <div>
+                                    <span class="text-lg font-bold text-indigo-600">₹{{ printf "%.2f" .OfferPrice }}</span>
+                                    {{ if .IsOffer }}
+                                    <span class="line-through text-gray-400 text-sm ml-2">₹{{ printf "%.2f" .OriginalPrice }}</span>
+                                    <span class="offer-badge bg-red-100 text-red-600 text-xs font-semibold px-2 py-1 rounded-md ml-2">
+                                        Save ₹{{ printf "%.2f" (sub .OriginalPrice .OfferPrice) }}
+                                    </span>
+                                    {{ end }}
+                                </div>
+                                {{ if .IsOffer }}
+                                <div class="mt-1 text-indigo-600 text-xs offer-timer"
+                                     {{ if not .OfferEndTime.IsZero }}data-end-time="{{ .OfferEndTime.Format "2006-01-02T15:04:05Z07:00" }}"{{ end }}>
+                                    {{ if .OfferEndTime.IsZero }}
+                                    <i class="far fa-clock mr-1"></i>Limited time offer
+                                    {{ else }}
+                                    <span class="countdown-wrapper"><i class="far fa-clock mr-2"></i>Loading...</span>
+                                    {{ end }}
+                                </div>
+                                {{ end }}
+                                <button class="text-gray-500 hover:text-red-500 wishlist-btn"
+                                    data-product-id="{{ .ID }}">
+                                    <i class="far fa-heart"></i>
+                                </button>
                             </div>
-                            {{ else }}
-                            <span class="text-lg font-bold text-indigo-600">${{ printf "%.2f" .Price }}</span>
-                            {{ end }}
-                            <button class="text-gray-500 hover:text-red-500 wishlist-btn"
-                                data-product-id="{{ .ID }}">
-                                <i class="far fa-heart"></i>
-                            </button>
                         </div>
                     </div>
+                    {{ else }}
+                    <p class="text-center text-gray-600 col-span-full">No related products available.</p>
+                    {{ end }}
                 </div>
-                {{ else }}
-                <p class="text-center text-gray-600 col-span-full">No related products available.</p>
-                {{ end }}
             </div>
-        </div>
-    </section>
+        </section>
 
-    <!-- Script Section -->
+    <!-- JavaScript -->
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const mainImage = document.getElementById('main-image');
@@ -418,139 +381,127 @@
             const availabilityEl = document.getElementById('availability');
             const imgZoomContainer = document.querySelector('.img-zoom-container');
 
-            let basePrice = parseFloat(currentPriceEl.textContent.replace('$', ''));
             let selectedVariant = null;
-            let isOfferProduct = {{ if .Product.IsOffer }}true{{ else }}false{{ end }};
-            let originalPrice = {{ if .Product.IsOffer }}{{ .Product.OriginalPrice }}{{ else }}basePrice{{ end }};
-            // let offerPrice = {{ if .Product.IsOffer }}{{ .Product.OfferPrice }}{{ else }}basePrice{{ end }};  -- no need of this line 
 
-            // Update Price Display
-            function updatePriceDisplay(extraPrice) {
+            // Updated updatePriceDisplay to avoid double-adding extraPrice for offers
+            function updatePriceDisplay(offerPrice, originalPrice, isOffer, extraPrice) {
                 let newPrice;
-                if (isOfferProduct) {
-                    let newOriginalPrice = originalPrice + extraPrice;
-                    let newOfferPrice = offerPrice + extraPrice;
-                    currentPriceEl.textContent = `$${newOfferPrice.toFixed(2)}`;
+                if (isOffer) {
+                    // Use backend-provided offerPrice and originalPrice directly
+                    newPrice = offerPrice;
+                    currentPriceEl.textContent = `₹${newPrice.toFixed(2)}`;
                     const originalPriceEl = document.querySelector('.line-through');
-                    if (originalPriceEl) originalPriceEl.textContent = `$${newOriginalPrice.toFixed(2)}`;
+                    if (originalPriceEl) {
+                        originalPriceEl.textContent = `₹${originalPrice.toFixed(2)}`;
+                    }
                     const savingsEl = document.querySelector('.offer-badge');
                     if (savingsEl && savingsEl.textContent.includes('Save')) {
-                        const savings = newOriginalPrice - newOfferPrice;
-                        savingsEl.textContent = `Save $${savings.toFixed(2)}`;
+                        const savings = originalPrice - offerPrice;
+                        savingsEl.textContent = `Save ₹${savings.toFixed(2)}`;
                     }
-                    newPrice = newOfferPrice;
                 } else {
-                    newPrice = basePrice + extraPrice;
-                    currentPriceEl.textContent = `$${newPrice.toFixed(2)}`;
+                    // For non-offer products, add extraPrice to base price
+                    newPrice = parseFloat({{ .Product.Price }}) + extraPrice;
+                    currentPriceEl.textContent = `₹${newPrice.toFixed(2)}`;
                 }
-                console.log(`Price updated - Base: $${basePrice}, Extra: $${extraPrice}, Final: $${newPrice}, IsOffer: ${isOfferProduct}`);
+                console.log(`Price updated - OfferPrice: ₹${offerPrice}, OriginalPrice: ₹${originalPrice}, IsOffer: ${isOffer}, ExtraPrice: ₹${extraPrice}, Final: ₹${newPrice}`);
             }
 
-            // Offer Timer
-            if (isOfferProduct) {
-                const offerTimerEl = document.querySelector('.offer-timer');
-                const daysRemainingBadge = document.getElementById('days-remaining-badge');
-                const offerContainer = document.querySelector('.offer-container');
-
-                if (offerTimerEl) {
-                    const endTimeStr = offerTimerEl.getAttribute('data-end-time');
-                    console.log('Offer end time:', endTimeStr);
-
-                    if (!endTimeStr) {
-                        offerTimerEl.innerHTML = '<i class="far fa-clock mr-1"></i> Limited time offer';
-                        if (daysRemainingBadge) daysRemainingBadge.classList.add('hidden');
+            // Unified timer logic for main and related products
+            document.querySelectorAll('.offer-timer').forEach(timer => {
+                const endTimeStr = timer.getAttribute('data-end-time');
+                if (!endTimeStr) {
+                    timer.innerHTML = '<i class="far fa-clock mr-1"></i>Limited time offer';
+                    return;
+                }
+                const endTime = new Date(endTimeStr);
+                if (isNaN(endTime.getTime())) {
+                    timer.innerHTML = '<i class="fas fa-exclamation-circle mr-1"></i>Invalid offer time';
+                    console.error('Invalid end time format:', endTimeStr);
+                    return;
+                }
+                function updateTimer() {
+                    const now = new Date();
+                    const diff = endTime - now;
+                    if (diff <= 0) {
+                        timer.innerHTML = '<i class="fas fa-exclamation-circle mr-1"></i>Offer ended';
+                        const badge = timer.parentElement.querySelector('#days-remaining-badge');
+                        if (badge) {
+                            badge.textContent = 'Offer ended';
+                            badge.classList.remove('hidden', 'bg-red-100', 'text-red-800', 'animate-pulse', 'bg-orange-100', 'text-orange-800', 'bg-green-100', 'text-green-800');
+                            badge.classList.add('bg-gray-100', 'text-gray-800');
+                        }
+                        const container = timer.closest('.offer-container');
+                        if (container) container.classList.add('bg-gray-100', 'border-gray-200');
                         return;
                     }
-
-                    const endTime = new Date(endTimeStr);
-                    if (isNaN(endTime.getTime())) {
-                        offerTimerEl.innerHTML = '<i class="fas fa-exclamation-circle mr-1"></i> Invalid offer time';
-                        if (daysRemainingBadge) daysRemainingBadge.classList.add('hidden');
-                        return;
-                    }
-
-                    function updateTimer() {
-                        const now = new Date();
-                        const diff = endTime - now;
-
-                        if (diff <= 0) {
-                            offerTimerEl.innerHTML = '<i class="fas fa-exclamation-circle mr-1"></i> Offer ended';
-                            if (daysRemainingBadge) daysRemainingBadge.classList.add('hidden');
-                            if (offerContainer) offerContainer.classList.add('bg-gray-100', 'border-gray-200');
-                            return;
-                        }
-
-                        const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-                        const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-                        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-
-                        const formattedDays = String(days).padStart(2, '0');
-                        const formattedHours = String(hours).padStart(2, '0');
-                        const formattedMinutes = String(minutes).padStart(2, '0');
-
-                        const timerHTML = `
-                            <span class="countdown-wrapper">
-                                <i class="far fa-clock mr-2"></i>
-                                <span class="countdown-block bg-indigo-100 text-indigo-800 px-2 py-1 rounded">${formattedDays}<small>d</small></span>
-                                <span class="mx-1">:</span>
-                                <span class="countdown-block bg-indigo-100 text-indigo-800 px-2 py-1 rounded">${formattedHours}<small>h</small></span>
-                                <span class="mx-1">:</span>
-                                <span class="countdown-block bg-indigo-100 text-indigo-800 px-2 py-1 rounded">${formattedMinutes}<small>m</small></span>
-                            </span>
-                        `;
-                        offerTimerEl.innerHTML = timerHTML;
-
-                        if (daysRemainingBadge) {
-                            if (days > 0) {
-                                daysRemainingBadge.textContent = days === 1 ? '1 day left' : `${days} days left`;
-                                daysRemainingBadge.classList.remove('hidden');
-                                daysRemainingBadge.className = 'ml-2 text-xs font-semibold px-2 py-1 rounded-full';
-                                if (days <= 1) {
-                                    daysRemainingBadge.classList.add('bg-red-100', 'text-red-800', 'animate-pulse');
-                                } else if (days <= 3) {
-                                    daysRemainingBadge.classList.add('bg-orange-100', 'text-orange-800');
-                                } else {
-                                    daysRemainingBadge.classList.add('bg-green-100', 'text-green-800');
-                                }
-                            } else {
-                                daysRemainingBadge.classList.add('hidden');
-                            }
-                        }
-
-                        if (offerContainer) {
-                            offerContainer.className = 'offer-container p-3 rounded-lg border mb-3';
-                            if (days <= 0 && hours < 24) {
-                                offerContainer.classList.add('bg-gradient-to-r', 'from-red-50', 'to-pink-50', 'border-red-200', 'animate-pulse');
+                    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+                    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+                    const formattedDays = String(days).padStart(2, '0');
+                    const formattedHours = String(hours).padStart(2, '0');
+                    const formattedMinutes = String(minutes).padStart(2, '0');
+                    const timerHTML = `
+                        <span class="countdown-wrapper">
+                            <i class="far fa-clock mr-2"></i>
+                            <span class="countdown-block bg-indigo-100 text-indigo-800 px-2 py-1 rounded">${formattedDays}<small>d</small></span>
+                            <span class="mx-1">:</span>
+                            <span class="countdown-block bg-indigo-100 text-indigo-800 px-2 py-1 rounded">${formattedHours}<small>h</small></span>
+                            <span class="mx-1">:</span>
+                            <span class="countdown-block bg-indigo-100 text-indigo-800 px-2 py-1 rounded">${formattedMinutes}<small>m</small></span>
+                        </span>
+                    `;
+                    timer.innerHTML = timerHTML;
+                    const badge = timer.parentElement.querySelector('#days-remaining-badge');
+                    if (badge) {
+                        if (days > 0) {
+                            badge.textContent = days === 1 ? '1 day left' : `${days} days left`;
+                            badge.classList.remove('hidden', 'bg-gray-100', 'text-gray-800');
+                            if (days <= 1) {
+                                badge.classList.add('bg-red-100', 'text-red-800', 'animate-pulse');
                             } else if (days <= 3) {
-                                offerContainer.classList.add('bg-gradient-to-r', 'from-orange-50', 'to-yellow-50', 'border-orange-200');
+                                badge.classList.add('bg-orange-100', 'text-orange-800');
                             } else {
-                                offerContainer.classList.add('bg-gradient-to-r', 'from-green-50', 'to-emerald-50', 'border-green-200');
+                                badge.classList.add('bg-green-100', 'text-green-800');
                             }
+                        } else {
+                            badge.classList.add('hidden');
                         }
-
-                        setTimeout(updateTimer, 1000);
                     }
-                    updateTimer();
+                    const container = timer.closest('.offer-container');
+                    if (container) {
+                        container.className = 'offer-container p-3 rounded-lg border mb-3';
+                        if (days <= 0 && hours < 24) {
+                            container.classList.add('bg-gradient-to-r', 'from-red-50', 'to-pink-50', 'border-red-200', 'animate-pulse');
+                        } else if (days <= 3) {
+                            container.classList.add('bg-gradient-to-r', 'from-orange-50', 'to-yellow-50', 'border-orange-200');
+                        } else {
+                            container.classList.add('bg-gradient-to-r', 'from-green-50', 'to-emerald-50', 'border-green-200');
+                        }
+                    }
+                    setTimeout(updateTimer, 1000);
                 }
-            }
+                updateTimer();
+            });
 
-            // Add to Wishlist
+            // Add to wishlist
             function addToWishlist(productId) {
-                const variantId = document.querySelector('.variant-btn.active')?.getAttribute('data-variant-id');
+                const variantId = document.querySelector(`button[data-product-id="${productId}"]`).classList.contains('wishlist-btn')
+                    ? null : document.querySelector('.variant-btn.active')?.getAttribute('data-variant-id');
                 fetch(`/wishlist/add/${productId}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ variant_id: variantId || null }),
+                    body: JSON.stringify({ variant_id: variantId }),
                     credentials: 'include'
                 })
                 .then(response => response.json())
                 .then(data => {
                     if (data.status === 'OK' || data.status === 'success') {
-                        document.querySelectorAll(`button[data-product-id="${productId}"]`).forEach(btn =>
+                        document.querySelectorAll(`button[data-product-id="${productId}"]`).forEach(btn => 
                             btn.innerHTML = '<i class="fas fa-heart text-red-500"></i>');
                         Swal.fire({ title: "Added to Wishlist!", text: data.message || "Product added", icon: "success", timer: 1500 });
                     } else if (data.status === 'REMOVED') {
-                        document.querySelectorAll(`button[data-product-id="${productId}"]`).forEach(btn =>
+                        document.querySelectorAll(`button[data-product-id="${productId}"]`).forEach(btn => 
                             btn.innerHTML = '<i class="far fa-heart"></i>');
                         Swal.fire({ title: "Removed from Wishlist", text: data.message || "Product removed", icon: "info", timer: 1500 });
                     } else {
@@ -561,18 +512,13 @@
                 .catch(() => Swal.fire({ title: "Error", text: "Failed to update wishlist", icon: "error", timer: 2000 }));
             }
 
-            // Initialize Wishlist Buttons
-            document.getElementById('add-to-wishlist')?.addEventListener('click', () =>
+            // Initialize wishlist buttons
+            document.getElementById('add-to-wishlist')?.addEventListener('click', () => 
                 addToWishlist(document.getElementById('add-to-wishlist').getAttribute('data-product-id')));
-            document.addEventListener('click', (e) => {
-                const wishlistBtn = e.target.closest('.wishlist-btn');
-                if (wishlistBtn) {
-                    e.preventDefault();
-                    addToWishlist(wishlistBtn.getAttribute('data-product-id'));
-                }
-            });
+            document.querySelectorAll('.wishlist-btn').forEach(btn => 
+                btn.addEventListener('click', () => addToWishlist(btn.getAttribute('data-product-id'))));
 
-            // Image Zoom
+            // Image zoom
             if (mainImage && zoomedImage && zoomBox && imgZoomContainer) {
                 const zoomRatio = 2.5;
                 imgZoomContainer.addEventListener('mousemove', e => {
@@ -606,7 +552,7 @@
             });
             thumbnails[0]?.classList.add('ring-2', 'ring-indigo-500');
 
-            // Update Stock Display
+            // Update stock display
             function updateStockDisplay(stock) {
                 stockQuantityEl.textContent = stock;
                 if (stock > 0) {
@@ -642,10 +588,18 @@
                         btn.classList.add('active');
                         selectedVariant = {
                             id: parseInt(btn.getAttribute('data-variant-id'), 10),
-                            extraPrice: parseFloat(btn.getAttribute('data-extra-price')),
-                            stock: parseInt(btn.getAttribute('data-stock'))
+                            offerPrice: parseFloat(btn.getAttribute('data-offer-price')) || 0,
+                            originalPrice: parseFloat(btn.getAttribute('data-original-price')) || 0,
+                            price: parseFloat(btn.getAttribute('data-price')),
+                            stock: parseInt(btn.getAttribute('data-stock')),
+                            isOffer: btn.getAttribute('data-offer-price') > 0
                         };
-                        updatePriceDisplay(selectedVariant.extraPrice);
+                        updatePriceDisplay(
+                            selectedVariant.isOffer ? selectedVariant.offerPrice : selectedVariant.price,
+                            selectedVariant.isOffer ? selectedVariant.originalPrice : selectedVariant.price,
+                            selectedVariant.isOffer,
+                            selectedVariant.isOffer ? 0 : parseFloat(btn.getAttribute('data-price'))
+                        );
                         updateStockDisplay(selectedVariant.stock);
                     });
                 });
@@ -656,7 +610,7 @@
                 updateStockDisplay(0);
             }
 
-            // Quantity Controls
+            // Quantity controls
             btnQuantityUp.addEventListener('click', () => {
                 if (!selectedVariant) return;
                 let value = parseInt(quantityInput.value, 10);
@@ -678,7 +632,7 @@
                 }
             });
 
-            // Add to Cart
+            // Add to cart
             addToCartBtn.addEventListener('click', async () => {
                 if (!selectedVariant) {
                     Swal.fire({ title: "Select a Variant", text: "Please select a variant.", icon: "warning", timer: 2000 });

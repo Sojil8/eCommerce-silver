@@ -16,6 +16,27 @@ import (
 	"gorm.io/gorm"
 )
 
+type VariantWithOffer struct {
+	adminModels.Variants
+	OfferPrice         float64
+	OriginalPrice      float64
+	DiscountPercentage float64
+	IsOffer            bool
+	OfferName          string
+	OfferEndTime       time.Time
+}
+
+type ProductWithOffer struct {
+	adminModels.Product
+	OfferPrice         float64
+	OriginalPrice      float64
+	DiscountPercentage float64
+	IsOffer            bool
+	OfferName          string
+	OfferEndTime       time.Time
+	Variants           []VariantWithOffer
+}
+
 func GetProductDetails(c *gin.Context) {
 	productID := c.Param("id")
 	var product adminModels.Product
@@ -31,31 +52,31 @@ func GetProductDetails(c *gin.Context) {
 		return
 	}
 
-	var variant adminModels.Variants
-	if err := database.DB.Where("product_id = ?", productID).First(&variant).Error; err != nil {
-		helper.ResponseWithErr(c, http.StatusNotFound, "Variant Not found", "Variant Not Found", "")
-		return
-	}
-
 	var hasStock bool
+	var variantsWithOffer []VariantWithOffer
 	for _, variant := range product.Variants {
 		if variant.Stock > 0 {
 			hasStock = true
-			break
 		}
+		offer := helper.GetBestOfferForProduct(&product, variant.ExtraPrice)
+		variantsWithOffer = append(variantsWithOffer, VariantWithOffer{
+			Variants:           variant,
+			OfferPrice:         offer.DiscountedPrice,
+			OriginalPrice:      offer.OriginalPrice,
+			DiscountPercentage: offer.DiscountPercentage,
+			IsOffer:            offer.IsOfferApplied,
+			OfferName:          offer.OfferName,
+			OfferEndTime:       offer.EndTime,
+		})
 	}
 
-	type ProductWithOffer struct {
-		adminModels.Product
-		OfferPrice         float64
-		OriginalPrice      float64
-		DiscountPercentage float64
-		IsOffer            bool
-		OfferName          string
-		OfferEndTime       time.Time
+	// Use the first variant's offer for the main product display
+	var offer helper.OfferDetails
+	if len(product.Variants) > 0 {
+		offer = helper.GetBestOfferForProduct(&product, product.Variants[0].ExtraPrice)
+	} else {
+		offer = helper.GetBestOfferForProduct(&product, 0)
 	}
-
-	offer := helper.GetBestOfferForProduct(&product, variant.ExtraPrice)
 
 	productWithOffers := ProductWithOffer{
 		Product:            product,
@@ -65,6 +86,7 @@ func GetProductDetails(c *gin.Context) {
 		IsOffer:            offer.IsOfferApplied,
 		OfferName:          offer.OfferName,
 		OfferEndTime:       offer.EndTime,
+		Variants:           variantsWithOffer,
 	}
 	pkg.Log.Info("Product with offer",
 		zap.Any("Product", productWithOffers.Product),
@@ -86,20 +108,41 @@ func GetProductDetails(c *gin.Context) {
 
 	availableRelatedProducts := []ProductWithOffer{}
 	for _, rp := range relatedProducts {
+		bestOfferPrice := float64(999999)
+		var selectedOffer ProductWithOffer
+		hasValidVariant := false
 		for _, v := range rp.Variants {
 			if v.Stock > 0 {
 				offer := helper.GetBestOfferForProduct(&rp, v.ExtraPrice)
-				availableRelatedProducts = append(availableRelatedProducts, ProductWithOffer{
-					Product:            rp,
-					OfferPrice:         offer.DiscountedPrice,
-					OriginalPrice:      offer.OriginalPrice,
-					DiscountPercentage: offer.DiscountPercentage,
-					IsOffer:            offer.IsOfferApplied,
-					OfferName:          offer.OfferName,
-					OfferEndTime:       offer.EndTime,
-				})
-				break
+				if offer.IsOfferApplied && offer.DiscountedPrice < bestOfferPrice {
+					bestOfferPrice = offer.DiscountedPrice
+					selectedOffer = ProductWithOffer{
+						Product:            rp,
+						OfferPrice:         offer.DiscountedPrice,
+						OriginalPrice:      offer.OriginalPrice,
+						DiscountPercentage: offer.DiscountPercentage,
+						IsOffer:            offer.IsOfferApplied,
+						OfferName:          offer.OfferName,
+						OfferEndTime:       offer.EndTime,
+					}
+					hasValidVariant = true
+				} else if !offer.IsOfferApplied && (rp.Price+v.ExtraPrice) < bestOfferPrice {
+					bestOfferPrice = rp.Price + v.ExtraPrice
+					selectedOffer = ProductWithOffer{
+						Product:            rp,
+						OfferPrice:         rp.Price + v.ExtraPrice,
+						OriginalPrice:      rp.Price + v.ExtraPrice,
+						DiscountPercentage: 0,
+						IsOffer:            false,
+						OfferName:          "",
+						OfferEndTime:       time.Time{},
+					}
+					hasValidVariant = true
+				}
 			}
+		}
+		if hasValidVariant {
+			availableRelatedProducts = append(availableRelatedProducts, selectedOffer)
 		}
 	}
 
@@ -151,3 +194,6 @@ func GetProductDetails(c *gin.Context) {
 		"CartCount":       cartCount,
 	})
 }
+
+
+
