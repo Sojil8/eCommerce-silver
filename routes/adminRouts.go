@@ -6,8 +6,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-var roleAdmin = "Admin"
-
 func AdminRoutes(c *gin.Engine) {
 	adminGroup := c.Group("/admin")
 	{

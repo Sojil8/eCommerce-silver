@@ -88,6 +88,8 @@ func UserRoutes(c *gin.Engine) {
 			protected.GET("/wishlist", controllers.ShowWishlist)
 			protected.POST("/wishlist/add/:id", controllers.AddToWishlist)
 			protected.DELETE("/wishlist/remove/:id", controllers.RemoveWishList)
+			protected.POST("/wishlist/add-all-to-cart",controllers.AddAllToCartFromWishlist)
+			protected.POST("/wishlist/variant-price", controllers.GetVariantPrice)
 
 			//coupons
 			protected.POST("/checkout/apply-coupon", controllers.ApplyCoupon)

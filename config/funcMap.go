@@ -77,6 +77,9 @@ func SetupTemplateFunctions() template.FuncMap {
 			}
 			return false
 		},
+		"safe": func(s string) template.HTML {
+			return template.HTML(s)
+		},
 	}
 }
 

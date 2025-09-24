@@ -20,7 +20,12 @@
     <div class="flex items-center justify-between mb-8">
       <h2 class="text-3xl font-bold text-gray-900 tracking-tight">My Wishlist</h2>
       <div class="flex space-x-4">
-        
+        {{if .Wishlist}}
+          <button onclick="addAllToCart()" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 transition-colors duration-200">
+            <i class="fas fa-cart-plus mr-2"></i>
+            Add All to Cart
+          </button>
+        {{end}}
       </div>
     </div>
 
@@ -39,20 +44,39 @@
             </thead>
             <tbody class="bg-white divide-y divide-gray-200">
               {{range .Wishlist}}
+                {{$product := .Product}}
                 <tr>
                   <td class="px-6 py-4 whitespace-nowrap">
                     <div class="flex items-center">
-                      <div class="h-16 w-16 flex-shrink-0">
+                      <a href="/product/details/{{.Product.ID}}" class="h-16 w-16 flex-shrink-0">
                         <img class="h-16 w-16 rounded-md object-cover" src="{{index .Product.Images 0}}" alt="{{.Product.ProductName}}">
-                      </div>
+                      </a>
                       <div class="ml-4">
-                        <div class="text-sm font-medium text-gray-900">{{.Product.ProductName}}</div>
+                        <a href="/product/details/{{.Product.ID}}" class="text-sm font-medium text-gray-900 hover:text-indigo-600">
+                          {{.Product.ProductName}}
+                        </a>
                         <div class="text-sm text-gray-500">{{.Product.CategoryName}}</div>
+                        {{if gt (len .Product.Offers) 0}}
+                          {{$offer := index .Product.Offers 0}}
+                          <div class="text-xs text-green-600 mt-1">
+                            <i class="fas fa-tag mr-1"></i>
+                            {{$offer.OfferName}} - {{printf "%.0f" $offer.Discount}}% off
+                          </div>
+                        {{end}}
                       </div>
                     </div>
                   </td>
                   <td class="px-6 py-4 whitespace-nowrap">
-                    <div class="text-sm font-semibold text-indigo-600">${{printf "%.2f" .Product.Price}}</div>
+                    <div id="price-container-{{.ID}}">
+                      {{if gt .Product.OriginalPrice .Product.Price}}
+                        <div class="flex flex-col">
+                          <span class="text-sm font-semibold text-indigo-600">${{printf "%.2f" .Product.Price}}</span>
+                          <span class="text-xs text-gray-500 line-through">${{printf "%.2f" .Product.OriginalPrice}}</span>
+                        </div>
+                      {{else}}
+                        <div class="text-sm font-semibold text-indigo-600">${{printf "%.2f" .Product.Price}}</div>
+                      {{end}}
+                    </div>
                   </td>
                   <td class="px-6 py-4 whitespace-nowrap">
                     {{if .Product.InStock}}
@@ -64,11 +88,11 @@
                   <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <div class="flex justify-end space-x-3 items-center">
                       {{if .Product.InStock}}
-                        <!-- Variant Dropdown -->
-                        <select id="variant-{{.ID}}" class="mr-2 border border-gray-300 rounded-md p-1 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        <!-- Variant Dropdown with price updates -->
+                        <select id="variant-{{.ID}}" class="mr-2 border border-gray-300 rounded-md p-1 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" onchange="updateVariantPrice('{{.ID}}', '{{.Product.ID}}', this.value)">
                           {{range .Product.Variants}}
                             <option value="{{.ID}}" {{if eq .Stock 0}}disabled{{end}}>
-                              {{.Color}} {{if eq .Stock 0}}(Out of Stock){{end}}
+                              {{.Color}} (+${{printf "%.2f" .ExtraPrice}}) {{if eq .Stock 0}}(Out of Stock){{end}}
                             </option>
                           {{end}}
                         </select>
@@ -100,11 +124,6 @@
         </div>
       {{end}}
     </div>
-
-    <!-- Recently Viewed Products -->
-    <div class="mt-12">
-      <!-- Add your recently viewed products section here if needed -->
-    </div>
   </div>
 
   <!-- Footer -->
@@ -120,47 +139,103 @@
 
   <!-- JavaScript -->
   <script>
-    // In wishlist.html
-async function addToCart(wishlistId) {
-  try {
-    const variantSelect = document.getElementById(`variant-${wishlistId}`);
-    const variantId = variantSelect.value;
-    
-    if (!variantId) {
-      Swal.fire('Error', 'Please select a variant', 'error');
-      return;
+    // Function to update price when variant changes using AJAX
+    async function updateVariantPrice(wishlistId, productId, variantId) {
+      try {
+        // Show loading indicator
+        const priceContainer = document.getElementById(`price-container-${wishlistId}`);
+        priceContainer.innerHTML = `
+          <div class="flex justify-center">
+            <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-indigo-600"></div>
+          </div>
+        `;
+
+        const response = await fetch('/wishlist/variant-price', {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'X-CSRF-Token': '{{.CSRFToken}}' // Add CSRF token if needed
+          },
+          credentials: 'include',
+          body: JSON.stringify({
+            product_id: parseInt(productId),
+            variant_id: parseInt(variantId)
+          })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+          // Update the price display
+          if (data.discounted_price < data.original_price) {
+            priceContainer.innerHTML = `
+              <div class="flex flex-col">
+                <span class="text-sm font-semibold text-indigo-600">$${data.discounted_price.toFixed(2)}</span>
+                <span class="text-xs text-gray-500 line-through">$${data.original_price.toFixed(2)}</span>
+              </div>
+            `;
+          } else {
+            priceContainer.innerHTML = `
+              <div class="text-sm font-semibold text-indigo-600">$${data.discounted_price.toFixed(2)}</div>
+            `;
+          }
+        } else {
+          console.error('Failed to fetch variant price:', data.error);
+          // Revert to original price display
+          priceContainer.innerHTML = `
+            <div class="text-sm font-semibold text-indigo-600">$${data.original_price.toFixed(2)}</div>
+          `;
+        }
+      } catch (error) {
+        console.error('Error updating variant price:', error);
+        // Show error message
+        const priceContainer = document.getElementById(`price-container-${wishlistId}`);
+        priceContainer.innerHTML = `
+          <div class="text-sm text-red-600">Error loading price</div>
+        `;
+      }
     }
 
-    const response = await fetch('/cart/add', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({
-        wishlist_id: parseInt(wishlistId), // Matches backend expectation
-        variant_id: parseInt(variantId),
-        quantity: 1
-      })
-    });
-    
-    const data = await response.json();
-    if (response.ok) {
-      Swal.fire({
-        icon: 'success',
-        title: 'Added to Cart!',
-        text: 'Product has been added to your cart.',
-        timer: 1500,
-        showConfirmButton: false
-      }).then(() => {
-        window.location.reload(); // Refresh to update wishlist
-      });
-    } else {
-      Swal.fire('Error', data.error || 'Failed to add to cart', 'error');
+    async function addToCart(wishlistId) {
+      try {
+        const variantSelect = document.getElementById(`variant-${wishlistId}`);
+        const variantId = variantSelect.value;
+        
+        if (!variantId) {
+          Swal.fire('Error', 'Please select a variant', 'error');
+          return;
+        }
+
+        const response = await fetch('/cart/add', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            wishlist_id: parseInt(wishlistId),
+            variant_id: parseInt(variantId),
+            quantity: 1
+          })
+        });
+        
+        const data = await response.json();
+        if (response.ok) {
+          Swal.fire({
+            icon: 'success',
+            title: 'Added to Cart!',
+            text: 'Product has been added to your cart.',
+            timer: 1500,
+            showConfirmButton: false
+          }).then(() => {
+            window.location.reload();
+          });
+        } else {
+          Swal.fire('Error', data.error || 'Failed to add to cart', 'error');
+        }
+      } catch (error) {
+        console.error(error);
+        Swal.fire('Error', 'Something went wrong', 'error');
+      }
     }
-  } catch (error) {
-    console.error(error);
-    Swal.fire('Error', 'Something went wrong', 'error');
-  }
-}
 
     async function removeFromWishlist(wishlistId) {
       try {
@@ -190,9 +265,41 @@ async function addToCart(wishlistId) {
       }
     }
 
-    
-
-    
+    async function addAllToCart() {
+      try {
+        const response = await fetch('/wishlist/add-all-to-cart', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include'
+        });
+        
+        const data = await response.json();
+        if (response.ok) {
+          let message = `Added ${data.added_count} items to your cart.`;
+          if (data.failed_count > 0) {
+            message += ` ${data.failed_count} items could not be added.`;
+          }
+          
+          Swal.fire({
+            icon: 'success',
+            title: 'Items Added!',
+            html: message,
+            confirmButtonText: 'View Cart'
+          }).then((result) => {
+            if (result.isConfirmed) {
+              window.location.href = '/cart';
+            } else {
+              window.location.reload();
+            }
+          });
+        } else {
+          Swal.fire('Error', data.error || 'Failed to add items to cart', 'error');
+        }
+      } catch (error) {
+        console.error("Error adding all to cart:", error);
+        Swal.fire('Error', 'Something went wrong', 'error');
+      }
+    }
   </script>
 </body>
 </html>

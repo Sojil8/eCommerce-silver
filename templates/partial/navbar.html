@@ -8,23 +8,8 @@
 
     <!-- Navigation -->
     <nav class="hidden md:flex items-center space-x-6">
-      <!-- Home Link - Active when on home page -->
-      <a href="/home" class="{{if eq .CurrentPage "home"}}text-indigo-400 font-semibold bg-indigo-400/10 border-b-2 border-indigo-400{{else}}text-gray-300 hover:text-indigo-400 font-medium{{end}} text-sm uppercase tracking-wider px-3 py-2 rounded-md transition-colors duration-300 {{if eq .CurrentPage "home"}}hover:bg-indigo-400 hover:text-gray-900{{end}} relative" 
-         {{if eq .CurrentPage "home"}}aria-current="page"{{end}}>
-        Home
-        {{if eq .CurrentPage "home"}}
-        <span class="absolute -right-1 top-1 w-2 h-2 bg-indigo-400 rounded-full animate-pulse"></span>
-        {{end}}
-      </a>
-      
-      <!-- Shop Link - Active when on shop page -->
-      <a href="/shop" class="{{if eq .CurrentPage "shop"}}text-indigo-400 font-semibold bg-indigo-400/10 border-b-2 border-indigo-400{{else}}text-gray-300 hover:text-indigo-400 font-medium{{end}} text-sm uppercase tracking-wider px-3 py-2 rounded-md transition-colors duration-300 {{if eq .CurrentPage "shop"}}hover:bg-indigo-400 hover:text-gray-900{{end}} relative"
-         {{if eq .CurrentPage "shop"}}aria-current="page"{{end}}>
-        Shop
-        {{if eq .CurrentPage "shop"}}
-        <span class="absolute -right-1 top-1 w-2 h-2 bg-indigo-400 rounded-full animate-pulse"></span>
-        {{end}}
-      </a>
+      <a href="/home" class="text-gray-300 hover:text-indigo-400 font-medium text-sm uppercase tracking-wider px-3 py-2 rounded-md transition-colors duration-300">Home</a>
+      <a href="/shop" class="text-gray-300 hover:text-indigo-400 font-medium text-sm uppercase tracking-wider px-3 py-2 rounded-md transition-colors duration-300">shop</a>
     </nav>
 
     <!-- User Actions -->
@@ -61,7 +46,7 @@
             src="{{.ProfileImage}}" 
             alt="{{.UserName}}'s profile image" 
             class="w-8 h-8 rounded-full border-2 border-indigo-400 object-cover"
-            onerror="this.src='/static/defaltProfile.png'"
+            onerror="this.src='https://via.placeholder.com/32'"
           >
           <span class="hidden sm:inline text-gray-300 text-sm font-medium">{{.UserName}}</span>
           <svg class="w-4 h-4 transition-transform duration-300" :class="{ 'rotate-180': open }" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -93,4 +78,4 @@
   </div>
 </header>
 
-<script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+<!-- <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script> -->

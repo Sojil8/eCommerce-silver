@@ -5,38 +5,34 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Dashboard - eCommerce</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
-        .card { 
-            transition: all 0.3s ease; 
+        .card {
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
         }
-        .card:hover { 
-            transform: translateY(-2px); 
-            box-shadow: 0 8px 25px rgba(0,0,0,0.15); 
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
         }
-        .loading { 
-            display: inline-block; 
-            width: 20px; 
-            height: 20px; 
-            border: 3px solid #f3f3f3; 
-            border-top: 3px solid #3498db; 
-            border-radius: 50%; 
-            animation: spin 1s linear infinite; 
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
         }
-        @keyframes spin { 
-            0% { transform: rotate(0deg); } 
-            100% { transform: rotate(360deg); } 
+        @keyframes spin {
+            to { transform: rotate(360deg); }
         }
         .gradient-bg {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #667eea, #764ba2);
         }
         .chart-container {
-            position: relative;
             height: 300px;
-            width: 100%;
         }
-        /* Sidebar responsive adjustments */
         .sidebar {
             transition: transform 0.3s ease-in-out;
         }
@@ -55,27 +51,25 @@
 </head>
 <body class="bg-gray-50">
     <!-- Sidebar -->
-    <div class="sidebar w-64 bg-gray-900 text-white p-4 flex flex-col fixed left-0 top-0 h-full">
-        <div class="sidebar-header mb-6">
-            <h2 class="text-2xl font-bold text-center">Admin Panel</h2>
-        </div>
-        <div class="sidebar-menu space-y-2 flex-grow">
-            <a href="/admin/dashboard" class="block py-2 px-3 rounded bg-blue-600 text-white hover:bg-blue-700 transition-colors">Dashboard</a>
-            <a href="/admin/user-management" class="block py-2 px-3 rounded hover:bg-gray-700 hover:text-white transition-colors">Customers</a>
-            <a href="/admin/category" class="block py-2 px-3 rounded hover:bg-gray-700 hover:text-white transition-colors">Category</a>
-            <a href="/admin/products" class="block py-2 px-3 rounded hover:bg-gray-700 hover:text-white transition-colors">Products</a>
-            <a href="/admin/orders" class="block py-2 px-3 rounded hover:bg-gray-700 hover:text-white transition-colors">Orders</a>
-            <a href="/admin/returns" class="block py-2 px-3 rounded hover:bg-gray-700 hover:text-white transition-colors">Return</a>
-            <a href="/admin/offers" class="block py-2 px-3 rounded hover:bg-gray-700 hover:text-white transition-colors">Offers</a>
-            <a href="/admin/coupons" class="block py-2 px-3 rounded hover:bg-gray-700 hover:text-white transition-colors">Coupons</a>
-            <a href="#" class="block py-2 px-3 rounded hover:bg-gray-700 hover:text-white transition-colors" onclick="logoutAdmin()">Logout</a>
-        </div>
-    </div>
+    <aside class="sidebar fixed left-0 top-0 h-full w-64 bg-gray-900 text-white p-4 flex flex-col">
+        <h2 class="text-2xl font-bold text-center mb-6">Admin Panel</h2>
+        <nav class="space-y-2 flex-grow">
+            <a href="/admin/dashboard" class="block py-2 px-3 rounded bg-blue-600 hover:bg-blue-700 transition-colors">Dashboard</a>
+            <a href="/admin/user-management" class="block py-2 px-3 rounded hover:bg-gray-700 transition-colors">Customers</a>
+            <a href="/admin/category" class="block py-2 px-3 rounded hover:bg-gray-700 transition-colors">Category</a>
+            <a href="/admin/products" class="block py-2 px-3 rounded hover:bg-gray-700 transition-colors">Products</a>
+            <a href="/admin/orders" class="block py-2 px-3 rounded hover:bg-gray-700 transition-colors">Orders</a>
+            <a href="/admin/returns" class="block py-2 px-3 rounded hover:bg-gray-700 transition-colors">Return</a>
+            <a href="/admin/offers" class="block py-2 px-3 rounded hover:bg-gray-700 transition-colors">Offers</a>
+            <a href="/admin/coupons" class="block py-2 px-3 rounded hover:bg-gray-700 transition-colors">Coupons</a>
+            <a href="#" class="block py-2 px-3 rounded hover:bg-gray-700 transition-colors" onclick="logoutAdmin()">Logout</a>
+        </nav>
+    </aside>
 
     <!-- Navigation -->
     <nav class="gradient-bg shadow-lg">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between h-16">
+            <div class="flex justify-between h-16 items-center">
                 <div class="flex items-center">
                     <button id="toggle-sidebar" class="md:hidden text-white mr-4 focus:outline-none">
                         <i class="fas fa-bars text-xl"></i>
@@ -86,6 +80,9 @@
                     <button onclick="exportData('csv')" class="bg-white text-blue-600 px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-50 transition">
                         <i class="fas fa-download mr-2"></i>Export CSV
                     </button>
+                    <button onclick="exportData('pdf')" class="bg-white text-blue-600 px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-50 transition">
+                        <i class="fas fa-file-pdf mr-2"></i>Export PDF
+                    </button>
                     <button onclick="logoutAdmin()" class="bg-red-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-red-700 transition">
                         <i class="fas fa-sign-out-alt mr-2"></i>Logout
                     </button>
@@ -94,153 +91,115 @@
         </div>
     </nav>
 
-    <div class="main-content ml-0 md:ml-64 pt-20 md:pt-6">
+    <!-- Main Content -->
+    <main class="main-content ml-0 md:ml-64 pt-20 md:pt-6">
         <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
             <!-- Filter Buttons -->
-            <div class="mb-6">
+            <section class="mb-6">
                 <div class="bg-white rounded-lg shadow p-4">
                     <h3 class="text-lg font-medium text-gray-900 mb-4">Filter Reports</h3>
-                    <div class="flex space-x-4">
-                        <button onclick="filterData('daily')" id="daily-btn" class="filter-btn px-4 py-2 rounded-md text-sm font-medium bg-blue-600 text-white">Daily</button>
-                        <button onclick="filterData('weekly')" id="weekly-btn" class="filter-btn px-4 py-2 rounded-md text-sm font-medium bg-gray-200 text-gray-700 hover:bg-gray-300">Weekly</button>
-                        <button onclick="filterData('monthly')" id="monthly-btn" class="filter-btn px-4 py-2 rounded-md text-sm font-medium bg-gray-200 text-gray-700 hover:bg-gray-300">Monthly</button>
+                    <div class="flex flex-col sm:flex-row sm:space-x-4 space-y-4 sm:space-y-0">
+                        <div class="flex space-x-4">
+                            <button onclick="filterData('daily')" id="daily-btn" class="filter-btn px-4 py-2 rounded-md text-sm font-medium bg-gray-200 text-gray-700 hover:bg-gray-300">Daily</button>
+                            <button onclick="filterData('weekly')" id="weekly-btn" class="filter-btn px-4 py-2 rounded-md text-sm font-medium bg-blue-600 text-white">Weekly</button>
+                            <button onclick="filterData('monthly')" id="monthly-btn" class="filter-btn px-4 py-2 rounded-md text-sm font-medium bg-gray-200 text-gray-700 hover:bg-gray-300">Monthly</button>
+                            <button onclick="filterData('yearly')" id="yearly-btn" class="filter-btn px-4 py-2 rounded-md text-sm font-medium bg-gray-200 text-gray-700 hover:bg-gray-300">Yearly</button>
+                        </div>
+                        <div class="flex space-x-2">
+                            <input type="date" id="start-date" class="p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <input type="date" id="end-date" class="p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <button onclick="filterData('custom')" id="custom-btn" class="filter-btn px-4 py-2 rounded-md text-sm font-medium bg-gray-200 text-gray-700 hover:bg-gray-300">Apply</button>
+                        </div>
                     </div>
                 </div>
-            </div>
+            </section>
 
             <!-- Stats Cards -->
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                <div class="card bg-white rounded-lg shadow p-6">
-                    <div class="flex items-center">
-                        <div class="flex-shrink-0">
-                            <i class="fas fa-users text-blue-600 text-2xl"></i>
-                        </div>
-                        <div class="ml-4">
-                            <p class="text-sm font-medium text-gray-600">Total Users</p>
-                            <p class="text-2xl font-bold text-gray-900" id="total-users">-</p>
-                        </div>
+            <section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                <div class="card bg-white rounded-lg shadow p-6 flex items-center">
+                    <i class="fas fa-users text-blue-600 text-2xl mr-4"></i>
+                    <div>
+                        <p class="text-sm font-medium text-gray-600">Total Users</p>
+                        <p class="text-2xl font-bold text-gray-900" id="total-users">-</p>
                     </div>
                 </div>
-
-                <div class="card bg-white rounded-lg shadow p-6">
-                    <div class="flex items-center">
-                        <div class="flex-shrink-0">
-                            <i class="fas fa-shopping-cart text-green-600 text-2xl"></i>
-                        </div>
-                        <div class="ml-4">
-                            <p class="text-sm font-medium text-gray-600">Total Orders</p>
-                            <p class="text-2xl font-bold text-gray-900" id="total-orders">-</p>
-                        </div>
+                <div class="card bg-white rounded-lg shadow p-6 flex items-center">
+                    <i class="fas fa-shopping-cart text-green-600 text-2xl mr-4"></i>
+                    <div>
+                        <p class="text-sm font-medium text-gray-600">Total Orders</p>
+                        <p class="text-2xl font-bold text-gray-900" id="total-orders">-</p>
                     </div>
                 </div>
-
-                <div class="card bg-white rounded-lg shadow p-6">
-                    <div class="flex items-center">
-                        <div class="flex-shrink-0">
-                            <i class="fas fa-dollar-sign text-yellow-600 text-2xl"></i>
-                        </div>
-                        <div class="ml-4">
-                            <p class="text-sm font-medium text-gray-600">Total Revenue</p>
-                            <p class="text-2xl font-bold text-gray-900" id="total-revenue">-</p>
-                        </div>
+                <div class="card bg-white rounded-lg shadow p-6 flex items-center">
+                    <i class="fas fa-dollar-sign text-yellow-600 text-2xl mr-4"></i>
+                    <div>
+                        <p class="text-sm font-medium text-gray-600">Total Revenue</p>
+                        <p class="text-2xl font-bold text-gray-900" id="total-revenue">-</p>
                     </div>
                 </div>
-
-                <div class="card bg-white rounded-lg shadow p-6">
-                    <div class="flex items-center">
-                        <div class="flex-shrink-0">
-                            <i class="fas fa-box text-purple-600 text-2xl"></i>
-                        </div>
-                        <div class="ml-4">
-                            <p class="text-sm font-medium text-gray-600">Total Products</p>
-                            <p class="text-2xl font-bold text-gray-900" id="total-products">-</p>
-                        </div>
+                <div class="card bg-white rounded-lg shadow p-6 flex items-center">
+                    <i class="fas fa-box text-purple-600 text-2xl mr-4"></i>
+                    <div>
+                        <p class="text-sm font-medium text-gray-600">Total Products</p>
+                        <p class="text-2xl font-bold text-gray-900" id="total-products">-</p>
                     </div>
                 </div>
-            </div>
+                <div class="card bg-white rounded-lg shadow p-6 flex items-center">
+                    <i class="fas fa-calculator text-blue-600 text-2xl mr-4"></i>
+                    <div>
+                        <p class="text-sm font-medium text-gray-600">Average Order Value</p>
+                        <p class="text-2xl font-bold text-gray-900" id="avg-order-value">-</p>
+                    </div>
+                </div>
+            </section>
 
             <!-- Order Status Cards -->
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                <div class="card bg-white rounded-lg shadow p-6">
-                    <div class="flex items-center">
-                        <div class="flex-shrink-0">
-                            <i class="fas fa-clock text-orange-600 text-xl"></i>
-                        </div>
-                        <div class="ml-4">
-                            <p class="text-sm font-medium text-gray-600">Pending Orders</p>
-                            <p class="text-xl font-bold text-gray-900" id="pending-orders">-</p>
-                        </div>
+            <section class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <div class="card bg-white rounded-lg shadow p-6 flex items-center">
+                    <i class="fas fa-clock text-orange-600 text-xl mr-4"></i>
+                    <div>
+                        <p class="text-sm font-medium text-gray-600">Pending Orders</p>
+                        <p class="text-xl font-bold text-gray-900" id="pending-orders">-</p>
                     </div>
                 </div>
-
-                <div class="card bg-white rounded-lg shadow p-6">
-                    <div class="flex items-center">
-                        <div class="flex-shrink-0">
-                            <i class="fas fa-check-circle text-green-600 text-xl"></i>
-                        </div>
-                        <div class="ml-4">
-                            <p class="text-sm font-medium text-gray-600">Completed Orders</p>
-                            <p class="text-xl font-bold text-gray-900" id="completed-orders">-</p>
-                        </div>
+                <div class="card bg-white rounded-lg shadow p-6 flex items-center">
+                    <i class="fas fa-check-circle text-green-600 text-xl mr-4"></i>
+                    <div>
+                        <p class="text-sm font-medium text-gray-600">Completed Orders</p>
+                        <p class="text-xl font-bold text-gray-900" id="completed-orders">-</p>
                     </div>
                 </div>
-
-                <div class="card bg-white rounded-lg shadow p-6">
-                    <div class="flex items-center">
-                        <div class="flex-shrink-0">
-                            <i class="fas fa-times-circle text-red-600 text-xl"></i>
-                        </div>
-                        <div class="ml-4">
-                            <p class="text-sm font-medium text-gray-600">Cancelled Orders</p>
-                            <p class="text-xl font-bold text-gray-900" id="cancelled-orders">-</p>
-                        </div>
+                <div class="card bg-white rounded-lg shadow p-6 flex items-center">
+                    <i class="fas fa-times-circle text-red-600 text-xl mr-4"></i>
+                    <div>
+                        <p class="text-sm font-medium text-gray-600">Cancelled Orders</p>
+                        <p class="text-xl font-bold text-gray-900" id="cancelled-orders">-</p>
                     </div>
                 </div>
-            </div>
+            </section>
 
-            <!-- Charts Row -->
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-                <!-- Sales Chart -->
+            <!-- Charts -->
+            <section class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
                 <div class="bg-white rounded-lg shadow p-6">
                     <h3 class="text-lg font-medium text-gray-900 mb-4">Sales Overview</h3>
-                    <div class="chart-container">
-                        <canvas id="salesChart"></canvas>
-                    </div>
+                    <div class="chart-container"><canvas id="salesChart"></canvas></div>
                 </div>
-
-                <!-- Revenue Chart -->
                 <div class="bg-white rounded-lg shadow p-6">
                     <h3 class="text-lg font-medium text-gray-900 mb-4">Monthly Revenue</h3>
-                    <div class="chart-container">
-                        <canvas id="revenueChart"></canvas>
-                    </div>
+                    <div class="chart-container"><canvas id="revenueChart"></canvas></div>
                 </div>
-            </div>
-
-            <!-- Data Tables Row -->
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-                <!-- Top Products -->
                 <div class="bg-white rounded-lg shadow p-6">
                     <h3 class="text-lg font-medium text-gray-900 mb-4">Top Selling Products</h3>
-                    <div class="overflow-x-auto">
-                        <table class="min-w-full divide-y divide-gray-200">
-                            <thead class="bg-gray-50">
-                                <tr>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Product</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Sold</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Revenue</th>
-                                </tr>
-                            </thead>
-                            <tbody id="top-products-table" class="divide-y divide-gray-200">
-                                <tr>
-                                    <td colspan="3" class="px-4 py-4 text-center text-gray-500">Loading...</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
+                    <div class="chart-container"><canvas id="topProductsChart"></canvas></div>
                 </div>
+                <div class="bg-white rounded-lg shadow p-6">
+                    <h3 class="text-lg font-medium text-gray-900 mb-4">Top Categories</h3>
+                    <div class="chart-container"><canvas id="topCategoriesChart"></canvas></div>
+                </div>
+            </section>
 
-                <!-- Inventory Status -->
+            <!-- Data Tables -->
+            <section class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
                 <div class="bg-white rounded-lg shadow p-6">
                     <h3 class="text-lg font-medium text-gray-900 mb-4">Inventory Status</h3>
                     <div class="overflow-x-auto">
@@ -253,18 +212,19 @@
                                 </tr>
                             </thead>
                             <tbody id="inventory-table" class="divide-y divide-gray-200">
-                                <tr>
-                                    <td colspan="3" class="px-4 py-4 text-center text-gray-500">Loading...</td>
+                                <tr class="loading-placeholder hidden">
+                                    <td colspan="3" class="px-4 py-4 text-center text-gray-500">
+                                        <div class="flex justify-center items-center">
+                                            <div class="loading"></div>
+                                            <span class="ml-2">Loading...</span>
+                                        </div>
+                                    </td>
                                 </tr>
+                                <tr><td colspan="3" class="px-4 py-4 text-center text-gray-500">Loading...</td></tr>
                             </tbody>
                         </table>
                     </div>
                 </div>
-            </div>
-
-            <!-- Recent Orders and Coupons -->
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <!-- Recent Orders -->
                 <div class="bg-white rounded-lg shadow p-6">
                     <h3 class="text-lg font-medium text-gray-900 mb-4">Recent Orders</h3>
                     <div class="overflow-x-auto">
@@ -278,15 +238,19 @@
                                 </tr>
                             </thead>
                             <tbody id="recent-orders-table" class="divide-y divide-gray-200">
-                                <tr>
-                                    <td colspan="4" class="px-4 py-4 text-center text-gray-500">Loading...</td>
+                                <tr class="loading-placeholder hidden">
+                                    <td colspan="4" class="px-4 py-4 text-center text-gray-500">
+                                        <div class="flex justify-center items-center">
+                                            <div class="loading"></div>
+                                            <span class="ml-2">Loading...</span>
+                                        </div>
+                                    </td>
                                 </tr>
+                                <tr><td colspan="4" class="px-4 py-4 text-center text-gray-500">Loading...</td></tr>
                             </tbody>
                         </table>
                     </div>
                 </div>
-
-                <!-- Coupon Usage -->
                 <div class="bg-white rounded-lg shadow p-6">
                     <h3 class="text-lg font-medium text-gray-900 mb-4">Active Coupons</h3>
                     <div class="overflow-x-auto">
@@ -299,322 +263,421 @@
                                 </tr>
                             </thead>
                             <tbody id="coupon-usage-table" class="divide-y divide-gray-200">
-                                <tr>
-                                    <td colspan="3" class="px-4 py-4 text-center text-gray-500">Loading...</td>
+                                <tr class="loading-placeholder hidden">
+                                    <td colspan="3" class="px-4 py-4 text-center text-gray-500">
+                                        <div class="flex justify-center items-center">
+                                            <div class="loading"></div>
+                                            <span class="ml-2">Loading...</span>
+                                        </div>
+                                    </td>
                                 </tr>
+                                <tr><td colspan="3" class="px-4 py-4 text-center text-gray-500">Loading...</td></tr>
                             </tbody>
                         </table>
                     </div>
                 </div>
-            </div>
+            </section>
         </div>
-    </div>
+    </main>
 
-    <script>
-        let salesChart, revenueChart;
-        let currentFilter = 'weekly';
+    <script>        
+        const API_BASE = '/admin';
+        const CHART_DEFAULTS = {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } }
+        };
 
-        // Initialize dashboard
-        document.addEventListener('DOMContentLoaded', function() {
-            loadDashboardData();
-            setInterval(loadDashboardData, 300000); // Refresh every 5 minutes
+        let charts = {
+            sales: null,
+            revenue: null,
+            topProducts: null,
+            topCategories: null
+        };
+        let state = {
+            filter: '{{.Filter}}',
+            startDate: '{{.StartDate}}',
+            endDate: '{{.EndDate}}'
+        };
 
-            // Toggle sidebar for mobile
-            const toggleSidebarBtn = document.getElementById('toggle-sidebar');
-            const sidebar = document.querySelector('.sidebar');
-            if (toggleSidebarBtn && sidebar) {
-                toggleSidebarBtn.addEventListener('click', () => {
-                    sidebar.classList.toggle('active');
-                });
-            }
+        document.addEventListener('DOMContentLoaded', () => {
+            initDashboard();
+            setupEventListeners();
+            setInterval(() => {
+                if (!state.startDate || !state.endDate || new Date(state.endDate) >= new Date()) {
+                    loadDashboardData();
+                }
+            }, 30000);
         });
 
-        // Load dashboard data
+        function initDashboard() {
+    // Load initial data via AJAX instead of using undefined initialData
+    loadDashboardData();
+    updateFilterButtons();
+    if (state.startDate && state.endDate) {
+        document.getElementById('start-date').value = state.startDate;
+        document.getElementById('end-date').value = state.endDate;
+    }
+}
+
+// Also update your loadDashboardData function to handle the URL construction better:
+async function loadDashboardData() {
+    let url = `${API_BASE}/dashboard/data?filter=${state.filter}`;
+    if (state.startDate && state.endDate) {
+        url += `&start_date=${encodeURIComponent(state.startDate)}&end_date=${encodeURIComponent(state.endDate)}`;
+    }
+    
+    try {
+        showLoadingState(true);
+        const response = await fetch(url);
+        const result = await response.json();
+        if (result.status === 'success') {
+            updateDashboard(result.data);
+        } else {
+            throw new Error(result.message || 'Unknown error');
+        }
+    } catch (error) {
+        console.error('Error loading dashboard data:', error);
+        showErrorState(error.message);
+    } finally {
+        showLoadingState(false);
+    }
+}
+
+        function setupEventListeners() {
+            document.getElementById('toggle-sidebar')?.addEventListener('click', () =>
+                document.querySelector('.sidebar').classList.toggle('active')
+            );
+        }
+
         async function loadDashboardData() {
+            const url = `${API_BASE}/dashboard/data?filter=${state.filter}${state.startDate ? `&start_date=${encodeURIComponent(state.startDate)}&end_date=${encodeURIComponent(state.endDate)}` : ''}`;
             try {
-                const response = await fetch(`/admin/dashboard/data?filter=${currentFilter}`);
+                showLoadingState(true);
+                const response = await fetch(url);
                 const result = await response.json();
-                
                 if (result.status === 'success') {
                     updateDashboard(result.data);
+                } else {
+                    throw new Error(result.message || 'Unknown error');
                 }
             } catch (error) {
                 console.error('Error loading dashboard data:', error);
+                showErrorState(error.message);
+            } finally {
+                showLoadingState(false);
             }
         }
 
-        // Update dashboard with data
-        function updateDashboard(data) {
-            // Update stats
-            document.getElementById('total-users').textContent = data.total_users.toLocaleString();
-            document.getElementById('total-orders').textContent = data.total_orders.toLocaleString();
-            document.getElementById('total-revenue').textContent = '$' + data.total_revenue.toLocaleString('en-US', {minimumFractionDigits: 2});
-            document.getElementById('total-products').textContent = data.total_products.toLocaleString();
-            document.getElementById('pending-orders').textContent = data.pending_orders.toLocaleString();
-            document.getElementById('completed-orders').textContent = data.completed_orders.toLocaleString();
-            document.getElementById('cancelled-orders').textContent = data.cancelled_orders.toLocaleString();
-
-            // Update tables
-            updateTopProductsTable(data.top_products);
-            updateInventoryTable(data.inventory_status);
-            updateRecentOrdersTable(data.recent_orders);
-            updateCouponUsageTable(data.coupon_usage);
-
-            // Update charts
-            updateSalesChart(data.sales_data);
-            updateRevenueChart(data.monthly_revenue);
-        }
-
-        // Update top products table
-        function updateTopProductsTable(products) {
-            const tbody = document.getElementById('top-products-table');
-            tbody.innerHTML = '';
-            
-            products.forEach(product => {
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td class="px-4 py-4 text-sm text-gray-900">${product.product_name}</td>
-                    <td class="px-4 py-4 text-sm text-gray-900">${product.total_sold}</td>
-                    <td class="px-4 py-4 text-sm text-gray-900">${product.revenue.toFixed(2)}</td>
-                `;
-                tbody.appendChild(row);
+        function showLoadingState(loading) {
+            document.querySelectorAll('.loading-placeholder').forEach(el => {
+                el.style.display = loading ? 'table-row' : 'none';
+            });
+            document.querySelectorAll('.card, .chart-container, table').forEach(el => {
+                el.style.opacity = loading ? '0.5' : '1';
             });
         }
 
-        // Update inventory table
-        function updateInventoryTable(inventory) {
-            const tbody = document.getElementById('inventory-table');
-            tbody.innerHTML = '';
+        function showErrorState(message) {
+            const existingErrors = document.querySelectorAll('.error-message');
+            existingErrors.forEach(error => error.remove());
             
-            inventory.forEach(item => {
-                const row = document.createElement('tr');
-                const statusClass = item.status === 'Out of Stock' ? 'text-red-600' : 
-                                   item.status === 'Low Stock' ? 'text-yellow-600' : 'text-green-600';
-                
-                row.innerHTML = `
-                    <td class="px-4 py-4 text-sm text-gray-900">${item.product_name}</td>
-                    <td class="px-4 py-4 text-sm text-gray-900">${item.stock}</td>
-                    <td class="px-4 py-4 text-sm font-medium ${statusClass}">${item.status}</td>
-                `;
-                tbody.appendChild(row);
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error-message bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4';
+            errorDiv.innerHTML = `
+                <strong>Error:</strong> ${message || 'Failed to load data. Please try again.'}
+                <button onclick="loadDashboardData()" class="ml-4 bg-red-600 text-white px-2 py-1 rounded text-sm">Retry</button>
+            `;
+            document.querySelector('.main-content > div').prepend(errorDiv);
+            setTimeout(() => errorDiv.remove(), 5000);
+        }
+
+        function updateDashboard({
+            total_users = 0,
+            total_orders = 0,
+            total_revenue = 0,
+            total_products = 0,
+            pending_orders = 0,
+            completed_orders = 0,
+            cancelled_orders = 0,
+            avg_order_value = 0,
+            top_products = [],
+            top_categories = [],
+            recent_orders = [],
+            sales_data = [],
+            inventory_status = [],
+            coupon_usage = [],
+            monthly_revenue = []
+        }) {
+            updateStats({ total_users, total_orders, total_revenue, total_products, pending_orders, completed_orders, cancelled_orders, avg_order_value });
+            updateCharts({ top_products, top_categories, sales_data, monthly_revenue });
+            updateTables({ inventory_status, recent_orders, coupon_usage });
+        }
+
+        function updateStats(data) {
+            const formatNumber = (num) => num.toLocaleString();
+            const formatCurrency = (num) => `$${num.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+            document.getElementById('total-users').textContent = formatNumber(data.total_users);
+            document.getElementById('total-orders').textContent = formatNumber(data.total_orders);
+            document.getElementById('total-revenue').textContent = formatCurrency(data.total_revenue);
+            document.getElementById('total-products').textContent = formatNumber(data.total_products);
+            document.getElementById('pending-orders').textContent = formatNumber(data.pending_orders);
+            document.getElementById('completed-orders').textContent = formatNumber(data.completed_orders);
+            document.getElementById('cancelled-orders').textContent = formatNumber(data.cancelled_orders);
+            document.getElementById('avg-order-value').textContent = formatCurrency(data.avg_order_value);
+        }
+
+        function updateCharts({ top_products, top_categories, sales_data, monthly_revenue }) {
+            updateTopProductsChart(top_products);
+            updateTopCategoriesChart(top_categories);
+            updateSalesChart(sales_data);
+            updateRevenueChart(monthly_revenue);
+        }
+
+        function updateTables({ inventory_status, recent_orders, coupon_usage }) {
+            updateInventoryTable(inventory_status);
+            updateRecentOrdersTable(recent_orders);
+            updateCouponUsageTable(coupon_usage);
+        }
+
+        function createChart(ctx, type, data, options) {
+            if (charts[ctx.id] && typeof charts[ctx.id].destroy === 'function') {
+                charts[ctx.id].destroy();
+            }
+            if (!data.labels.length) {
+                const context = ctx.getContext('2d');
+                context.clearRect(0, 0, ctx.width, ctx.height);
+                context.font = '14px Arial';
+                context.fillText('No data available', 50, 50);
+                return;
+            }
+            charts[ctx.id] = new Chart(ctx, { type, data, options });
+        }
+
+        function updateTopProductsChart(products) {
+            const ctx = document.getElementById('topProductsChart');
+            if (!ctx) return;
+            createChart(ctx, 'bar', {
+                labels: products.map(p => p.product_name || 'Unknown'),
+                datasets: [{
+                    label: 'Units Sold',
+                    data: products.map(p => p.total_sold || 0),
+                    backgroundColor: 'rgba(59, 130, 246, 0.6)',
+                    borderColor: 'rgba(59, 130, 246, 1)',
+                    borderWidth: 1
+                }]
+            }, {
+                ...CHART_DEFAULTS,
+                scales: {
+                    y: { beginAtZero: true, title: { display: true, text: 'Units Sold' } },
+                    x: { title: { display: true, text: 'Product' }, ticks: { autoSkip: false, maxRotation: 45, minRotation: 45 } }
+                },
+                plugins: { ...CHART_DEFAULTS.plugins, tooltip: { callbacks: { label: ctx => `Units Sold: ${ctx.parsed.y}` } } }
             });
         }
 
-        // Update recent orders table
-        function updateRecentOrdersTable(orders) {
-            const tbody = document.getElementById('recent-orders-table');
-            tbody.innerHTML = '';
-            
-            orders.forEach(order => {
-                const row = document.createElement('tr');
-                const statusClass = order.status === 'delivered' ? 'text-green-600' : 
-                                   order.status === 'pending' ? 'text-yellow-600' : 
-                                   order.status === 'cancelled' ? 'text-red-600' : 'text-blue-600';
-                
-                row.innerHTML = `
-                    <td class="px-4 py-4 text-sm text-gray-900">${order.order_id }</td>
-                    <td class="px-4 py-4 text-sm text-gray-900">${order.user ? order.user.user_name : 'N/A'}</td>
-                    <td class="px-4 py-4 text-sm text-gray-900">${order.total_price.toFixed(2)}</td>
-                    <td class="px-4 py-4 text-sm font-medium ${statusClass}">${order.status}</td>
-                `;
-                tbody.appendChild(row);
+        function updateTopCategoriesChart(categories) {
+            const ctx = document.getElementById('topCategoriesChart');
+            if (!ctx) return;
+            createChart(ctx, 'bar', {
+                labels: categories.map(c => c.category_name || 'Unknown'),
+                datasets: [{
+                    label: 'Units Sold',
+                    data: categories.map(c => c.total_sold || 0),
+                    backgroundColor: 'rgba(34, 197, 94, 0.6)',
+                    borderColor: 'rgba(34, 197, 94, 1)',
+                    borderWidth: 1
+                }]
+            }, {
+                ...CHART_DEFAULTS,
+                scales: {
+                    y: { beginAtZero: true, title: { display: true, text: 'Units Sold' } },
+                    x: { title: { display: true, text: 'Category' }, ticks: { autoSkip: false, maxRotation: 45, minRotation: 45 } }
+                },
+                plugins: { ...CHART_DEFAULTS.plugins, tooltip: { callbacks: { label: ctx => `Units Sold: ${ctx.parsed.y}` } } }
             });
         }
 
-        // Update coupon usage table
-        function updateCouponUsageTable(coupons) {
-            const tbody = document.getElementById('coupon-usage-table');
-            tbody.innerHTML = '';
-            
-            coupons.forEach(coupon => {
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td class="px-4 py-4 text-sm text-gray-900">${coupon.coupon_code}</td>
-                    <td class="px-4 py-4 text-sm text-gray-900">${coupon.used_count}</td>
-                    <td class="px-4 py-4 text-sm text-gray-900">${coupon.total_discount.toFixed(2)}</td>
-                `;
-                tbody.appendChild(row);
-            });
-        }
-
-        // Update sales chart
         function updateSalesChart(salesData) {
-            const ctx = document.getElementById('salesChart').getContext('2d');
-            
-            if (salesChart) {
-                salesChart.destroy();
-            }
-            
-            salesChart = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: salesData.map(item => item.date),
-                    datasets: [{
-                        label: 'Sales',
-                        data: salesData.map(item => item.sales),
+            const ctx = document.getElementById('salesChart');
+            if (!ctx) return;
+            const labels = salesData.map((item, i) => item.date?.trim() || `Period ${i + 1}`);
+            createChart(ctx, 'line', {
+                labels,
+                datasets: [
+                    {
+                        label: 'Sales ($)',
+                        data: salesData.map(item => item.sales || 0),
                         borderColor: 'rgb(59, 130, 246)',
                         backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                        tension: 0.1,
-                        fill: true
-                    }, {
+                        tension: 0.4,
+                        fill: true,
+                        yAxisID: 'y'
+                    },
+                    {
                         label: 'Orders',
-                        data: salesData.map(item => item.orders),
-                        borderColor: 'rgb(16, 185, 129)',
-                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                        tension: 0.1,
+                        data: salesData.map(item => item.orders || 0),
+                        borderColor: 'rgb(34, 197, 94)',
+                        backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                        tension: 0.4,
+                        fill: true,
                         yAxisID: 'y1'
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        y: {
-                            type: 'linear',
-                            display: true,
-                            position: 'left',
-                            title: {
-                                display: true,
-                                text: 'Sales ($)'
-                            }
-                        },
-                        y1: {
-                            type: 'linear',
-                            display: true,
-                            position: 'right',
-                            title: {
-                                display: true,
-                                text: 'Orders'
-                            },
-                            grid: {
-                                drawOnChartArea: false,
-                            },
-                        }
-                    },
-                    plugins: {
-                        legend: {
-                            display: true,
-                            position: 'top'
-                        }
                     }
+                ]
+            }, {
+                ...CHART_DEFAULTS,
+                scales: {
+                    y: { beginAtZero: true, position: 'left', title: { display: true, text: 'Sales ($)' } },
+                    y1: { beginAtZero: true, position: 'right', title: { display: true, text: 'Orders' }, grid: { drawOnChartArea: false } }
+                },
+                plugins: {
+                    ...CHART_DEFAULTS.plugins,
+                    legend: { display: true, position: 'top' },
+                    tooltip: { callbacks: { label: ctx => ctx.dataset.label === 'Sales ($)' ? `Sales: $${ctx.parsed.y.toFixed(2)}` : `Orders: ${ctx.parsed.y}` } }
                 }
             });
         }
 
-        // Update revenue chart
         function updateRevenueChart(revenueData) {
-            const ctx = document.getElementById('revenueChart').getContext('2d');
-            
-            if (revenueChart) {
-                revenueChart.destroy();
-            }
-            
-            revenueChart = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: revenueData.map(item => item.month),
-                    datasets: [{
-                        label: 'Monthly Revenue',
-                        data: revenueData.map(item => item.revenue),
-                        backgroundColor: 'rgba(147, 51, 234, 0.8)',
-                        borderColor: 'rgba(147, 51, 234, 1)',
-                        borderWidth: 1
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            title: {
-                                display: true,
-                                text: 'Revenue ($)'
-                            }
-                        }
-                    },
-                    plugins: {
-                        legend: {
-                            display: false
-                        }
-                    }
-                }
+            const ctx = document.getElementById('revenueChart');
+            if (!ctx) return;
+            createChart(ctx, 'bar', {
+                labels: revenueData.map(item => item.month || 'Unknown'),
+                datasets: [{
+                    label: 'Monthly Revenue',
+                    data: revenueData.map(item => item.revenue || 0),
+                    backgroundColor: 'rgba(147, 51, 234, 0.8)',
+                    borderColor: 'rgba(147, 51, 234, 1)',
+                    borderWidth: 1
+                }]
+            }, {
+                ...CHART_DEFAULTS,
+                scales: { y: { beginAtZero: true, title: { display: true, text: 'Revenue ($)' } } }
             });
         }
 
-        // Filter data
-        function filterData(filter) {
-            currentFilter = filter;
-            
-            // Update button styles
+        function updateInventoryTable(inventory) {
+            const tbody = document.getElementById('inventory-table');
+            tbody.innerHTML = inventory.length ? inventory.map(item => `
+                <tr>
+                    <td class="px-4 py-4 text-sm text-gray-900">${item.product_name || 'Unknown'}</td>
+                    <td class="px-4 py-4 text-sm text-gray-900">${item.stock || 0}</td>
+                    <td class="px-4 py-4 text-sm font-medium ${item.status === 'Out of Stock' ? 'text-red-600' : item.status === 'Low Stock' ? 'text-yellow-600' : 'text-green-600'}">${item.status || 'Unknown'}</td>
+                </tr>
+            `).join('') : '<tr><td colspan="3" class="px-4 py-4 text-center text-gray-500">No inventory data</td></tr>';
+        }
+
+        function updateRecentOrdersTable(orders) {
+            const tbody = document.getElementById('recent-orders-table');
+            tbody.innerHTML = orders.length ? orders.map(order => {
+                const statusClass = order.status === 'Delivered' ? 'text-green-600' : order.status === 'Pending' ? 'text-yellow-600' : order.status === 'Cancelled' ? 'text-red-600' : 'text-blue-600';
+                return `
+                    <tr>
+                        <td class="px-4 py-4 text-sm text-gray-900">#${order.order_id || 'N/A'}</td>
+                        <td class="px-4 py-4 text-sm text-gray-900">${order.user?.user_name || order.user?.name || 'Guest'}</td>
+                        <td class="px-4 py-4 text-sm text-gray-900">$${order.total_price?.toFixed(2) || '0.00'}</td>
+                        <td class="px-4 py-4 text-sm font-medium ${statusClass} capitalize">${order.status || 'Pending'}</td>
+                    </tr>
+                `;
+            }).join('') : '<tr><td colspan="4" class="px-4 py-4 text-center text-gray-500">No recent orders</td></tr>';
+        }
+
+        function updateCouponUsageTable(coupons) {
+            const tbody = document.getElementById('coupon-usage-table');
+            tbody.innerHTML = coupons.length ? coupons.map(coupon => `
+                <tr>
+                    <td class="px-4 py-4 text-sm text-gray-900">${coupon.coupon_code || 'N/A'}</td>
+                    <td class="px-4 py-4 text-sm text-gray-900">${coupon.used_count || 0}</td>
+                    <td class="px-4 py-4 text-sm text-gray-900">$${coupon.total_discount?.toFixed(2) || '0.00'}</td>
+                </tr>
+            `).join('') : '<tr><td colspan="3" class="px-4 py-4 text-center text-gray-500">No coupon data</td></tr>';
+        }
+
+        function updateFilterButtons() {
             document.querySelectorAll('.filter-btn').forEach(btn => {
-                btn.classList.remove('bg-blue-600', 'text-white');
-                btn.classList.add('bg-gray-200', 'text-gray-700', 'hover:bg-gray-300');
+                btn.classList.toggle('bg-blue-600', btn.id === `${state.filter}-btn`);
+                btn.classList.toggle('text-white', btn.id === `${state.filter}-btn`);
+                btn.classList.toggle('bg-gray-200', btn.id !== `${state.filter}-btn`);
+                btn.classList.toggle('text-gray-700', btn.id !== `${state.filter}-btn`);
+                btn.classList.toggle('hover:bg-gray-300', btn.id !== `${state.filter}-btn`);
             });
-            
-            document.getElementById(filter + '-btn').classList.remove('bg-gray-200', 'text-gray-700', 'hover:bg-gray-300');
-            document.getElementById(filter + '-btn').classList.add('bg-blue-600', 'text-white');
-            
-            loadDashboardData();
         }
 
-        // Export data
+        function filterData(filter) {
+            state.filter = filter;
+            updateFilterButtons();
+            let url = `${API_BASE}/dashboard/data?filter=${filter}`;
+            if (filter === 'custom') {
+                const { value: startDate } = document.getElementById('start-date');
+                const { value: endDate } = document.getElementById('end-date');
+                if (!startDate || !endDate) {
+                    alert('Please select both start and end dates.');
+                    return;
+                }
+                state.startDate = startDate;
+                state.endDate = endDate;
+                url += `&start_date=${encodeURIComponent(startDate)}&end_date=${encodeURIComponent(endDate)}`;
+            } else if (filter === 'yearly') {
+                const end = new Date();
+                const start = new Date(end.getFullYear(), 0, 1);
+                state.startDate = start.toISOString().split('T')[0];
+                state.endDate = end.toISOString().split('T')[0];
+                url += `&start_date=${encodeURIComponent(state.startDate)}&end_date=${encodeURIComponent(state.endDate)}`;
+                document.getElementById('start-date').value = state.startDate;
+                document.getElementById('end-date').value = state.endDate;
+            } else {
+                state.startDate = state.endDate = '';
+                document.getElementById('start-date').value = '';
+                document.getElementById('end-date').value = '';
+            }
+            loadDashboardData(url);
+        }
+
         async function exportData(format) {
             try {
-                const response = await fetch(`/admin/dashboard/export?format=${format}&filter=${currentFilter}`);
-                
-                if (format === 'csv') {
-                    const blob = await response.blob();
-                    const url = window.URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.style.display = 'none';
-                    a.href = url;
-                    a.download = 'sales_report.csv';
-                    document.body.appendChild(a);
-                    a.click();
-                    window.URL.revokeObjectURL(url);
-                } else {
-                    const data = await response.json();
-                    console.log('Export data:', data);
+                let url = `${API_BASE}/dashboard/export?format=${format}&filter=${state.filter}`;
+                if (state.filter === 'custom' || state.filter === 'yearly') {
+                    url += `&start_date=${encodeURIComponent(state.startDate)}&end_date=${encodeURIComponent(state.endDate)}`;
                 }
+                const response = await fetch(url);
+                if (!response.ok) throw new Error(`Failed to export ${format.toUpperCase()}`);
+                const blob = await response.blob();
+                const link = document.createElement('a');
+                link.href = window.URL.createObjectURL(blob);
+                link.download = `sales_report_${state.filter}_${new Date().toISOString().split('T')[0]}.${format}`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                window.URL.revokeObjectURL(link.href);
             } catch (error) {
-                console.error('Error exporting data:', error);
-                alert('Error exporting data. Please try again.');
+                console.error(`Error exporting ${format}:`, error);
+                showErrorState(`Error exporting ${format.toUpperCase()}. Please try again.`);
             }
         }
 
-        // Logout admin
         async function logoutAdmin() {
             try {
-                const response = await fetch('/admin/logout', {
+                const response = await fetch(`${API_BASE}/logout`, {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    }
+                    headers: { 'Content-Type': 'application/json' }
                 });
-                
                 if (response.ok) {
-                    window.location.href = '/admin/login';
+                    window.location.href = `${API_BASE}/login`;
+                } else {
+                    throw new Error('Logout failed');
                 }
             } catch (error) {
                 console.error('Error logging out:', error);
+                showErrorState('Error logging out. Please try again.');
             }
         }
 
-        // Log admin action
         async function logAction(action, description, entityType = '', entityId = 0) {
             try {
-                await fetch('/admin/dashboard/log-action', {
+                await fetch(`${API_BASE}/dashboard/log-action`, {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        action: action,
-                        description: description,
-                        entity_type: entityType,
-                        entity_id: entityId
-                    })
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action, description, entity_type: entityType, entity_id: entityId })
                 });
             } catch (error) {
                 console.error('Error logging action:', error);
