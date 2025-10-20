@@ -12,6 +12,7 @@ type Product struct {
 	gorm.Model
 	ProductName   string     `gorm:"not null" json:"productName"`
 	Description   string     `gorm:"not null" json:"description"`
+	Brand         string     `json:"brand"`
 	Price         float64    `gorm:"not null" json:"price"`
 	OriginalPrice float64    `json:"originalPrice"`
 	CategoryName  string     `gorm:"not null" json:"categoryName"`

@@ -156,6 +156,39 @@
             0% { opacity: 0.5; }
             100% { opacity: 1; }
         }
+        .wishlist-btn {
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        .wishlist-btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        .wishlist-btn.in-wishlist {
+            color: #ef4444;
+        }
+        .wishlist-btn.in-wishlist i {
+            color: #ef4444;
+        }
+        .wishlist-indicator {
+            position: absolute;
+            top: -2px;
+            right: -2px;
+            width: 8px;
+            height: 8px;
+            background: #ef4444;
+            border-radius: 50%;
+            opacity: 0;
+            transform: scale(0);
+            transition: all 0.3s ease;
+            border: 2px solid white;
+            z-index: 1;
+        }
+        .wishlist-btn.in-wishlist .wishlist-indicator {
+            opacity: 1;
+            transform: scale(1);
+        }
     </style>
 </head>
 <body class="bg-gray-100 font-sans antialiased">
@@ -214,6 +247,14 @@
                 <!-- Product Info -->
                 <div class="space-y-4">
                     <h1 class="text-2xl font-bold text-gray-900">{{ .Product.ProductName }}</h1>
+                    
+                    <!-- Brand Display -->
+                    {{ if .Product.Brand }}
+                    <div class="flex items-center text-sm text-gray-600">
+                        <i class="fas fa-tag mr-2 text-indigo-500"></i>
+                        <span>Brand: <strong class="text-gray-800">{{ .Product.Brand }}</strong></span>
+                    </div>
+                    {{ end }}
 
                     <!-- Price and Offer Display -->
                     <div class="price-tag">
@@ -281,8 +322,10 @@
                             Add to Cart
                         </button>
                         <button id="add-to-wishlist" data-product-id="{{ .Product.ID }}"
-                            class="bg-gray-200 text-gray-700 p-2 rounded-md hover:bg-gray-300 focus:ring-2 focus:ring-gray-400">
-                            <i class="far fa-heart"></i>
+                            class="wishlist-btn bg-gray-200 text-gray-700 p-2 rounded-md hover:bg-gray-300 focus:ring-2 focus:ring-gray-400 relative {{if .Product.IsInWishlist}}in-wishlist{{end}}"
+                            {{if .Product.IsInWishlist}}title="Remove from Wishlist"{{else}}title="Add to Wishlist"{{end}}>
+                            <i class="{{if .Product.IsInWishlist}}fas{{else}}far{{end}} fa-heart wishlist-icon"></i>
+                            <div class="wishlist-indicator"></div>
                         </button>
                     </div>
 
@@ -304,65 +347,72 @@
                     {{ end }}
                 </div>
             </div>
-        </section>
+        </div>
+    </section>
 
-        <!-- Related Products Section -->
-        <section class="py-8 bg-gray-50">
-            <div class="container mx-auto px-4">
-                <h2 class="text-xl font-bold text-gray-900 text-center mb-8">Related Products</h2>
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                    {{ range .RelatedProducts }}
-                    <div class="bg-white rounded-lg shadow-md hover:shadow-lg transition-all group relative">
-                        {{ if gt (len .Images) 0 }}
-                        <img src="{{ index .Images 0 }}" alt="{{ .ProductName }}"
-                            class="w-full h-48 object-cover group-hover:scale-105 transition-transform rounded-t-lg">
-                        {{ else }}
-                        <img src="/static/default-product.jpg" alt="{{ .ProductName }}"
-                            class="w-full h-48 object-cover group-hover:scale-105 transition-transform rounded-t-lg">
-                        {{ end }}
-                        {{ if .IsOffer }}
-                        <div class="absolute top-3 left-3">
-                            <div class="discount-pill bg-gradient-to-r from-green-500 to-emerald-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-md">
-                                {{ .DiscountPercentage }}% OFF
-                            </div>
-                        </div>
-                        {{ end }}
-                        <div class="p-3">
-                            <a href="/product/details/{{ .ID }}"
-                                class="block text-gray-900 font-semibold hover:text-indigo-600">{{ .ProductName }}</a>
-                            <div class="flex justify-between items-center mt-2">
-                                <div>
-                                    <span class="text-lg font-bold text-indigo-600">₹{{ printf "%.2f" .OfferPrice }}</span>
-                                    {{ if .IsOffer }}
-                                    <span class="line-through text-gray-400 text-sm ml-2">₹{{ printf "%.2f" .OriginalPrice }}</span>
-                                    <span class="offer-badge bg-red-100 text-red-600 text-xs font-semibold px-2 py-1 rounded-md ml-2">
-                                        Save ₹{{ printf "%.2f" (sub .OriginalPrice .OfferPrice) }}
-                                    </span>
-                                    {{ end }}
-                                </div>
-                                {{ if .IsOffer }}
-                                <div class="mt-1 text-indigo-600 text-xs offer-timer"
-                                     {{ if not .OfferEndTime.IsZero }}data-end-time="{{ .OfferEndTime.Format "2006-01-02T15:04:05Z07:00" }}"{{ end }}>
-                                    {{ if .OfferEndTime.IsZero }}
-                                    <i class="far fa-clock mr-1"></i>Limited time offer
-                                    {{ else }}
-                                    <span class="countdown-wrapper"><i class="far fa-clock mr-2"></i>Loading...</span>
-                                    {{ end }}
-                                </div>
-                                {{ end }}
-                                <button class="text-gray-500 hover:text-red-500 wishlist-btn"
-                                    data-product-id="{{ .ID }}">
-                                    <i class="far fa-heart"></i>
-                                </button>
-                            </div>
+    <!-- Related Products Section -->
+    <section class="py-8 bg-gray-50">
+        <div class="container mx-auto px-4">
+            <h2 class="text-xl font-bold text-gray-900 text-center mb-8">Related Products</h2>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {{ range .RelatedProducts }}
+                <div class="bg-white rounded-lg shadow-md hover:shadow-lg transition-all group relative">
+                    {{ if gt (len .Images) 0 }}
+                    <img src="{{ index .Images 0 }}" alt="{{ .ProductName }}"
+                        class="w-full h-48 object-cover group-hover:scale-105 transition-transform rounded-t-lg">
+                    {{ else }}
+                    <img src="/static/default-product.jpg" alt="{{ .ProductName }}"
+                        class="w-full h-48 object-cover group-hover:scale-105 transition-transform rounded-t-lg">
+                    {{ end }}
+                    {{ if .IsOffer }}
+                    <div class="absolute top-3 left-3">
+                        <div class="discount-pill bg-gradient-to-r from-green-500 to-emerald-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-md">
+                            {{ .DiscountPercentage }}% OFF
                         </div>
                     </div>
-                    {{ else }}
-                    <p class="text-center text-gray-600 col-span-full">No related products available.</p>
                     {{ end }}
+                    <div class="p-3">
+                        <a href="/product/details/{{ .ID }}"
+                            class="block text-gray-900 font-semibold hover:text-indigo-600">{{ .ProductName }}</a>
+                        {{ if .Brand }}
+                        <p class="text-xs text-gray-500 mb-2">{{ .Brand }}</p>
+                        {{ end }}
+                        <div class="flex justify-between items-center mt-2">
+                            <div>
+                                {{ if .IsOffer }}
+                                <span class="text-lg font-bold text-red-600">₹{{ printf "%.2f" .OfferPrice }}</span>
+                                <span class="line-through text-gray-400 text-sm ml-2">₹{{ printf "%.2f" .OriginalPrice }}</span>
+                                <span class="offer-badge bg-red-100 text-red-600 text-xs font-semibold px-2 py-1 rounded-md ml-2">
+                                    Save ₹{{ printf "%.2f" (sub .OriginalPrice .OfferPrice) }}
+                                </span>
+                                {{ else }}
+                                <span class="text-lg font-bold text-indigo-600">₹{{ printf "%.2f" .OfferPrice }}</span>
+                                {{ end }}
+                            </div>
+                            {{ if .IsOffer }}
+                            <div class="mt-1 text-indigo-600 text-xs offer-timer"
+                                 {{ if not .OfferEndTime.IsZero }}data-end-time="{{ .OfferEndTime.Format "2006-01-02T15:04:05Z07:00" }}"{{ end }}>
+                                {{ if .OfferEndTime.IsZero }}
+                                <i class="far fa-clock mr-1"></i>Limited time offer
+                                {{ else }}
+                                <span class="countdown-wrapper"><i class="far fa-clock mr-2"></i>Loading...</span>
+                                {{ end }}
+                            </div>
+                            {{ end }}
+                            <button class="wishlist-btn text-gray-500 hover:text-red-500 relative {{if .IsInWishlist}}in-wishlist{{end}}"
+                                data-product-id="{{ .ID }}" title="{{if .IsInWishlist}}Remove from Wishlist{{else}}Add to Wishlist{{end}}">
+                                <i class="{{if .IsInWishlist}}fas{{else}}far{{end}} fa-heart wishlist-icon"></i>
+                                <div class="wishlist-indicator"></div>
+                            </button>
+                        </div>
+                    </div>
                 </div>
+                {{ else }}
+                <p class="text-center text-gray-600 col-span-full">No related products available.</p>
+                {{ end }}
             </div>
-        </section>
+        </div>
+    </section>
 
     <!-- JavaScript -->
     <script>
@@ -383,13 +433,99 @@
 
             let selectedVariant = null;
 
+            // Enhanced wishlist toggle function
+            async function toggleWishlist(productId, button) {
+                const variantId = document.querySelector('.variant-btn.active')?.getAttribute('data-variant-id');
+                
+                try {
+                    const response = await fetch(`/wishlist/add/${productId}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ variant_id: variantId }),
+                        credentials: 'include'
+                    });
+                    
+                    const data = await response.json();
+                    
+                    const isInWishlist = data.status === 'ADDED' || data.status === 'OK' || data.status === 'success' || data.status === 'REMOVED';
+                    
+                    // Update all buttons for this product
+                    document.querySelectorAll(`button[data-product-id="${productId}"]`).forEach(btn => {
+                        // Check if the button has the necessary elements before updating
+                        const icon = btn.querySelector('.wishlist-icon');
+                        const indicator = btn.querySelector('.wishlist-indicator');
+                        
+                        // Only update if icon exists (skip buttons without wishlist functionality)
+                        if (icon) {
+                            if (isInWishlist) {
+                                btn.classList.add('in-wishlist');
+                                icon.className = 'fas fa-heart wishlist-icon';
+                                btn.title = 'Remove from Wishlist';
+                                if (indicator) {
+                                    indicator.style.opacity = '1';
+                                    indicator.style.transform = 'scale(1)';
+                                }
+                            } else {
+                                btn.classList.remove('in-wishlist');
+                                icon.className = 'far fa-heart wishlist-icon';
+                                btn.title = 'Add to Wishlist';
+                                if (indicator) {
+                                    indicator.style.opacity = '0';
+                                    indicator.style.transform = 'scale(0)';
+                                }
+                            }
+                        }
+                    });
+                    
+                    const message = isInWishlist ? 'Added to Wishlist!' : 'Removed from Wishlist';
+                    Swal.fire({
+                        title: message,
+                        icon: isInWishlist ? 'success' : 'info',
+                        timer: 1500,
+                        showConfirmButton: false,
+                        toast: true,
+                        position: 'top-end'
+                    });
+                    
+                } catch (error) {
+                    console.error('Wishlist error:', error);
+                    Swal.fire({
+                        title: 'Error',
+                        text: 'Failed to update wishlist',
+                        icon: 'error',
+                        timer: 2000
+                    });
+                }
+            }
+
+            // Initialize wishlist buttons with click handlers
+            const mainWishlistBtn = document.getElementById('add-to-wishlist');
+            if (mainWishlistBtn && mainWishlistBtn.querySelector('.wishlist-icon')) {
+                mainWishlistBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const productId = e.currentTarget.getAttribute('data-product-id');
+                    toggleWishlist(productId, e.currentTarget);
+                });
+            }
+
+            document.querySelectorAll('.wishlist-btn').forEach(btn => {
+                if (btn.querySelector('.wishlist-icon')) {
+                    btn.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        const productId = btn.getAttribute('data-product-id');
+                        toggleWishlist(productId, btn);
+                    });
+                }
+            });
+
             // Updated updatePriceDisplay to avoid double-adding extraPrice for offers
             function updatePriceDisplay(offerPrice, originalPrice, isOffer, extraPrice) {
                 let newPrice;
                 if (isOffer) {
-                    // Use backend-provided offerPrice and originalPrice directly
                     newPrice = offerPrice;
-                    currentPriceEl.textContent = `₹${newPrice.toFixed(2)}`;
+                    if (currentPriceEl) {
+                        currentPriceEl.textContent = `₹${newPrice.toFixed(2)}`;
+                    }
                     const originalPriceEl = document.querySelector('.line-through');
                     if (originalPriceEl) {
                         originalPriceEl.textContent = `₹${originalPrice.toFixed(2)}`;
@@ -400,9 +536,10 @@
                         savingsEl.textContent = `Save ₹${savings.toFixed(2)}`;
                     }
                 } else {
-                    // For non-offer products, add extraPrice to base price
                     newPrice = parseFloat({{ .Product.Price }}) + extraPrice;
-                    currentPriceEl.textContent = `₹${newPrice.toFixed(2)}`;
+                    if (currentPriceEl) {
+                        currentPriceEl.textContent = `₹${newPrice.toFixed(2)}`;
+                    }
                 }
                 console.log(`Price updated - OfferPrice: ₹${offerPrice}, OriginalPrice: ₹${originalPrice}, IsOffer: ${isOffer}, ExtraPrice: ₹${extraPrice}, Final: ₹${newPrice}`);
             }
@@ -484,40 +621,6 @@
                 updateTimer();
             });
 
-            // Add to wishlist
-            function addToWishlist(productId) {
-                const variantId = document.querySelector(`button[data-product-id="${productId}"]`).classList.contains('wishlist-btn')
-                    ? null : document.querySelector('.variant-btn.active')?.getAttribute('data-variant-id');
-                fetch(`/wishlist/add/${productId}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ variant_id: variantId }),
-                    credentials: 'include'
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.status === 'OK' || data.status === 'success') {
-                        document.querySelectorAll(`button[data-product-id="${productId}"]`).forEach(btn => 
-                            btn.innerHTML = '<i class="fas fa-heart text-red-500"></i>');
-                        Swal.fire({ title: "Added to Wishlist!", text: data.message || "Product added", icon: "success", timer: 1500 });
-                    } else if (data.status === 'REMOVED') {
-                        document.querySelectorAll(`button[data-product-id="${productId}"]`).forEach(btn => 
-                            btn.innerHTML = '<i class="far fa-heart"></i>');
-                        Swal.fire({ title: "Removed from Wishlist", text: data.message || "Product removed", icon: "info", timer: 1500 });
-                    } else {
-                        Swal.fire({ title: data.title || "Note", text: data.message || data.error, icon: data.icon || "info", timer: 2000 });
-                        if (data.redirect) setTimeout(() => window.location.href = data.redirect, 2000);
-                    }
-                })
-                .catch(() => Swal.fire({ title: "Error", text: "Failed to update wishlist", icon: "error", timer: 2000 }));
-            }
-
-            // Initialize wishlist buttons
-            document.getElementById('add-to-wishlist')?.addEventListener('click', () => 
-                addToWishlist(document.getElementById('add-to-wishlist').getAttribute('data-product-id')));
-            document.querySelectorAll('.wishlist-btn').forEach(btn => 
-                btn.addEventListener('click', () => addToWishlist(btn.getAttribute('data-product-id'))));
-
             // Image zoom
             if (mainImage && zoomedImage && zoomBox && imgZoomContainer) {
                 const zoomRatio = 2.5;
@@ -554,29 +657,39 @@
 
             // Update stock display
             function updateStockDisplay(stock) {
-                stockQuantityEl.textContent = stock;
+                if (stockQuantityEl) stockQuantityEl.textContent = stock;
                 if (stock > 0) {
-                    availabilityEl.innerHTML = `In Stock (<span id="stock-quantity">${stock}</span>)`;
-                    availabilityEl.classList.remove('text-red-600');
-                    availabilityEl.classList.add('text-green-600');
-                    addToCartBtn.disabled = false;
-                    addToCartBtn.classList.remove('bg-gray-400', 'cursor-not-allowed');
-                    addToCartBtn.classList.add('bg-indigo-600', 'hover:bg-indigo-700');
-                    btnQuantityUp.disabled = false;
-                    btnQuantityDown.disabled = false;
-                    quantityInput.disabled = false;
-                    quantityInput.max = stock;
-                    if (parseInt(quantityInput.value) > stock) quantityInput.value = stock;
+                    if (availabilityEl) {
+                        availabilityEl.innerHTML = `In Stock (<span id="stock-quantity">${stock}</span>)`;
+                        availabilityEl.classList.remove('text-red-600');
+                        availabilityEl.classList.add('text-green-600');
+                    }
+                    if (addToCartBtn) {
+                        addToCartBtn.disabled = false;
+                        addToCartBtn.classList.remove('bg-gray-400', 'cursor-not-allowed');
+                        addToCartBtn.classList.add('bg-indigo-600', 'hover:bg-indigo-700');
+                    }
+                    if (btnQuantityUp) btnQuantityUp.disabled = false;
+                    if (btnQuantityDown) btnQuantityDown.disabled = false;
+                    if (quantityInput) {
+                        quantityInput.disabled = false;
+                        quantityInput.max = stock;
+                        if (parseInt(quantityInput.value) > stock) quantityInput.value = stock;
+                    }
                 } else {
-                    availabilityEl.innerHTML = 'Out of Stock';
-                    availabilityEl.classList.remove('text-green-600');
-                    availabilityEl.classList.add('text-red-600');
-                    addToCartBtn.disabled = true;
-                    addToCartBtn.classList.add('bg-gray-400', 'cursor-not-allowed');
-                    addToCartBtn.classList.remove('bg-indigo-600', 'hover:bg-indigo-700');
-                    btnQuantityUp.disabled = true;
-                    btnQuantityDown.disabled = true;
-                    quantityInput.disabled = true;
+                    if (availabilityEl) {
+                        availabilityEl.innerHTML = 'Out of Stock';
+                        availabilityEl.classList.remove('text-green-600');
+                        availabilityEl.classList.add('text-red-600');
+                    }
+                    if (addToCartBtn) {
+                        addToCartBtn.disabled = true;
+                        addToCartBtn.classList.add('bg-gray-400', 'cursor-not-allowed');
+                        addToCartBtn.classList.remove('bg-indigo-600', 'hover:bg-indigo-700');
+                    }
+                    if (btnQuantityUp) btnQuantityUp.disabled = true;
+                    if (btnQuantityDown) btnQuantityDown.disabled = true;
+                    if (quantityInput) quantityInput.disabled = true;
                 }
             }
 
@@ -605,60 +718,76 @@
                 });
                 variantButtons[0].click(); // Auto-select first variant
             } else {
-                addToCartBtn.disabled = true;
-                addToCartBtn.classList.add('bg-gray-400', 'cursor-not-allowed');
+                if (addToCartBtn) {
+                    addToCartBtn.disabled = true;
+                    addToCartBtn.classList.add('bg-gray-400', 'cursor-not-allowed');
+                }
                 updateStockDisplay(0);
             }
 
             // Quantity controls
-            btnQuantityUp.addEventListener('click', () => {
-                if (!selectedVariant) return;
-                let value = parseInt(quantityInput.value, 10);
-                if (value < selectedVariant.stock) quantityInput.value = value + 1;
-                else Swal.fire({ title: "Out Of Stock", text: "Can't Add Item Quantity.", icon: "info", timer: 2000 });
-            });
-            btnQuantityDown.addEventListener('click', () => {
-                if (!selectedVariant) return;
-                let value = parseInt(quantityInput.value, 10);
-                if (value > 1) quantityInput.value = value - 1;
-            });
-            quantityInput.addEventListener('input', () => {
-                if (!selectedVariant) return;
-                let value = parseInt(quantityInput.value, 10);
-                if (isNaN(value) || value < 1) quantityInput.value = 1;
-                else if (value > selectedVariant.stock) {
-                    quantityInput.value = selectedVariant.stock;
-                    Swal.fire({ title: "Max Quantity", text: "Cannot add more than stock.", icon: "info", timer: 2000 });
-                }
-            });
+            if (btnQuantityUp) {
+                btnQuantityUp.addEventListener('click', () => {
+                    if (!selectedVariant) return;
+                    let value = parseInt(quantityInput.value, 10);
+                    if (value < selectedVariant.stock) {
+                        quantityInput.value = value + 1;
+                    } else {
+                        Swal.fire({ title: "Out Of Stock", text: "Can't Add Item Quantity.", icon: "info", timer: 2000 });
+                    }
+                });
+            }
+            
+            if (btnQuantityDown) {
+                btnQuantityDown.addEventListener('click', () => {
+                    if (!selectedVariant) return;
+                    let value = parseInt(quantityInput.value, 10);
+                    if (value > 1) quantityInput.value = value - 1;
+                });
+            }
+            
+            if (quantityInput) {
+                quantityInput.addEventListener('input', () => {
+                    if (!selectedVariant) return;
+                    let value = parseInt(quantityInput.value, 10);
+                    if (isNaN(value) || value < 1) {
+                        quantityInput.value = 1;
+                    } else if (value > selectedVariant.stock) {
+                        quantityInput.value = selectedVariant.stock;
+                        Swal.fire({ title: "Max Quantity", text: "Cannot add more than stock.", icon: "info", timer: 2000 });
+                    }
+                });
+            }
 
             // Add to cart
-            addToCartBtn.addEventListener('click', async () => {
-                if (!selectedVariant) {
-                    Swal.fire({ title: "Select a Variant", text: "Please select a variant.", icon: "warning", timer: 2000 });
-                    return;
-                }
-                const productId = parseInt(addToCartBtn.getAttribute('data-product-id'), 10);
-                const quantity = parseInt(quantityInput.value, 10);
-                const variantId = selectedVariant.id;
-                try {
-                    const response = await fetch('/cart/add', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ product_id: productId, quantity, variant_id: variantId }),
-                        credentials: 'include'
-                    });
-                    const data = await response.json();
-                    if (response.ok) {
-                        Swal.fire({ title: "Added to Cart", text: data.message || "Item added", icon: "success", timer: 1500 });
-                    } else {
-                        Swal.fire({ title: "Error", text: data.error || "Failed to add to cart", icon: "error", timer: 2000 });
-                        if (data.redirect) setTimeout(() => window.location.href = data.redirect, 2000);
+            if (addToCartBtn) {
+                addToCartBtn.addEventListener('click', async () => {
+                    if (!selectedVariant) {
+                        Swal.fire({ title: "Select a Variant", text: "Please select a variant.", icon: "warning", timer: 2000 });
+                        return;
                     }
-                } catch {
-                    Swal.fire({ title: "Error", text: "Failed to add to cart.", icon: "error", timer: 2000 });
-                }
-            });
+                    const productId = parseInt(addToCartBtn.getAttribute('data-product-id'), 10);
+                    const quantity = parseInt(quantityInput.value, 10);
+                    const variantId = selectedVariant.id;
+                    try {
+                        const response = await fetch('/cart/add', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ product_id: productId, quantity, variant_id: variantId }),
+                            credentials: 'include'
+                        });
+                        const data = await response.json();
+                        if (response.ok) {
+                            Swal.fire({ title: "Added to Cart", text: data.message || "Item added", icon: "success", timer: 1500 });
+                        } else {
+                            Swal.fire({ title: "Error", text: data.error || "Failed to add to cart", icon: "error", timer: 2000 });
+                            if (data.redirect) setTimeout(() => window.location.href = data.redirect, 2000);
+                        }
+                    } catch {
+                        Swal.fire({ title: "Error", text: "Failed to add to cart.", icon: "error", timer: 2000 });
+                    }
+                });
+            }
         });
     </script>
 </body>

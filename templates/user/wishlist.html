@@ -45,7 +45,7 @@
             <tbody class="bg-white divide-y divide-gray-200">
               {{range .Wishlist}}
                 {{$product := .Product}}
-                <tr>
+                <tr id="wishlist-item-{{.ID}}">
                   <td class="px-6 py-4 whitespace-nowrap">
                     <div class="flex items-center">
                       <a href="/product/details/{{.Product.ID}}" class="h-16 w-16 flex-shrink-0">
@@ -100,7 +100,7 @@
                           <i class="fas fa-cart-plus"></i>
                         </button>
                       {{end}}
-                      <button onclick="removeFromWishlist('{{.ID}}')" class="text-red-600 hover:text-red-900 transition-colors" title="Remove from Wishlist">
+                      <button onclick="removeFromWishlist('{{.Product.ID}}')" class="text-red-600 hover:text-red-900 transition-colors" title="Remove from Wishlist">
                         <i class="fas fa-trash"></i>
                       </button>
                     </div>
@@ -154,12 +154,12 @@
           method: 'POST',
           headers: { 
             'Content-Type': 'application/json',
-            'X-CSRF-Token': '{{.CSRFToken}}' // Add CSRF token if needed
+            'Accept': 'application/json'
           },
           credentials: 'include',
           body: JSON.stringify({
-            product_id: parseInt(productId),
-            variant_id: parseInt(variantId)
+            product_id: parseInt(productId, 10),
+            variant_id: parseInt(variantId, 10)
           })
         });
         
@@ -183,7 +183,7 @@
           console.error('Failed to fetch variant price:', data.error);
           // Revert to original price display
           priceContainer.innerHTML = `
-            <div class="text-sm font-semibold text-indigo-600">$${data.original_price.toFixed(2)}</div>
+            <div class="text-sm font-semibold text-indigo-600">Error loading price</div>
           `;
         }
       } catch (error) {
@@ -196,87 +196,130 @@
       }
     }
 
+    // Fixed add to cart function with proper type conversion
     async function addToCart(wishlistId) {
       try {
         const variantSelect = document.getElementById(`variant-${wishlistId}`);
-        const variantId = variantSelect.value;
+        const variantId = variantSelect ? variantSelect.value : null;
         
         if (!variantId) {
           Swal.fire('Error', 'Please select a variant', 'error');
           return;
         }
 
+        const payload = {
+          wishlist_id: parseInt(wishlistId, 10),
+          variant_id: parseInt(variantId, 10),
+          quantity: 1
+        };
+
+        console.log('Adding to cart from wishlist:', payload);
+
         const response = await fetch('/cart/add', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
           credentials: 'include',
-          body: JSON.stringify({
-            wishlist_id: parseInt(wishlistId),
-            variant_id: parseInt(variantId),
-            quantity: 1
-          })
+          body: JSON.stringify(payload)
         });
         
         const data = await response.json();
+        
         if (response.ok) {
           Swal.fire({
             icon: 'success',
             title: 'Added to Cart!',
-            text: 'Product has been added to your cart.',
+            text: data.message || 'Product has been added to your cart.',
             timer: 1500,
-            showConfirmButton: false
+            showConfirmButton: false,
+            toast: true,
+            position: 'top-end'
           }).then(() => {
             window.location.reload();
           });
         } else {
-          Swal.fire('Error', data.error || 'Failed to add to cart', 'error');
+          let errorMessage = data.error || 'Failed to add to cart';
+          
+          // Map specific backend errors to user-friendly messages
+          const errorMessages = {
+            'Wishlist item not found': 'This item is no longer in your wishlist.',
+            'Invalid or missing variant': 'Please select a valid variant.',
+            'Not enough stock available': 'Not enough stock available.',
+            'Quantity limit exceeded': 'You have reached the maximum quantity for this product.',
+            'Product is not available': 'This product is currently unavailable.'
+          };
+          
+          errorMessage = errorMessages[data.error] || errorMessage;
+          Swal.fire('Error', errorMessage, 'error');
         }
       } catch (error) {
-        console.error(error);
-        Swal.fire('Error', 'Something went wrong', 'error');
+        console.error('Add to cart error:', error);
+        Swal.fire('Error', 'Network error. Please try again.', 'error');
       }
     }
 
-    async function removeFromWishlist(wishlistId) {
+    // Fixed remove from wishlist function - using the same pattern as home/shop pages
+    async function removeFromWishlist(productId) {
       try {
-        const response = await fetch(`/wishlist/remove/${wishlistId}`, {
-          method: 'DELETE',
-          headers: { 'Content-Type': 'application/json' },
+        console.log('Removing from wishlist, productId:', productId);
+
+        // Use the same endpoint pattern as the home/shop pages (/wishlist/add/{productId})
+        // This will toggle the item (remove it if it exists)
+        const response = await fetch(`/wishlist/add/${productId}`, {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
           credentials: 'include'
         });
         
         if (response.ok) {
+          const data = await response.json();
+          console.log('Wishlist toggle response:', data);
+          
+          // Show success message
           Swal.fire({
             icon: 'success',
             title: 'Removed!',
             text: 'Product has been removed from your wishlist.',
             timer: 1500,
-            showConfirmButton: false
+            showConfirmButton: false,
+            toast: true,
+            position: 'top-end'
           }).then(() => {
             window.location.reload();
           });
         } else {
           const data = await response.json();
+          console.error('Failed to remove from wishlist:', data);
           Swal.fire('Error', data.error || 'Failed to remove from wishlist', 'error');
         }
       } catch (error) {
         console.error("Error removing from wishlist:", error);
-        Swal.fire('Error', 'Something went wrong', 'error');
+        Swal.fire('Error', 'Network error. Please try again.', 'error');
       }
     }
 
+    // Fixed add all to cart function
     async function addAllToCart() {
       try {
         const response = await fetch('/wishlist/add-all-to-cart', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
           credentials: 'include'
         });
         
         const data = await response.json();
+        
         if (response.ok) {
-          let message = `Added ${data.added_count} items to your cart.`;
-          if (data.failed_count > 0) {
+          let message = `Added ${data.added_count || 0} items to your cart.`;
+          if (data.failed_count && data.failed_count > 0) {
             message += ` ${data.failed_count} items could not be added.`;
           }
           
@@ -284,7 +327,8 @@
             icon: 'success',
             title: 'Items Added!',
             html: message,
-            confirmButtonText: 'View Cart'
+            confirmButtonText: 'View Cart',
+            showCancelButton: true,
           }).then((result) => {
             if (result.isConfirmed) {
               window.location.href = '/cart';
@@ -297,9 +341,18 @@
         }
       } catch (error) {
         console.error("Error adding all to cart:", error);
-        Swal.fire('Error', 'Something went wrong', 'error');
+        Swal.fire('Error', 'Network error. Please try again.', 'error');
       }
     }
+
+    // Initialize page
+    document.addEventListener('DOMContentLoaded', function() {
+      console.log('Wishlist page loaded');
+      
+      // Log all wishlist items for debugging
+      const wishlistItems = document.querySelectorAll('[id^="wishlist-item-"]');
+      console.log(`Found ${wishlistItems.length} wishlist items`);
+    });
   </script>
 </body>
 </html>

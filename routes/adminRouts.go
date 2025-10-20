@@ -9,11 +9,11 @@ import (
 func AdminRoutes(c *gin.Engine) {
 	adminGroup := c.Group("/admin")
 	{
-		adminGroup.GET("/login", controllers.ShowLoginPage)
-		adminGroup.POST("/login", controllers.AdminLogin)
+		adminGroup.GET("/login", controllers.ShowLoginPage,middleware.ClearCache())
+		adminGroup.POST("/login", controllers.AdminLogin,middleware.ClearCache())
 
 		protected := adminGroup.Group("")
-		protected.Use(middleware.Authenticate("jwtTokensAdmin", "Admin", "/admin/login"), middleware.ClearCache())
+		protected.Use( middleware.ClearCache(),middleware.Authenticate("jwtTokensAdmin", "Admin", "/admin/login"))
 		{
 			//user-management route
 			protected.GET("/user-management", controllers.GetUsers)

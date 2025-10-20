@@ -1,11 +1,9 @@
 package controllers
 
 import (
-	"encoding/csv"
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/Sojil8/eCommerce-silver/database"
@@ -13,27 +11,22 @@ import (
 	"github.com/Sojil8/eCommerce-silver/models/userModels"
 	"github.com/Sojil8/eCommerce-silver/utils/helper"
 	"github.com/gin-gonic/gin"
-	"github.com/johnfercher/maroto/v2"
-	"github.com/johnfercher/maroto/v2/pkg/components/row"
-	"github.com/johnfercher/maroto/v2/pkg/components/text"
-	"github.com/johnfercher/maroto/v2/pkg/config"
-	"github.com/johnfercher/maroto/v2/pkg/consts/align"
-	"github.com/johnfercher/maroto/v2/pkg/consts/fontstyle"
-	"github.com/johnfercher/maroto/v2/pkg/props"
 	"gorm.io/gorm"
 )
 
 type DashboardData struct {
-	TotalUsers       int64                   `json:"total_users"`
-	TotalOrders      int64                   `json:"total_orders"`
-	TotalRevenue     float64                 `json:"total_revenue"`
-	TotalProducts    int64                   `json:"total_products"`
-	ActiveCoupons    int64                   `json:"active_coupons"`
-	PendingOrders    int64                   `json:"pending_orders"`
-	CompletedOrders  int64                   `json:"completed_orders"`
-	CancelledOrders  int64                   `json:"cancelled_orders"`
-	AvgOrderValue    float64                 `json:"avg_order_value"`
+	TotalUsers      int64   `json:"total_users"`
+	TotalOrders     int64   `json:"total_orders"`
+	TotalRevenue    float64 `json:"total_revenue"`
+	TotalProducts   int64   `json:"total_products"`
+	ActiveCoupons   int64   `json:"active_coupons"`
+	PendingOrders   int64   `json:"pending_orders"`
+	CompletedOrders int64   `json:"completed_orders"`
+	CancelledOrders int64   `json:"cancelled_orders"`
+	// Remove AvgOrderValue and replace with:
+	TotalDiscount    float64                 `json:"total_discount"` // New field for overall discount
 	TopProducts      []TopProduct            `json:"top_products"`
+	TopBrands        []TopBrand              `json:"top_brands"`
 	TopCategories    []TopCategory           `json:"top_categories"`
 	RecentOrders     []userModels.Orders     `json:"recent_orders"`
 	SalesData        []SalesDataPoint        `json:"sales_data"`
@@ -48,6 +41,12 @@ type TopProduct struct {
 	TotalSold    int64   `json:"total_sold"`
 	Revenue      float64 `json:"revenue"`
 	CategoryName string  `json:"category_name"`
+}
+
+type TopBrand struct {
+	BrandName string  `json:"brand_name"`
+	TotalSold int64   `json:"total_sold"`
+	Revenue   float64 `json:"revenue"`
 }
 
 type TopCategory struct {
@@ -115,22 +114,20 @@ func ShowDashboard(c *gin.Context) {
 			endDate = endDate.AddDate(0, 0, 1)
 		}
 	} else {
-		// New: Compute default range based on filter
-		useCustomRange = true // Now always true for filters
+		useCustomRange = true
 		now := time.Now()
-		endDate = now.AddDate(0, 0, 1) // Tomorrow to include today
+		endDate = now.AddDate(0, 0, 1)
 		switch filter {
 		case "daily":
-			startDate = now.AddDate(0, 0, -7) // Last 7 days
+			startDate = now.AddDate(0, 0, -7)
 		case "weekly":
-			startDate = now.AddDate(0, 0, -28) // Last 4 weeks
+			startDate = now.AddDate(0, 0, -28)
 		case "monthly":
-			startDate = now.AddDate(-12, 0, 0) // Last 12 months
+			startDate = now.AddDate(0, -12, 0)
 		case "yearly":
-			startDate = time.Date(now.Year(), 1, 1, 0, 0, 0, 0, now.Location()) // Jan 1 of current year
+			startDate = time.Date(now.Year(), 1, 1, 0, 0, 0, 0, now.Location())
 		default:
-			useCustomRange = false // Fallback to all-time if invalid filter
-			// Or set a default like startDate = now.AddDate(0, 0, -90) for 90 days
+			useCustomRange = false
 		}
 	}
 
@@ -179,20 +176,20 @@ func ShowDashboard(c *gin.Context) {
 	var revenue struct {
 		Total float64
 	}
-	query = db.Model(&userModels.Orders{}).Where("payment_status = ?", "Paid")
+	query = db.Model(&userModels.Orders{}).
+		Where("(payment_status = ? OR (payment_method = ? AND status = ?))",
+			"Paid", "COD", "Delivered").
+		Where("status NOT IN ?", []string{"Cancelled", "Returned", "Return Rejected"})
 	if useCustomRange {
 		query = query.Where("created_at >= ? AND created_at < ?", startDate, endDate)
 	}
 	query.Select("COALESCE(SUM(total_price), 0.0) as total").Scan(&revenue)
 	dashboardData.TotalRevenue = revenue.Total
 
-	if dashboardData.TotalOrders > 0 {
-		dashboardData.AvgOrderValue = dashboardData.TotalRevenue / float64(dashboardData.TotalOrders)
-	} else {
-		dashboardData.AvgOrderValue = 0
-	}
+	dashboardData.TotalDiscount = calculateTotalDiscount(db, useCustomRange, startDate, endDate)
 
 	getTopProducts(db, &dashboardData, useCustomRange, startDate, endDate)
+	getTopBrands(db, &dashboardData, useCustomRange, startDate, endDate)
 	getTopCategories(db, &dashboardData, useCustomRange, startDate, endDate)
 	getRecentOrders(db, &dashboardData, useCustomRange, startDate, endDate)
 	getSalesData(db, &dashboardData, filter, useCustomRange, startDate, endDate)
@@ -220,7 +217,7 @@ func ShowDashboard(c *gin.Context) {
 		"PendingOrders":        dashboardData.PendingOrders,
 		"CompletedOrders":      dashboardData.CompletedOrders,
 		"CancelledOrders":      dashboardData.CancelledOrders,
-		"AvgOrderValue":        dashboardData.AvgOrderValue,
+		"TotalDiscount":        dashboardData.TotalDiscount,
 		"TopProductsJSON":      string(topProductsJSON),
 		"TopCategoriesJSON":    string(topCategoriesJSON),
 		"RecentOrdersJSON":     string(recentOrdersJSON),
@@ -253,6 +250,23 @@ func GetDashboardData(c *gin.Context) {
 			useCustomRange = true
 			endDate = endDate.AddDate(0, 0, 1)
 		}
+	} else {
+		// Added: Same default range logic as ShowDashboard
+		useCustomRange = true
+		now := time.Now()
+		endDate = now.AddDate(0, 0, 1)
+		switch filter {
+		case "daily":
+			startDate = now.AddDate(0, 0, -7)
+		case "weekly":
+			startDate = now.AddDate(0, 0, -28)
+		case "monthly":
+			startDate = now.AddDate(0, -12, 0)
+		case "yearly":
+			startDate = time.Date(now.Year(), 1, 1, 0, 0, 0, 0, now.Location())
+		default:
+			useCustomRange = false
+		}
 	}
 
 	query := db.Model(&userModels.Users{})
@@ -300,20 +314,19 @@ func GetDashboardData(c *gin.Context) {
 	var revenue struct {
 		Total float64
 	}
-	query = db.Model(&userModels.Orders{}).Where("payment_status = ?", "Paid")
+	query = db.Model(&userModels.Orders{}).
+		Where("(payment_status = ? OR (payment_method = ? AND status = ?))",
+			"Paid", "COD", "Delivered").
+		Where("status NOT IN ?", []string{"Cancelled", "Returned", "Return Rejected"})
 	if useCustomRange {
 		query = query.Where("created_at >= ? AND created_at < ?", startDate, endDate)
 	}
 	query.Select("COALESCE(SUM(total_price), 0.0) as total").Scan(&revenue)
 	dashboardData.TotalRevenue = revenue.Total
-
-	if dashboardData.TotalOrders > 0 {
-		dashboardData.AvgOrderValue = dashboardData.TotalRevenue / float64(dashboardData.TotalOrders)
-	} else {
-		dashboardData.AvgOrderValue = 0
-	}
+	dashboardData.TotalDiscount = calculateTotalDiscount(db, useCustomRange, startDate, endDate)
 
 	getTopProducts(db, &dashboardData, useCustomRange, startDate, endDate)
+	getTopBrands(db, &dashboardData, useCustomRange, startDate, endDate)
 	getTopCategories(db, &dashboardData, useCustomRange, startDate, endDate)
 	getRecentOrders(db, &dashboardData, useCustomRange, startDate, endDate)
 	getSalesData(db, &dashboardData, filter, useCustomRange, startDate, endDate)
@@ -331,20 +344,21 @@ func GetDashboardData(c *gin.Context) {
 func getTopProducts(db *gorm.DB, data *DashboardData, useCustomRange bool, startDate, endDate time.Time) {
 	var topProducts []TopProduct
 	query := `
-		SELECT 
-			p.product_name,
-			COALESCE(SUM(oi.quantity), 0) as total_sold,
-			COALESCE(SUM(oi.item_total), 0) as revenue,
-			p.category_name
-		FROM products p
-		LEFT JOIN order_items oi ON p.id = oi.product_id
-		LEFT JOIN orders o ON oi.order_id = o.id
-		WHERE (o.status NOT IN ('cancelled', 'refunded') OR o.status IS NULL)
-		%s
-		GROUP BY p.id, p.product_name, p.category_name
-		ORDER BY total_sold DESC
-		LIMIT 10
-	`
+        SELECT 
+            p.product_name,
+            COALESCE(SUM(oi.quantity), 0) as total_sold,
+            COALESCE(SUM(oi.item_total), 0) as revenue,
+            p.category_name
+        FROM products p
+        LEFT JOIN order_items oi ON p.id = oi.product_id
+        LEFT JOIN orders o ON oi.order_id = o.id
+        WHERE (o.status NOT IN ('Cancelled', 'Returned', 'Return Rejected') OR o.status IS NULL)
+        AND (oi.status IS NULL OR oi.status != 'Cancelled')
+        %s
+        GROUP BY p.id, p.product_name, p.category_name
+        ORDER BY total_sold DESC
+        LIMIT 10
+    `
 	var whereClause string
 	if useCustomRange {
 		whereClause = "AND o.created_at >= ? AND o.created_at < ?"
@@ -355,6 +369,40 @@ func getTopProducts(db *gorm.DB, data *DashboardData, useCustomRange bool, start
 		db.Raw(query).Scan(&topProducts)
 	}
 	data.TopProducts = topProducts
+}
+
+func getTopBrands(db *gorm.DB, data *DashboardData, useCustomRange bool, startDate, endDate time.Time) {
+	var topBrands []TopBrand
+	query := `
+		SELECT 
+			COALESCE(NULLIF(p.brand, ''), 'Unknown Brand') AS brand_name,  -- Handle empty brands
+			COALESCE(SUM(oi.quantity), 0) as total_sold,
+			COALESCE(SUM(oi.item_total), 0) as revenue
+		FROM products p
+		LEFT JOIN order_items oi ON p.id = oi.product_id
+		LEFT JOIN orders o ON oi.order_id = o.id
+		WHERE (o.status NOT IN ('Cancelled', 'Returned', 'Return Rejected') OR o.status IS NULL)
+		AND p.brand IS NOT NULL AND p.brand != ''  -- Exclude empty brands
+		%s
+		GROUP BY p.brand
+		HAVING COALESCE(SUM(oi.quantity), 0) > 0  -- Only brands with sales
+		ORDER BY total_sold DESC
+		LIMIT 5
+	`
+	var whereClause string
+	if useCustomRange {
+		whereClause = "AND o.created_at >= ? AND o.created_at < ?"
+		query = fmt.Sprintf(query, whereClause)
+		db.Raw(query, startDate, endDate).Scan(&topBrands)
+	} else {
+		query = fmt.Sprintf(query, "")
+		db.Raw(query).Scan(&topBrands)
+	}
+	data.TopBrands = topBrands
+	if len(topBrands) == 0 {
+		// Fallback for no data
+		data.TopBrands = []TopBrand{{BrandName: "No Brands Sold", TotalSold: 0, Revenue: 0}}
+	}
 }
 
 func getTopCategories(db *gorm.DB, data *DashboardData, useCustomRange bool, startDate, endDate time.Time) {
@@ -413,25 +461,39 @@ func getSalesData(db *gorm.DB, data *DashboardData, filter string, useCustomRang
 	}
 
 	query := `
-		SELECT 
-			%s as date_group,
-			COALESCE(SUM(total_price), 0) as sales,
-			COUNT(*) as orders
-		FROM orders 
-		WHERE status NOT IN ('cancelled', 'refunded')
-		%s
-		GROUP BY %s
-		ORDER BY date_group ASC
-	`
+        SELECT 
+            %s as date_group,
+            COALESCE(SUM(total_price), 0) as sales,
+            COUNT(*) as orders
+        FROM orders 
+        WHERE (payment_status = ? OR (payment_method = ? AND status = ?))
+        AND status NOT IN ('Cancelled', 'Returned', 'Return Rejected')
+        %s
+        GROUP BY %s
+        ORDER BY date_group ASC
+    `
 	var whereClause string
 	if useCustomRange {
 		whereClause = "AND created_at >= ? AND created_at < ?"
 		query = fmt.Sprintf(query, groupBy, whereClause, groupBy)
-		db.Raw(query, startDate, endDate).Scan(&salesData)
+		db.Raw(query, "Paid", "COD", "Delivered", startDate, endDate).Scan(&salesData)
 	} else {
-		whereClause = "AND created_at >= NOW() - INTERVAL '90 days'"
+		var interval string
+		switch filter {
+		case "daily":
+			interval = "7 days"
+		case "weekly":
+			interval = "28 days"
+		case "monthly":
+			interval = "12 months"
+		case "yearly":
+			interval = "1 year"
+		default:
+			interval = "90 days"
+		}
+		whereClause = "AND created_at >= NOW() - INTERVAL '" + interval + "'"
 		query = fmt.Sprintf(query, groupBy, whereClause, groupBy)
-		db.Raw(query).Scan(&salesData)
+		db.Raw(query, "Paid", "COD", "Delivered").Scan(&salesData)
 	}
 
 	for i := range salesData {
@@ -452,354 +514,171 @@ func getSalesData(db *gorm.DB, data *DashboardData, filter string, useCustomRang
 }
 
 func getUserActivityData(db *gorm.DB, data *DashboardData, filter string, useCustomRange bool, startDate, endDate time.Time) {
-	var userActivity []UserActivityDataPoint
-	var interval string
-	var groupBy string
+    var userActivity []UserActivityDataPoint
+    var interval string
+    var groupBy string
 
-	switch filter {
-	case "daily":
-		interval = "7 DAY"
-		groupBy = "DATE(created_at)"
-	case "weekly":
-		interval = "4 WEEK"
-		groupBy = "DATE_TRUNC('week', created_at)"
-	case "monthly":
-		interval = "12 MONTH"
-		groupBy = "DATE_TRUNC('month', created_at)"
-	case "yearly":
-		interval = "1 YEAR"
-		groupBy = "DATE_TRUNC('year', created_at)"
-	default:
-		interval = "4 WEEK"
-		groupBy = "DATE_TRUNC('week', created_at)"
-	}
+    switch filter {
+    case "daily":
+        interval = "7 DAY"
+        groupBy = "DATE(u.created_at)"
+    case "weekly":
+        interval = "4 WEEK"
+        groupBy = "DATE_TRUNC('week', u.created_at)"
+    case "monthly":
+        interval = "12 MONTH"
+        groupBy = "DATE_TRUNC('month', u.created_at)"
+    case "yearly":
+        interval = "1 YEAR"
+        groupBy = "DATE_TRUNC('year', u.created_at)"
+    default:
+        interval = "4 WEEK"
+        groupBy = "DATE_TRUNC('week', u.created_at)"
+    }
 
-	query := `
-		SELECT 
-			%s as date,
-			COUNT(*) as new_users,
-			(SELECT COUNT(DISTINCT user_id) FROM user_sessions 
-			 WHERE %s = dates.date) as active_users
-		FROM (
-			SELECT %s as date
-			FROM generate_series(
-				%s,
-				%s,
-				INTERVAL '1 day'
-			) dates
-		) dates
-		LEFT JOIN users u ON %s = dates.date
-		%s
-		GROUP BY dates.date
-		ORDER BY dates.date ASC
-	`
-	var whereClause, startExpr, endExpr string
-	if useCustomRange {
-		startExpr = "?"
-		endExpr = "?"
-		whereClause = "AND u.created_at >= ? AND u.created_at < ?"
-		query = fmt.Sprintf(query, groupBy, groupBy, groupBy, startExpr, endExpr, groupBy, whereClause)
-		db.Raw(query, startDate, endDate, startDate, endDate).Scan(&userActivity)
-	} else {
-		startExpr = "NOW() - INTERVAL '" + interval + "'"
-		endExpr = "NOW()"
-		query = fmt.Sprintf(query, groupBy, groupBy, groupBy, startExpr, endExpr, groupBy, "")
-		db.Raw(query).Scan(&userActivity)
-	}
-	data.UserActivityData = userActivity
+    query := `
+        SELECT 
+            dates.date as date,
+            COUNT(u.id) as new_users,
+            (SELECT COUNT(DISTINCT user_id) FROM user_sessions us 
+             WHERE %s = dates.date) as active_users
+        FROM (
+            SELECT %s as date
+            FROM generate_series(
+                %s,
+                %s,
+                INTERVAL '1 day'
+            ) AS gs(date)
+        ) dates
+        LEFT JOIN users u ON %s = dates.date
+        %s
+        GROUP BY dates.date
+        ORDER BY dates.date ASC
+    `
+
+    var whereClause, startExpr, endExpr string
+    if useCustomRange {
+        startExpr = "?"
+        endExpr = "?"
+        whereClause = "AND u.created_at >= ? AND u.created_at < ?"
+        
+        // Fix the subquery condition
+        subQueryCondition := groupBy
+        if filter == "daily" {
+            subQueryCondition = "DATE(us.created_at)"
+        } else if filter == "weekly" {
+            subQueryCondition = "DATE_TRUNC('week', us.created_at)"
+        } else if filter == "monthly" {
+            subQueryCondition = "DATE_TRUNC('month', us.created_at)"
+        } else if filter == "yearly" {
+            subQueryCondition = "DATE_TRUNC('year', us.created_at)"
+        }
+        
+        query = fmt.Sprintf(query, subQueryCondition, groupBy, startExpr, endExpr, groupBy, whereClause)
+        db.Raw(query, startDate, endDate, startDate, endDate, startDate, endDate).Scan(&userActivity)
+    } else {
+        startExpr = "NOW() - INTERVAL '" + interval + "'"
+        endExpr = "NOW()"
+        
+        // Fix the subquery condition for default case
+        subQueryCondition := groupBy
+        switch filter {
+case "daily":
+            subQueryCondition = "DATE(us.created_at)"
+        case "weekly":
+            subQueryCondition = "DATE_TRUNC('week', us.created_at)"
+        case "monthly":
+            subQueryCondition = "DATE_TRUNC('month', us.created_at)"
+        case "yearly":
+            subQueryCondition = "DATE_TRUNC('year', us.created_at)"
+        }
+        
+        query = fmt.Sprintf(query, subQueryCondition, groupBy, startExpr, endExpr, groupBy, "")
+        db.Raw(query).Scan(&userActivity)
+    }
+    
+    // Format dates for display
+    for i := range userActivity {
+        if t, err := time.Parse(time.RFC3339, userActivity[i].Date); err == nil {
+            switch filter {
+            case "daily":
+                userActivity[i].Date = t.Format("Jan 02")
+            case "weekly":
+                userActivity[i].Date = t.Format("Jan 02")
+            case "monthly":
+                userActivity[i].Date = t.Format("Jan 2006")
+            case "yearly":
+                userActivity[i].Date = t.Format("2006")
+            }
+        }
+    }
+    data.UserActivityData = userActivity
 }
-
 func getInventoryStatus(db *gorm.DB, data *DashboardData, useCustomRange bool, startDate, endDate time.Time) {
+	// Always fetch current inventory status, no date filtering
 	var inventory []InventoryStatusItem
 	query := `
-		SELECT 
-			p.product_name,
-			COALESCE(SUM(v.stock), 0) as stock,
-			CASE 
-				WHEN COALESCE(SUM(v.stock), 0) = 0 THEN 'Out of Stock'
-				WHEN COALESCE(SUM(v.stock), 0) < 10 THEN 'Low Stock'
-				ELSE 'In Stock'
-			END as status
-		FROM products p
-		LEFT JOIN variants v ON p.id = v.product_id
-		WHERE p.is_listed = true AND v.deleted_at IS NULL
-		%s
-		GROUP BY p.id, p.product_name
-		ORDER BY stock ASC
-		LIMIT 20
-	`
-	var whereClause string
-	if useCustomRange {
-		whereClause = "AND p.created_at >= ? AND p.created_at < ?"
-		query = fmt.Sprintf(query, whereClause)
-		db.Raw(query, startDate, endDate).Scan(&inventory)
-	} else {
-		query = fmt.Sprintf(query, "")
-		db.Raw(query).Scan(&inventory)
-	}
+        SELECT 
+            p.product_name,
+            COALESCE(SUM(v.stock), 0) as stock,
+            CASE 
+                WHEN COALESCE(SUM(v.stock), 0) = 0 THEN 'Out of Stock'
+                WHEN COALESCE(SUM(v.stock), 0) < 10 THEN 'Low Stock'
+                ELSE 'In Stock'
+            END as status
+        FROM products p
+        LEFT JOIN variants v ON p.id = v.product_id
+        WHERE p.is_listed = true AND v.deleted_at IS NULL
+        GROUP BY p.id, p.product_name
+        ORDER BY stock ASC
+        LIMIT 20
+    `
+	db.Raw(query).Scan(&inventory)
 	data.InventoryStatus = inventory
 }
 
 func getCouponUsage(db *gorm.DB, data *DashboardData, useCustomRange bool, startDate, endDate time.Time) {
+	// Always fetch all-time usage for active coupons, no date filtering
 	var couponUsage []CouponUsageItem
 	query := `
-		SELECT 
-			c.coupon_code,
-			c.used_count,
-			COALESCE(SUM(o.coupon_discount), 0) as total_discount
-		FROM coupons c
-		LEFT JOIN orders o ON c.coupon_code = o.coupon_code
-		WHERE c.is_active = true
-		%s
-		GROUP BY c.id, c.coupon_code, c.used_count
-		ORDER BY c.used_count DESC
-		LIMIT 10
-	`
-	var whereClause string
-	if useCustomRange {
-		whereClause = "AND o.created_at >= ? AND o.created_at < ?"
-		query = fmt.Sprintf(query, whereClause)
-		db.Raw(query, startDate, endDate).Scan(&couponUsage)
-	} else {
-		query = fmt.Sprintf(query, "")
-		db.Raw(query).Scan(&couponUsage)
-	}
+        SELECT 
+            c.coupon_code,
+            c.used_count,
+            COALESCE(SUM(o.coupon_discount), 0) as total_discount
+        FROM coupons c
+        LEFT JOIN orders o ON c.coupon_code = o.coupon_code
+        WHERE c.is_active = true
+        GROUP BY c.id, c.coupon_code, c.used_count
+        ORDER BY c.used_count DESC
+        LIMIT 10
+    `
+	db.Raw(query).Scan(&couponUsage)
 	data.CouponUsage = couponUsage
 }
-
 func getMonthlyRevenue(db *gorm.DB, data *DashboardData, useCustomRange bool, startDate, endDate time.Time) {
 	var monthlyRevenue []MonthlyRevenuePoint
 	query := `
-		SELECT 
-			TO_CHAR(created_at, 'YYYY-MM') as month,
-			COALESCE(SUM(total_price), 0) as revenue
-		FROM orders 
-		WHERE payment_status = 'Paid'
-		%s
-		GROUP BY TO_CHAR(created_at, 'YYYY-MM')
-		ORDER BY month ASC
-	`
+        SELECT 
+            TO_CHAR(created_at, 'YYYY-MM') as month,
+            COALESCE(SUM(total_price), 0) as revenue
+        FROM orders 
+        WHERE (payment_status = ? OR (payment_method = ? AND status = ?))
+        AND status NOT IN ('Cancelled', 'Returned', 'Return Rejected')
+        %s
+        GROUP BY TO_CHAR(created_at, 'YYYY-MM')
+        ORDER BY month ASC
+    `
 	var whereClause string
 	if useCustomRange {
 		whereClause = "AND created_at >= ? AND created_at < ?"
 		query = fmt.Sprintf(query, whereClause)
-		db.Raw(query, startDate, endDate).Scan(&monthlyRevenue)
+		db.Raw(query, "Paid", "COD", "Delivered", startDate, endDate).Scan(&monthlyRevenue)
 	} else {
+		startDate := time.Now().AddDate(0, -12, 0)
 		query = fmt.Sprintf(query, "AND created_at >= ?")
-		startDate := time.Now().AddDate(-1, 0, 0)
-		db.Raw(query, startDate).Scan(&monthlyRevenue)
+		db.Raw(query, "Paid", "COD", "Delivered", startDate).Scan(&monthlyRevenue)
 	}
 	data.MonthlyRevenue = monthlyRevenue
-}
-
-func ExportSalesReport(c *gin.Context) {
-	format := c.DefaultQuery("format", "csv")
-	filter := c.DefaultQuery("filter", "monthly")
-	preview := c.DefaultQuery("preview", "false") // Add preview parameter
-	startDateStr := c.Query("start_date")
-	endDateStr := c.Query("end_date")
-
-	db := database.GetDB()
-	var salesData []SalesReportData
-	var query string
-	var args []interface{}
-
-	if startDateStr != "" && endDateStr != "" {
-		startDate, err1 := time.Parse("2006-01-02", startDateStr)
-		endDate, err2 := time.Parse("2006-01-02", endDateStr)
-		if err1 == nil && err2 == nil {
-			query = `
-				SELECT 
-					DATE(o.created_at)::text as date,
-					COUNT(DISTINCT o.id) as orders,
-					COALESCE(SUM(o.total_price), 0) as revenue,
-					COALESCE(SUM(oi.quantity), 0) as products_sold,
-					COALESCE(SUM(o.coupon_discount), 0) as coupon_discount,
-					COALESCE(SUM(o.total_discount - o.coupon_discount), 0) as offer_discount,
-					COALESCE(SUM(o.total_discount), 0) as total_discount,
-					STRING_AGG(DISTINCT o.coupon_code, ', ') FILTER (WHERE o.coupon_code IS NOT NULL) as coupon_codes
-				FROM orders o
-				LEFT JOIN order_items oi ON o.id = oi.order_id
-				WHERE o.created_at >= $1 AND o.created_at <= $2
-					AND o.status NOT IN ('cancelled', 'refunded')
-				GROUP BY DATE(o.created_at)
-				ORDER BY date ASC
-			`
-			args = []interface{}{startDate, endDate.AddDate(0, 0, 1)}
-		}
-	}
-
-	if query == "" {
-		var interval string
-		switch filter {
-		case "daily":
-			interval = "1 day"
-		case "weekly":
-			interval = "7 days"
-		case "monthly":
-			interval = "1 month"
-		case "yearly":
-			interval = "1 year"
-		default:
-			interval = "1 month"
-		}
-
-		query = `
-			SELECT 
-				DATE(o.created_at)::text as date,
-				COUNT(DISTINCT o.id) as orders,
-				COALESCE(SUM(o.total_price), 0) as revenue,
-				COALESCE(SUM(oi.quantity), 0) as products_sold,
-				COALESCE(SUM(o.coupon_discount), 0) as coupon_discount,
-				COALESCE(SUM(o.total_discount - o.coupon_discount), 0) as offer_discount,
-				COALESCE(SUM(o.total_discount), 0) as total_discount,
-				STRING_AGG(DISTINCT o.coupon_code, ', ') FILTER (WHERE o.coupon_code IS NOT NULL) as coupon_codes
-			FROM orders o
-			LEFT JOIN order_items oi ON o.id = oi.order_id
-			WHERE o.created_at >= NOW() - INTERVAL '` + interval + `' 
-				AND o.status NOT IN ('cancelled', 'refunded')
-			GROUP BY DATE(o.created_at)
-			ORDER BY date ASC
-		`
-	}
-
-	db.Raw(query, args...).Scan(&salesData)
-
-	var totalOrders, totalProducts int64
-	var totalRevenue, totalDiscount, totalCouponDiscount, totalOfferDiscount float64
-	for _, record := range salesData {
-		totalOrders += record.Orders
-		totalProducts += record.ProductsSold
-		totalRevenue += record.Revenue
-		totalDiscount += record.TotalDiscount
-		totalCouponDiscount += record.CouponDiscount
-		totalOfferDiscount += record.OfferDiscount
-	}
-
-	switch format {
-	case "csv":
-		c.Header("Content-Type", "text/csv")
-		c.Header("Content-Disposition", "attachment; filename=sales_report_"+time.Now().Format("20060102")+".csv")
-		writer := csv.NewWriter(c.Writer)
-		defer writer.Flush()
-
-		writer.Write([]string{"Date", "Orders", "Revenue ($)", "Products Sold", "Total Discount ($)", "Coupon Discount ($)", "Offer Discount ($)", "Coupon Codes"})
-		for _, record := range salesData {
-			writer.Write([]string{
-				record.Date,
-				strconv.FormatInt(record.Orders, 10),
-				fmt.Sprintf("%.2f", record.Revenue),
-				strconv.FormatInt(record.ProductsSold, 10),
-				fmt.Sprintf("%.2f", record.TotalDiscount),
-				fmt.Sprintf("%.2f", record.CouponDiscount),
-				fmt.Sprintf("%.2f", record.OfferDiscount),
-				record.CouponCodes,
-			})
-		}
-		writer.Write([]string{})
-		writer.Write([]string{"TOTAL", "", "", "", "", "", "", ""})
-		writer.Write([]string{
-			"",
-			strconv.FormatInt(totalOrders, 10),
-			fmt.Sprintf("%.2f", totalRevenue),
-			strconv.FormatInt(totalProducts, 10),
-			fmt.Sprintf("%.2f", totalDiscount),
-			fmt.Sprintf("%.2f", totalCouponDiscount),
-			fmt.Sprintf("%.2f", totalOfferDiscount),
-			"",
-		})
-
-	case "pdf":
-		cfg := config.NewBuilder().Build()
-		m := maroto.New(cfg)
-
-		// Title row
-		m.AddRows(
-			text.NewRow(20, "Sales Report", props.Text{
-				Top:   2,
-				Size:  14,
-				Style: fontstyle.Bold,
-				Align: align.Center,
-			}),
-
-			text.NewRow(10, fmt.Sprintf("Filter: %s", filter), props.Text{
-				Align: "center",
-			}),
-		)
-
-		// Header row
-		m.AddRows(
-			row.New(10).Add(
-				text.NewCol(2, "Date", props.Text{Style: fontstyle.Bold}),
-				text.NewCol(2, "Orders", props.Text{Style: fontstyle.Bold}),
-				text.NewCol(2, "Revenue ($)", props.Text{Style: fontstyle.Bold}),
-				text.NewCol(2, "Products Sold", props.Text{Style: fontstyle.Bold}),
-				text.NewCol(2, "Total Discount ($)", props.Text{Style: fontstyle.Bold}),
-				text.NewCol(2, "Coupon Codes", props.Text{Style: fontstyle.Bold}),
-			),
-		)
-
-		// Data rows
-		for _, record := range salesData {
-			m.AddRows(
-				row.New(8).Add(
-					text.NewCol(2, record.Date),
-					text.NewCol(2, strconv.FormatInt(record.Orders, 10)),
-					text.NewCol(2, fmt.Sprintf("%.2f", record.Revenue)),
-					text.NewCol(2, strconv.FormatInt(record.ProductsSold, 10)),
-					text.NewCol(2, fmt.Sprintf("%.2f", record.TotalDiscount)),
-					text.NewCol(2, record.CouponCodes),
-				),
-			)
-		}
-
-		// Summary row
-		m.AddRows(
-			row.New(8),
-			row.New(8).Add(
-				text.NewCol(2, "TOTAL", props.Text{Style: fontstyle.Bold}),
-				text.NewCol(2, strconv.FormatInt(totalOrders, 10)),
-				text.NewCol(2, fmt.Sprintf("%.2f", totalRevenue)),
-				text.NewCol(2, strconv.FormatInt(totalProducts, 10)),
-				text.NewCol(2, fmt.Sprintf("%.2f", totalDiscount)),
-				text.NewCol(2, ""),
-			),
-		)
-
-		pdf, err := m.Generate()
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": "Failed to generate PDF"})
-			return
-		}
-
-		c.Header("Content-Type", "application/pdf")
-
-		// Check if it's preview mode
-		if preview == "true" {
-			// For preview - display inline in browser
-			c.Header("Content-Disposition", "inline; filename=sales_report_"+time.Now().Format("20060102")+".pdf")
-		} else {
-			// For download - force download
-			c.Header("Content-Disposition", "attachment; filename=sales_report_"+time.Now().Format("20060102")+".pdf")
-		}
-
-		c.Data(http.StatusOK, "application/pdf", pdf.GetBytes())
-
-	default:
-		c.JSON(http.StatusOK, gin.H{
-			"status": "success",
-			"data":   salesData,
-			"summary": gin.H{
-				"total_orders":          totalOrders,
-				"total_revenue":         totalRevenue,
-				"total_products_sold":   totalProducts,
-				"total_discount":        totalDiscount,
-				"total_coupon_discount": totalCouponDiscount,
-				"total_offer_discount":  totalOfferDiscount,
-			},
-			"filter": filter,
-		})
-	}
 }
 
 func LogAdminAction(c *gin.Context) {
@@ -817,4 +696,46 @@ func LogAdminAction(c *gin.Context) {
 		"status":  "success",
 		"message": "Action logged successfully",
 	})
+}
+
+func calculateTotalDiscount(db *gorm.DB, useCustomRange bool, startDate, endDate time.Time) float64 {
+	var totalDiscount struct {
+		CouponDiscount float64
+		OfferDiscount  float64
+	}
+
+	// Calculate coupon discount
+	couponQuery := db.Model(&userModels.Orders{}).
+		Where("(payment_status = ? OR (payment_method = ? AND status = ?))",
+			"Paid", "COD", "Delivered").
+		Where("status NOT IN ?", []string{"Cancelled", "Returned", "Return Rejected"})
+
+	if useCustomRange {
+		couponQuery = couponQuery.Where("created_at >= ? AND created_at < ?", startDate, endDate)
+	}
+
+	// Fixed: Use the exact struct field name in the alias
+	if err := couponQuery.Select("COALESCE(SUM(coupon_discount), 0.0) as coupon_discount").Scan(&totalDiscount).Error; err != nil {
+		// Log error or handle it
+		return 0
+	}
+
+	// Calculate offer discount (from order_items)
+	offerQuery := db.Model(&userModels.OrderItem{}).
+		Joins("JOIN orders ON order_items.order_id = orders.id").
+		Where("(orders.payment_status = ? OR (orders.payment_method = ? AND orders.status = ?))",
+			"Paid", "COD", "Delivered").
+		Where("orders.status NOT IN ?", []string{"Cancelled", "Returned", "Return Rejected"})
+
+	if useCustomRange {
+		offerQuery = offerQuery.Where("orders.created_at >= ? AND orders.created_at < ?", startDate, endDate)
+	}
+
+	// Fixed: Use the exact struct field name in the alias
+	if err := offerQuery.Select("COALESCE(SUM(order_items.discount_amount), 0.0) as offer_discount").Scan(&totalDiscount).Error; err != nil {
+		// Log error or handle it
+		return 0
+	}
+
+	return totalDiscount.CouponDiscount + totalDiscount.OfferDiscount
 }

@@ -35,6 +35,7 @@ type ProductWithOffer struct {
 	OfferName          string
 	OfferEndTime       time.Time
 	Variants           []VariantWithOffer
+	IsInWishlist       bool `json:"is_in_wishlist"` // Added wishlist status
 }
 
 func GetProductDetails(c *gin.Context) {
@@ -88,6 +89,23 @@ func GetProductDetails(c *gin.Context) {
 		OfferEndTime:       offer.EndTime,
 		Variants:           variantsWithOffer,
 	}
+
+	// Check if main product is in wishlist
+	isInWishlist := false
+	user, exists := c.Get("user")
+	if exists {
+		userData := user.(userModels.Users)
+		var count int64
+		if err := database.DB.Model(&userModels.Wishlist{}).
+			Where("user_id = ? AND product_id = ?", userData.ID, product.ID).
+			Count(&count).Error; err != nil {
+			pkg.Log.Error("Error checking wishlist", zap.Error(err))
+		} else {
+			isInWishlist = count > 0
+		}
+		productWithOffers.IsInWishlist = isInWishlist
+	}
+
 	pkg.Log.Info("Product with offer",
 		zap.Any("Product", productWithOffers.Product),
 		zap.Float64("OfferPrice", productWithOffers.OfferPrice),
@@ -96,6 +114,7 @@ func GetProductDetails(c *gin.Context) {
 		zap.Bool("IsOffer", productWithOffers.IsOffer),
 		zap.String("OfferName", productWithOffers.OfferName),
 		zap.Time("OfferEndTime", productWithOffers.OfferEndTime),
+		zap.Bool("IsInWishlist", isInWishlist),
 	)
 
 	var relatedProducts []adminModels.Product
@@ -107,6 +126,27 @@ func GetProductDetails(c *gin.Context) {
 	}
 
 	availableRelatedProducts := []ProductWithOffer{}
+	userID := uint(0)
+	if exists {
+		userData := user.(userModels.Users)
+		userID = userData.ID
+	}
+
+	// Pre-fetch all wishlist products for this user to avoid N+1 queries
+	wishlistProductIDs := make(map[uint]bool)
+	if userID > 0 {
+		var wishlistItems []userModels.Wishlist
+		if err := database.DB.Where("user_id = ?", userID).
+			Select("product_id").
+			Find(&wishlistItems).Error; err != nil {
+			pkg.Log.Error("Error fetching user wishlist", zap.Error(err))
+		} else {
+			for _, item := range wishlistItems {
+				wishlistProductIDs[item.ProductID] = true
+			}
+		}
+	}
+
 	for _, rp := range relatedProducts {
 		bestOfferPrice := float64(999999)
 		var selectedOffer ProductWithOffer
@@ -124,6 +164,7 @@ func GetProductDetails(c *gin.Context) {
 						IsOffer:            offer.IsOfferApplied,
 						OfferName:          offer.OfferName,
 						OfferEndTime:       offer.EndTime,
+						IsInWishlist:       wishlistProductIDs[rp.ID], // Check wishlist status
 					}
 					hasValidVariant = true
 				} else if !offer.IsOfferApplied && (rp.Price+v.ExtraPrice) < bestOfferPrice {
@@ -136,8 +177,28 @@ func GetProductDetails(c *gin.Context) {
 						IsOffer:            false,
 						OfferName:          "",
 						OfferEndTime:       time.Time{},
+						IsInWishlist:       wishlistProductIDs[rp.ID], // Check wishlist status
 					}
 					hasValidVariant = true
+				}
+			}
+		}
+		// If no valid variant with offer, check if product has stock without offer
+		if !hasValidVariant && len(rp.Variants) > 0 {
+			for _, v := range rp.Variants {
+				if v.Stock > 0 {
+					selectedOffer = ProductWithOffer{
+						Product:            rp,
+						OfferPrice:         rp.Price + v.ExtraPrice,
+						OriginalPrice:      rp.Price + v.ExtraPrice,
+						DiscountPercentage: 0,
+						IsOffer:            false,
+						OfferName:          "",
+						OfferEndTime:       time.Time{},
+						IsInWishlist:       wishlistProductIDs[rp.ID],
+					}
+					hasValidVariant = true
+					break
 				}
 			}
 		}
@@ -151,9 +212,17 @@ func GetProductDetails(c *gin.Context) {
 		config.Breadcrumb{Name: product.ProductName, URL: ""},
 	)
 
-	user, exists := c.Get("user")
-	userName, nameExists := c.Get("user_name")
-	if !exists || !nameExists {
+	userName, _ := c.Get("user_name")
+	var wishlistCount, cartCount int64
+	if exists {
+		userData := user.(userModels.Users)
+		if err := database.DB.Model(&userModels.Wishlist{}).Where("user_id = ?", userData.ID).Count(&wishlistCount).Error; err != nil {
+			wishlistCount = 0
+		}
+		if err := database.DB.Model(&userModels.CartItem{}).Joins("JOIN carts ON carts.id = cart_items.cart_id").Where("carts.user_id = ?", userData.ID).Count(&cartCount).Error; err != nil {
+			cartCount = 0
+		}
+		userNameStr := userName.(string)
 		c.HTML(http.StatusOK, "productDetails.html", gin.H{
 			"Product":         productWithOffers,
 			"RelatedProducts": availableRelatedProducts,
@@ -161,39 +230,26 @@ func GetProductDetails(c *gin.Context) {
 			"HasStock":        hasStock,
 			"IsInStock":       hasStock,
 			"Breadcrumbs":     breadcrumbs,
-			"status":          "success",
-			"UserName":        "Guest",
-			"WishlistCount":   0,
-			"CartCount":       0,
-			"ProfileImage":    "",
+			"UserName":        userNameStr,
+			"ProfileImage":    userData.ProfileImage,
+			"WishlistCount":   wishlistCount,
+			"CartCount":       cartCount,
 		})
 		return
 	}
 
-	userData := user.(userModels.Users)
-	userNameStr := userName.(string)
-
-	var wishlistCount, cartCount int64
-	if err := database.DB.Model(&userModels.Wishlist{}).Where("user_id = ?", userData.ID).Count(&wishlistCount).Error; err != nil {
-		wishlistCount = 0
-	}
-	if err := database.DB.Model(&userModels.CartItem{}).Joins("JOIN carts ON carts.id = cart_items.cart_id").Where("carts.user_id = ?", userData.ID).Count(&cartCount).Error; err != nil {
-		cartCount = 0
-	}
-
+	// Guest user
 	c.HTML(http.StatusOK, "productDetails.html", gin.H{
 		"Product":         productWithOffers,
 		"RelatedProducts": availableRelatedProducts,
 		"Category":        product.CategoryName,
-		"Breadcrumbs":     breadcrumbs,
 		"HasStock":        hasStock,
 		"IsInStock":       hasStock,
-		"UserName":        userNameStr,
-		"ProfileImage":    userData.ProfileImage,
-		"WishlistCount":   wishlistCount,
-		"CartCount":       cartCount,
+		"Breadcrumbs":     breadcrumbs,
+		"status":          "success",
+		"UserName":        "Guest",
+		"WishlistCount":   0,
+		"CartCount":       0,
+		"ProfileImage":    "",
 	})
 }
-
-
-

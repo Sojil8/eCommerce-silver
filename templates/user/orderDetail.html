@@ -21,6 +21,12 @@
         .status-failed { @apply bg-red-100 text-red-800; }
         .status-pending { @apply bg-yellow-100 text-yellow-800; }
         .status-cancelled { @apply bg-gray-100 text-gray-800; }
+        .status-returned { @apply bg-orange-100 text-orange-800; }
+        .status-return-rejected { @apply bg-red-100 text-red-800; }
+        .status-shipped { @apply bg-blue-100 text-blue-800; }
+        .status-out-for-delivery { @apply bg-purple-100 text-purple-800; }
+        .status-delivered { @apply bg-green-100 text-green-800; }
+        .status-active { @apply bg-green-100 text-green-800; }
         .collapsible-header {
             cursor: pointer;
             transition: background-color 0.2s ease;
@@ -40,6 +46,8 @@
             flex-direction: column;
             align-items: center;
             z-index: 1;
+            position: relative;
+            flex: 1;
         }
         .progress-step.completed .step-icon {
             background-color: #10b981;
@@ -53,6 +61,10 @@
             background-color: #ef4444;
             color: white;
         }
+        .progress-step.returned .step-icon {
+            background-color: #f97316;
+            color: white;
+        }
         .progress-step .step-icon {
             width: 2rem;
             height: 2rem;
@@ -62,21 +74,36 @@
             justify-content: center;
             background-color: #d1d5db;
             color: #6b7280;
+            position: relative;
         }
-        .progress-line {
+        .progress-step .step-icon:hover::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            top: -2rem;
+            background-color: #1f2937;
+            color: white;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+            white-space: nowrap;
+            z-index: 10;
+        }
+        .progress-connector {
             position: absolute;
             top: 50%;
-            left: 0;
-            right: 0;
             height: 4px;
             background-color: #d1d5db;
             z-index: 0;
+            transform: translateY(-50%);
         }
-        .progress-line.completed {
+        .progress-connector.completed {
             background-color: #10b981;
         }
-        .progress-line.failed {
+        .progress-connector.failed {
             background-color: #ef4444;
+        }
+        .progress-connector.returned {
+            background-color: #f97316;
         }
         .modal {
             display: none;
@@ -112,7 +139,7 @@
                 flex-direction: column;
                 gap: 1rem;
             }
-            .progress-line {
+            .progress-connector {
                 display: none;
             }
             .modal-content {
@@ -123,29 +150,7 @@
 </head>
 <body class="bg-gray-50 font-sans">
     <nav class="bg-white shadow-md sticky top-0 z-50">
-        <div class="container mx-auto px-4 sm:px-6 py-4">
-            <div class="flex justify-between items-center">
-                <div class="flex items-center space-x-6">
-                    <a href="/home" class="text-lg font-semibold text-gray-800 hover:text-indigo-600 transition">Silver eCommerce</a>
-                    <a href="/shop" class="text-gray-600 hover:text-indigo-600 font-medium">Shop</a>
-                    <a href="/orders" class="text-gray-600 hover:text-indigo-600 font-medium">Orders</a>
-                </div>
-                <div class="flex items-center space-x-4">
-                    <a href="/wishlist" class="relative text-gray-600 hover:text-gray-900">
-                        <i class="fas fa-heart fa-lg"></i>
-                        <span class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs">{{ .WishlistCount }}</span>
-                    </a>
-                    <a href="/cart" class="relative text-gray-600 hover:text-gray-900">
-                        <i class="fas fa-shopping-cart fa-lg"></i>
-                        <span class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs">{{ .CartCount }}</span>
-                    </a>
-                    <div class="flex items-center space-x-2">
-                        <span class="text-sm font-medium text-gray-700">{{ .UserName }}</span>
-                        <img src="{{ if .ProfileImage }}{{ .ProfileImage }}{{ else }}/static/defaultProfile.png{{ end }}" alt="Profile" class="h-8 w-8 rounded-full object-cover">
-                    </div>
-                </div>
-            </div>
-        </div>
+        {{template "navbar.html"}}
     </nav>
 
     <div class="container mx-auto px-4 sm:px-6 py-8">
@@ -186,25 +191,77 @@
                 {{ end }}
             </div>
             <div class="px-6 py-5 border-t border-gray-200">
+                {{ if or (eq .Order.Status "Cancelled") (eq .Order.Status "Returned") (eq .Order.Status "Return Rejected") }}
                 <div class="order-progress">
-                    <div class="progress-line {{ if or (eq .Order.Status "Confirmed") (eq .Order.Status "Processing") (eq .Order.Status "Delivered") }}completed{{ else if eq .Order.Status "Failed" }}failed{{ end }}"></div>
-                    <div class="progress-step {{ if eq .Order.Status "Pending" }}active{{ else if or (eq .Order.Status "Confirmed") (eq .Order.Status "Processing") (eq .Order.Status "Delivered") }}completed{{ else if eq .Order.Status "Failed" }}failed{{ end }}">
+                    <div class="progress-step {{ if eq .Order.Status "Pending" }}active{{ else if or (eq .Order.Status "Confirmed") (eq .Order.Status "Shipped") (eq .Order.Status "Out for Delivery") (eq .Order.Status "Delivered") }}completed{{ else }}failed{{ end }}"
+                         data-tooltip="Order placed and awaiting confirmation">
                         <div class="step-icon"><i class="fas fa-shopping-bag"></i></div>
                         <span class="text-xs mt-1 text-gray-600">Pending</span>
                     </div>
-                    <div class="progress-step {{ if eq .Order.Status "Confirmed" }}active{{ else if or (eq .Order.Status "Processing") (eq .Order.Status "Delivered") }}completed{{ else if eq .Order.Status "Failed" }}failed{{ end }}">
+                    <div class="progress-connector {{ if or (eq .Order.Status "Confirmed") (eq .Order.Status "Shipped") (eq .Order.Status "Out for Delivery") (eq .Order.Status "Delivered") }}completed{{ else }}failed{{ end }}" style="left: 0%; width: 20%;"></div>
+                    <div class="progress-step {{ if eq .Order.Status "Confirmed" }}active{{ else if or (eq .Order.Status "Shipped") (eq .Order.Status "Out for Delivery") (eq .Order.Status "Delivered") }}completed{{ else }}failed{{ end }}"
+                         data-tooltip="Order confirmed by seller">
                         <div class="step-icon"><i class="fas fa-check-circle"></i></div>
                         <span class="text-xs mt-1 text-gray-600">Confirmed</span>
                     </div>
-                    <div class="progress-step {{ if eq .Order.Status "Processing" }}active{{ else if eq .Order.Status "Delivered" }}completed{{ else if eq .Order.Status "Failed" }}failed{{ end }}">
-                        <div class="step-icon"><i class="fas fa-truck"></i></div>
-                        <span class="text-xs mt-1 text-gray-600">Processing</span>
+                    <div class="progress-connector {{ if or (eq .Order.Status "Shipped") (eq .Order.Status "Out for Delivery") (eq .Order.Status "Delivered") }}completed{{ else }}failed{{ end }}" style="left: 20%; width: 20%;"></div>
+                    <div class="progress-step {{ if eq .Order.Status "Shipped" }}active{{ else if or (eq .Order.Status "Out for Delivery") (eq .Order.Status "Delivered") }}completed{{ else }}failed{{ end }}"
+                         data-tooltip="Order has been shipped">
+                        <div class="step-icon"><i class="fas fa-ship"></i></div>
+                        <span class="text-xs mt-1 text-gray-600">Shipped</span>
                     </div>
-                    <div class="progress-step {{ if eq .Order.Status "Delivered" }}completed{{ else if eq .Order.Status "Failed" }}failed{{ end }}">
+                    <div class="progress-connector {{ if or (eq .Order.Status "Out for Delivery") (eq .Order.Status "Delivered") }}completed{{ else }}failed{{ end }}" style="left: 40%; width: 20%;"></div>
+                    <div class="progress-step {{ if eq .Order.Status "Out for Delivery" }}active{{ else if eq .Order.Status "Delivered" }}completed{{ else }}failed{{ end }}"
+                         data-tooltip="Order is on its way to you">
+                        <div class="step-icon"><i class="fas fa-truck"></i></div>
+                        <span class="text-xs mt-1 text-gray-600">Out for Delivery</span>
+                    </div>
+                    <div class="progress-connector {{ if eq .Order.Status "Delivered" }}completed{{ else }}failed{{ end }}" style="left: 60%; width: 20%;"></div>
+                    <div class="progress-step {{ if eq .Order.Status "Delivered" }}completed{{ else }}failed{{ end }}"
+                         data-tooltip="Order has been delivered">
+                        <div class="step-icon"><i class="fas fa-box-open"></i></div>
+                        <span class="text-xs mt-1 text-gray-600">Delivered</span>
+                    </div>
+                    <div class="progress-connector {{ if eq .Order.Status "Returned" }}returned{{ else }}failed{{ end }}" style="left: 80%; width: 20%;"></div>
+                    <div class="progress-step {{ if eq .Order.Status "Returned" }}returned{{ else }}failed{{ end }}"
+                         data-tooltip="{{ if eq .Order.Status "Cancelled" }}Order was cancelled{{ else if eq .Order.Status "Returned" }}Order was returned{{ else }}Return was rejected{{ end }}">
+                        <div class="step-icon"><i class="fas {{ if eq .Order.Status "Cancelled" }}fa-times-circle{{ else if eq .Order.Status "Returned" }}fa-undo{{ else }}fa-ban{{ end }}"></i></div>
+                        <span class="text-xs mt-1 text-gray-600">{{ .Order.Status }}</span>
+                    </div>
+                </div>
+                {{ else }}
+                <div class="order-progress">
+                    <div class="progress-step {{ if eq .Order.Status "Pending" }}active{{ else if or (eq .Order.Status "Confirmed") (eq .Order.Status "Shipped") (eq .Order.Status "Out for Delivery") (eq .Order.Status "Delivered") }}completed{{ else if eq .Order.Status "Failed" }}failed{{ end }}"
+                         data-tooltip="Order placed and awaiting confirmation">
+                        <div class="step-icon"><i class="fas fa-shopping-bag"></i></div>
+                        <span class="text-xs mt-1 text-gray-600">Pending</span>
+                    </div>
+                    <div class="progress-connector {{ if or (eq .Order.Status "Confirmed") (eq .Order.Status "Shipped") (eq .Order.Status "Out for Delivery") (eq .Order.Status "Delivered") }}completed{{ else if eq .Order.Status "Failed" }}failed{{ end }}" style="left: 0%; width: 25%;"></div>
+                    <div class="progress-step {{ if eq .Order.Status "Confirmed" }}active{{ else if or (eq .Order.Status "Shipped") (eq .Order.Status "Out for Delivery") (eq .Order.Status "Delivered") }}completed{{ else if eq .Order.Status "Failed" }}failed{{ end }}"
+                         data-tooltip="Order confirmed by seller">
+                        <div class="step-icon"><i class="fas fa-check-circle"></i></div>
+                        <span class="text-xs mt-1 text-gray-600">Confirmed</span>
+                    </div>
+                    <div class="progress-connector {{ if or (eq .Order.Status "Shipped") (eq .Order.Status "Out for Delivery") (eq .Order.Status "Delivered") }}completed{{ else if eq .Order.Status "Failed" }}failed{{ end }}" style="left: 25%; width: 25%;"></div>
+                    <div class="progress-step {{ if eq .Order.Status "Shipped" }}active{{ else if or (eq .Order.Status "Out for Delivery") (eq .Order.Status "Delivered") }}completed{{ else if eq .Order.Status "Failed" }}failed{{ end }}"
+                         data-tooltip="Order has been shipped">
+                        <div class="step-icon"><i class="fas fa-ship"></i></div>
+                        <span class="text-xs mt-1 text-gray-600">Shipped</span>
+                    </div>
+                    <div class="progress-connector {{ if or (eq .Order.Status "Out for Delivery") (eq .Order.Status "Delivered") }}completed{{ else if eq .Order.Status "Failed" }}failed{{ end }}" style="left: 50%; width: 25%;"></div>
+                    <div class="progress-step {{ if eq .Order.Status "Out for Delivery" }}active{{ else if eq .Order.Status "Delivered" }}completed{{ else if eq .Order.Status "Failed" }}failed{{ end }}"
+                         data-tooltip="Order is on its way to you">
+                        <div class="step-icon"><i class="fas fa-truck"></i></div>
+                        <span class="text-xs mt-1 text-gray-600">Out for Delivery</span>
+                    </div>
+                    <div class="progress-connector {{ if eq .Order.Status "Delivered" }}completed{{ else if eq .Order.Status "Failed" }}failed{{ end }}" style="left: 75%; width: 25%;"></div>
+                    <div class="progress-step {{ if eq .Order.Status "Delivered" }}completed{{ else if eq .Order.Status "Failed" }}failed{{ end }}"
+                         data-tooltip="Order has been delivered">
                         <div class="step-icon"><i class="fas fa-box-open"></i></div>
                         <span class="text-xs mt-1 text-gray-600">Delivered</span>
                     </div>
                 </div>
+                {{ end }}
             </div>
         </div>
 
@@ -216,18 +273,26 @@
                         <i class="fas fa-chevron-down transition-transform duration-200" id="order-items-toggle"></i>
                     </div>
                     <div id="order-items" class="border-t border-gray-200 px-6 py-5">
+                        {{ $activeItemCount := 0 }}
                         {{ range .Order.OrderItems }}
+                            {{ if or (eq .Status "Active") (eq .Status "") }}
+                                {{ $activeItemCount = add $activeItemCount 1 }}
+                            {{ end }}
+                        {{ end }}
+
+                        {{ range .Order.OrderItems }}
+                        {{ $isActiveItem := or (eq .Status "Active") (eq .Status "") }}
                         <div class="py-4 flex items-center border-b border-gray-200 last:border-b-0">
                             <img src="{{ if .Product.Images }}{{ index .Product.Images 0 }}{{ else }}/api/placeholder/100/100{{ end }}"
-                                alt="{{ .Product.ProductName }}" class="h-20 w-20 object-cover rounded-lg">
+                                 alt="{{ .Product.ProductName }}" class="h-20 w-20 object-cover rounded-lg">
                             <div class="ml-4 flex-1">
                                 <h3 class="text-base font-semibold text-gray-900">{{ .Product.ProductName }}</h3>
                                 <p class="text-sm text-gray-500">{{ .VariantAttributes }}</p>
                                 <p class="text-sm text-gray-500">Quantity: {{ .Quantity }}</p>
                                 <p class="text-sm">
-                                    <span class="status-badge status-{{ .Status }}">
+                                    <span class="status-badge status-{{ if eq .Status "" }}active{{ else }}{{ .Status }}{{ end }}">
                                         <i class="fas {{ if eq .Status "Active" }}fa-check{{ else if eq .Status "Cancelled" }}fa-times{{ else if eq .Status "Failed" }}fa-exclamation-triangle{{ else }}fa-info-circle{{ end }}"></i>
-                                        {{ .Status }}
+                                        {{ if eq .Status "" }}Active{{ else }}{{ .Status }}{{ end }}
                                     </span>
                                 </p>
                                 {{ if .OfferName }}
@@ -235,15 +300,39 @@
                                 {{ end }}
                             </div>
                             <div class="text-right">
-                                <p class="text-base font-semibold text-gray-700 line-through">
-                                    ${{ printf "%.2f" (add .Product.Price .Variants.ExtraPrice) }}
-                                </p>
-                                <p class="text-base font-semibold text-green-600">
-                                    ${{ printf "%.2f" .UnitPrice }}
-                                </p>
-                                {{ if and (or (eq .Status "Active") (eq .Status "")) (or (eq $.Order.Status "Pending") (eq $.Order.Status "Confirmed")) }}
-                                <button onclick="confirmCancel('{{ $.Order.OrderIdUnique }}', '{{ .ID }}', {{ .UnitPrice }}, {{ $.Order.Subtotal }}, {{ $.Order.CouponDiscount }})"
-                                    class="text-sm text-red-600 hover:text-red-800 transition mt-2">Cancel Item</button>
+                                {{ if .OfferName }}
+                                    <p class="text-base font-semibold text-gray-700 line-through">
+                                        ₹{{ printf "%.2f" (mul .UnitPrice .Quantity) }}
+                                    </p>
+                                    <p class="text-base font-semibold text-green-600">
+                                        ₹{{ printf "%.2f" (mul (sub .UnitPrice .DiscountAmount) .Quantity) }}
+                                    </p>
+                                {{ else }}
+                                    <p class="text-base font-semibold text-gray-700">
+                                        ₹{{ printf "%.2f" (mul .UnitPrice .Quantity) }}
+                                    </p>
+                                {{ end }}
+                                
+                                {{ if and $isActiveItem (or (eq $.Order.Status "Pending") (eq $.Order.Status "Confirmed")) }}
+                                    {{ $discountedTotalPrice := mul (sub .UnitPrice .DiscountAmount) .Quantity }}
+                                    {{ $refundAmount := $discountedTotalPrice }}
+                                    {{ if not .OfferName }}
+                                        {{ $refundAmount = mul .UnitPrice .Quantity }}
+                                    {{ end }}
+                                    
+                                    {{ if eq $activeItemCount 1 }}
+                                        <!-- Only one active item - show Cancel Order -->
+                                        <button onclick="confirmCancelOrder('{{ $.Order.OrderIdUnique }}', {{ $refundAmount }})"
+                                                class="text-sm text-red-600 hover:text-red-800 transition mt-2 font-medium bg-red-50 px-3 py-1 rounded-md">
+                                            <i class="fas fa-times-circle mr-1"></i>Cancel Order
+                                        </button>
+                                    {{ else }}
+                                        <!-- Multiple active items - show Cancel Item -->
+                                        <button onclick="confirmCancel('{{ $.Order.OrderIdUnique }}', '{{ .ID }}', {{ $refundAmount }})"
+                                                class="text-sm text-red-600 hover:text-red-800 transition mt-2">
+                                            Cancel Item
+                                        </button>
+                                    {{ end }}
                                 {{ end }}
                             </div>
                         </div>
@@ -252,18 +341,20 @@
                         {{ end }}
                     </div>
                 </div>
-                {{ if and (ne .Order.Status "Delivered") (ne .Order.Status "Cancelled") (ne .Order.Status "Return Requested") (ne .Order.Status "Failed") }}
+
+                {{ if and (ne .Order.Status "Delivered") (ne .Order.Status "Cancelled") (ne .Order.Status "Return Requested") (ne .Order.Status "Returned") (ne .Order.Status "Failed") (ne .Order.Status "Return Rejected") (gt $activeItemCount 1) }}
                 <div class="mt-6 flex justify-end">
                     <button onclick="openModal('cancel-order', '/orders/cancel/{{ .Order.OrderIdUnique }}')"
-                        class="bg-red-600 text-white px-5 py-2 rounded-lg hover:bg-red-700 transition flex items-center">
+                            class="bg-red-600 text-white px-5 py-2 rounded-lg hover:bg-red-700 transition flex items-center">
                         <i class="fas fa-times-circle mr-2"></i>Cancel Order
                     </button>
                 </div>
                 {{ end }}
+                
                 {{ if eq .Order.Status "Delivered" }}
                 <div class="mt-6 flex justify-end">
                     <button onclick="openModal('return-order', '/orders/return/{{ .Order.OrderIdUnique }}')"
-                        class="bg-yellow-600 text-white px-5 py-2 rounded-lg hover:bg-yellow-700 transition flex items-center">
+                            class="bg-yellow-600 text-white px-5 py-2 rounded-lg hover:bg-yellow-700 transition flex items-center">
                         <i class="fas fa-undo mr-2"></i>Return Order
                     </button>
                 </div>
@@ -282,20 +373,26 @@
                         {{ if .HasBackup }}
                         <div class="text-sm text-gray-700 italic">Original values at time of order:</div>
                         <div class="flex justify-between text-sm">
-                            <span class="font-medium text-gray-700">Original Total Price</span>
-                            <span>${{ printf "%.2f" .OrderBackup.Subtotal }}</span>
+                            <span class="font-medium text-gray-700">Original Subtotal</span>
+                            <span>₹{{ printf "%.2f" .OrderBackup.Subtotal }}</span>
                         </div>
                         <div class="flex justify-between text-sm">
-                            <span class="font-medium text-green-600">Original Offer Discounts</span>
-                            <span class="text-green-600">-${{ printf "%.2f" .OrderBackup.OfferDiscount }}</span>
+                            <span class="font-medium text-green-600">Original Offer Discount</span>
+                            <span class="text-green-600">-₹{{ printf "%.2f" .OrderBackup.OfferDiscount }}</span>
                         </div>
+                        {{ if gt .OrderBackup.CouponDiscount 0.0 }}
+                        <div class="flex justify-between text-sm">
+                            <span class="font-medium text-green-600">Original Coupon Discount</span>
+                            <span class="text-green-600">-₹{{ printf "%.2f" .OrderBackup.CouponDiscount }}</span>
+                        </div>
+                        {{ end }}
                         <div class="flex justify-between text-sm">
                             <span class="font-medium text-gray-700">Shipping Cost</span>
-                            <span>${{ printf "%.2f" .OrderBackup.ShippingCost }}</span>
+                            <span>₹{{ printf "%.2f" .OrderBackup.ShippingCost }}</span>
                         </div>
                         <div class="flex justify-between text-lg font-bold border-t pt-4">
                             <span class="text-gray-900">Final Amount Paid (approx.)</span>
-                            <span class="text-indigo-600">${{ printf "%.2f" .OrderBackup.TotalPrice }}</span>
+                            <span class="text-indigo-600">₹{{ printf "%.2f" .OrderBackup.TotalPrice }}</span>
                         </div>
                         {{ else }}
                         <p class="text-sm text-gray-500">Original order details are unavailable.</p>
@@ -303,27 +400,27 @@
                         {{ else }}
                         <div class="flex justify-between text-sm">
                             <span class="font-medium text-gray-700">Subtotal</span>
-                            <span>${{ printf "%.2f" .Order.Subtotal }}</span>
+                            <span>₹{{ printf "%.2f" .Order.Subtotal }}</span>
                         </div>
-                        {{ if gt .CurrentTotalOfferDiscount 0.0 }}
+                        {{ if gt .Order.OfferDiscount 0.0 }}
                         <div class="flex justify-between text-sm">
-                            <span class="font-medium text-green-600">Offer Discounts</span>
-                            <span class="text-green-600">-${{ printf "%.2f" .CurrentTotalOfferDiscount }}</span>
+                            <span class="font-medium text-green-600">Offer Discount</span>
+                            <span class="text-green-600">-₹{{ printf "%.2f" .Order.OfferDiscount }}</span>
                         </div>
                         {{ end }}
                         {{ if gt .Order.CouponDiscount 0.0 }}
                         <div class="flex justify-between text-sm">
                             <span class="font-medium text-green-600">Coupon Discount</span>
-                            <span class="text-green-600">-${{ printf "%.2f" .Order.CouponDiscount }}</span>
+                            <span class="text-green-600">-₹{{ printf "%.2f" .Order.CouponDiscount }}</span>
                         </div>
                         {{ end }}
                         <div class="flex justify-between text-sm">
                             <span class="font-medium text-gray-700">Shipping</span>
-                            <span>${{ printf "%.2f" .Order.ShippingCost }}</span>
+                            <span>₹{{ printf "%.2f" .Order.ShippingCost }}</span>
                         </div>
                         <div class="flex justify-between text-lg font-bold border-t pt-4">
                             <span class="text-gray-900">Grand Total</span>
-                            <span class="text-indigo-600">${{ printf "%.2f" .Order.TotalPrice }}</span>
+                            <span class="text-indigo-600">₹{{ printf "%.2f" .Order.TotalPrice }}</span>
                         </div>
                         {{ end }}
                     </div>
@@ -335,26 +432,33 @@
                         <i class="fas fa-chevron-down transition-transform duration-200" id="shipping-address-toggle"></i>
                     </div>
                     <div id="shipping-address" class="border-t border-gray-200 px-6 py-5">
+                        {{ if .ShippingAddress }}
                         <address class="not-italic text-sm text-gray-600">
                             <p class="font-semibold text-gray-900">{{ .ShippingAddress.Name }}</p>
                             <p>{{ .ShippingAddress.Landmark }}</p>
+                            {{ if .ShippingAddress.AddressType }}
                             <p>{{ .ShippingAddress.AddressType }}</p>
+                            {{ end }}
                             <p>{{ .ShippingAddress.City }}, {{ .ShippingAddress.State }} {{ .ShippingAddress.Pincode }}</p>
                             <p class="mt-2"><span class="font-semibold">Phone:</span> {{ .ShippingAddress.Phone }}</p>
                             {{ if .ShippingAddress.AlternatePhone }}
                             <p><span class="font-semibold">Alternate Phone:</span> {{ .ShippingAddress.AlternatePhone }}</p>
                             {{ end }}
                         </address>
+                        {{ else }}
+                        <p class="text-sm text-gray-500">Shipping address not available</p>
+                        {{ end }}
                     </div>
                 </div>
             </div>
         </div>
 
+        <!-- Cancel/Return Modal -->
         <div id="action-modal" class="modal">
             <div class="modal-content">
                 <h2 id="modal-title" class="text-lg font-semibold text-gray-900 mb-4"></h2>
-                <p id="modal-policy" class="policy-text"></p>
-                <p id="modal-warning" class="text-sm text-gray-600 mb-4"></p>
+                <div id="modal-policy" class="policy-text" style="display: none;"></div>
+                <div id="modal-warning" class="text-sm text-gray-600 mb-4"></div>
                 <p class="text-sm text-gray-600 mb-4">Please provide a reason for your request:</p>
                 <textarea id="reason-input" class="w-full border border-gray-300 rounded-lg p-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600" placeholder="Enter reason..."></textarea>
                 <div class="flex justify-end space-x-3 mt-4">
@@ -381,44 +485,12 @@
             }
         }
 
-        function confirmCancel(orderId, itemId, itemPrice, orderSubtotal, couponDiscount) {
-            // Assume coupon minimum is 2600 (hardcoded for simplicity; ideally fetch from backend)
-            const couponMinAmount = 2600;
-            let couponLoss = 0;
-            let refundedAmount = 0;
-            
-            // Calculate new subtotal after cancellation
-            const newSubtotal = orderSubtotal - itemPrice;
-            
-            // Check if coupon becomes ineligible
-            if (couponDiscount > 0 && newSubtotal < couponMinAmount) {
-                const couponAdjustment = couponDiscount;
-                refundedAmount = itemPrice - couponAdjustment;
-                if (refundedAmount < 0) {
-                    couponLoss = -refundedAmount;
-                    refundedAmount = 0;
-                }
-            } else {
-                refundedAmount = itemPrice;
-            }
+        function confirmCancel(orderId, itemId, refundAmount) {
+            openModal('cancel-item', `/orders/cancel-item/${orderId}/${itemId}`, { refundedAmount: refundAmount });
+        }
 
-            if (couponLoss > 0) {
-                Swal.fire({
-                    title: 'Warning: Coupon Loss',
-                    text: `Canceling this item will remove your coupon discount, resulting in a deduction of $${couponLoss.toFixed(2)} from your wallet, which may lead to a negative balance. Proceed?`,
-                    icon: 'warning',
-                    showCancelButton: true,
-                    confirmButtonColor: '#3b82f6',
-                    cancelButtonColor: '#d1d5db',
-                    confirmButtonText: 'Proceed'
-                }).then((result) => {
-                    if (result.isConfirmed) {
-                        openModal('cancel-item', `/orders/cancel-item/${orderId}/${itemId}`, { couponLoss, refundedAmount });
-                    }
-                });
-            } else {
-                openModal('cancel-item', `/orders/cancel-item/${orderId}/${itemId}`, { couponLoss, refundedAmount });
-            }
+        function confirmCancelOrder(orderId, refundAmount) {
+            openModal('cancel-order', `/orders/cancel/${orderId}`, { refundedAmount: refundAmount });
         }
 
         function openModal(action, url, data = null) {
@@ -430,24 +502,60 @@
             const policyText = document.getElementById('modal-policy');
 
             reasonInput.value = '';
+            
             if (action === 'cancel-order') {
-                title.textContent = 'Cancel Order';
+                title.textContent = 'Cancel Entire Order';
                 policyText.style.display = 'none';
-                warningText.textContent = 'Are you sure you want to cancel the entire order?';
+                if (data && data.refundedAmount > 0) {
+                    warningText.innerHTML = `
+                        <div class="bg-red-50 border border-red-200 rounded-md p-3 mb-3">
+                            <p class="text-red-800 mb-2"><i class="fas fa-exclamation-triangle mr-2"></i>
+                            This will cancel the <strong>entire order</strong> and all remaining items.
+                            </p>
+                            <p class="text-sm text-red-700">Any refund will be processed to your original payment method within 5-7 business days.</p>
+                        </div>
+                        <div class="text-sm text-gray-600">
+                            <strong>Estimated refund:</strong> ₹${data.refundedAmount.toFixed(2)}
+                        </div>
+                    `;
+                } else {
+                    warningText.innerHTML = `
+                        <div class="bg-red-50 border border-red-200 rounded-md p-3">
+                            <p class="text-red-800"><i class="fas fa-exclamation-triangle mr-2"></i>
+                            Are you sure you want to cancel the entire order? This action cannot be undone and will cancel all items.
+                            </p>
+                        </div>
+                    `;
+                }
             } else if (action === 'cancel-item') {
                 title.textContent = 'Cancel Item';
                 policyText.style.display = 'block';
-                if (data && data.couponLoss > 0) {
-                    warningText.textContent = `Canceling this item will deduct $${data.couponLoss.toFixed(2)} from your wallet, potentially resulting in a negative balance.`;
-                } else if (data && data.refundedAmount > 0) {
-                    warningText.textContent = `Canceling this item will refund $${data.refundedAmount.toFixed(2)} to your wallet.`;
+                policyText.innerHTML = `
+                    
+                `;
+                if (data && data.refundedAmount > 0) {
+                    warningText.innerHTML = `
+                        <div class="text-sm text-orange-600 mb-2">
+                            <i class="fas fa-info-circle mr-2"></i>
+                            This will cancel only this specific item from your order.
+                        </div>
+                        <div class="text-sm text-gray-600">
+                            Estimated refund for this item: <strong>₹${data.refundedAmount.toFixed(2)}</strong>
+                        </div>
+                    `;
                 } else {
                     warningText.textContent = 'Canceling this item will not affect your wallet balance.';
                 }
             } else if (action === 'return-order') {
                 title.textContent = 'Return Order';
                 policyText.style.display = 'none';
-                warningText.textContent = 'Please provide a reason for returning the order.';
+                warningText.innerHTML = `
+                    <div class="bg-blue-50 border border-blue-200 rounded-md p-3">
+                        <p class="text-blue-800"><i class="fas fa-info-circle mr-2"></i>
+                        Please provide a reason for returning the order. Returns are subject to our return policy.
+                        </p>
+                    </div>
+                `;
             }
 
             submitButton.onclick = function() {
@@ -456,49 +564,62 @@
                     Swal.fire({
                         icon: 'warning',
                         title: 'Reason Required',
-                        text: 'Please provide a reason.',
+                        text: 'Please provide a reason for your request.',
                         confirmButtonColor: '#3b82f6',
                     });
                     return;
                 }
 
-                fetch(url, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ reason: reason }),
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.status === 'ok') {
-                        Swal.fire({
-                            icon: 'success',
-                            title: 'Success',
-                            text: data.message,
-                            confirmButtonColor: '#3b82f6',
-                        }).then(() => {
-                            window.location.reload();
-                        });
-                    } else {
-                        Swal.fire({
-                            icon: 'error',
-                            title: 'Error',
-                            text: data.error || 'An error occurred.',
-                            confirmButtonColor: '#3b82f6',
+                Swal.fire({
+                    title: 'Confirm Action',
+                    text: `Are you sure you want to ${action.replace('-', ' ')}?`,
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#ef4444',
+                    cancelButtonColor: '#6b7280',
+                    confirmButtonText: 'Yes, proceed',
+                    cancelButtonText: 'Cancel'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        fetch(url, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({ reason: reason }),
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.status === 'ok' || data.success) {
+                                Swal.fire({
+                                    icon: 'success',
+                                    title: 'Success',
+                                    text: data.message || `${action.replace('-', ' ')} completed successfully`,
+                                    confirmButtonColor: '#3b82f6',
+                                }).then(() => {
+                                    window.location.reload();
+                                });
+                            } else {
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: 'Error',
+                                    text: data.error || 'An error occurred.',
+                                    confirmButtonColor: '#3b82f6',
+                                });
+                            }
+                            closeModal();
+                        })
+                        .catch(error => {
+                            console.error('Error:', error);
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Error',
+                                text: 'Failed to process request.',
+                                confirmButtonColor: '#3b82f6',
+                            });
+                            closeModal();
                         });
                     }
-                    closeModal();
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Error',
-                        text: 'Failed to process request.',
-                        confirmButtonColor: '#3b82f6',
-                    });
-                    closeModal();
                 });
             };
 
@@ -510,14 +631,19 @@
             modal.style.display = 'none';
         }
 
+        // Close modal when clicking outside
         document.getElementById('action-modal').addEventListener('click', function(event) {
             if (event.target === this) {
                 closeModal();
             }
         });
 
-        // Display error message from OrderError if present
         document.addEventListener('DOMContentLoaded', () => {
+            // Initialize collapsible sections as open
+            document.querySelectorAll('.collapsible-header').forEach(header => {
+                header.nextElementSibling.style.display = 'block';
+            });
+            
             {{ if .Order.OrderError }}
             Swal.fire({
                 icon: 'error',
@@ -527,7 +653,7 @@
                 toast: true,
                 position: 'top-end',
                 showConfirmButton: false,
-                timer: 3000
+                timer: 5000
             });
             {{ end }}
         });
@@ -648,12 +774,14 @@
                     rzp.open();
                 } else {
                     Swal.fire({
-                        icon: 'error',
-                        title: 'Payment Retry Failed',
-                        text: data.error || 'Unable to initiate payment retry.',
+                        icon: data.status === 'success' ? 'success' : 'error',
+                        title: data.status === 'success' ? 'Payment Completed' : 'Payment Retry Failed',
+                        text: data.message || 'Unable to initiate payment retry.',
                         confirmButtonColor: '#3b82f6',
                     }).then(() => {
-                        window.location.href = `/order/failure?order_id=${orderId}`;
+                        if (data.redirect) {
+                            window.location.href = data.redirect;
+                        }
                     });
                 }
             })
@@ -665,8 +793,6 @@
                     title: 'Connection Error',
                     text: 'Failed to connect to payment service. Please check your connection and try again.',
                     confirmButtonColor: '#3b82f6',
-                }).then(() => {
-                    window.location.href = `/order/failure?order_id=${orderId}`;
                 });
             });
         }

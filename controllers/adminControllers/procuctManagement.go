@@ -51,110 +51,111 @@ func ShowEditProductForm(c *gin.Context) {
 }
 
 func AddProduct(c *gin.Context) {
-	form, err := c.MultipartForm()
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to parse form data"})
-		return
-	}
+    form, err := c.MultipartForm()
+    if err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to parse form data"})
+        return
+    }
 
-	requiredFields := map[string]string{
-		"productName":  c.PostForm("productName"),
-		"description":  c.PostForm("description"),
-		"price":        c.PostForm("price"),
-		"categoryName": c.PostForm("categoryName"),
-	}
-	for field, value := range requiredFields {
-		if value == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("%s is required", field)})
-			return
-		}
-	}
+    requiredFields := map[string]string{
+        "productName":  c.PostForm("productName"),
+        "description":  c.PostForm("description"),
+        "price":        c.PostForm("price"),
+        "categoryName": c.PostForm("categoryName"),
+        "brand":        c.PostForm("brand"), // Add brand to required fields
+    }
+    for field, value := range requiredFields {
+        if value == "" {
+            c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("%s is required", field)})
+            return
+        }
+    }
 
-	price, err := strconv.ParseFloat(requiredFields["price"], 64)
-	if err != nil || price <= 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid price format or value"})
-		return
-	}
+    price, err := strconv.ParseFloat(requiredFields["price"], 64)
+    if err != nil || price <= 0 {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid price format or value"})
+        return
+    }
 
-	var category adminModels.Category
-	if err := database.DB.Where("category_name = ?", requiredFields["categoryName"]).First(&category).Error; err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid category name"})
-		return
-	}
-	
-	files := form.File["images"]
-	if len(files) < 3 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "At least 3 images are required"})
-		return
-	}
-	var imageURLs []string
-	for _, file := range files {
-		f, err := file.Open()
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to open image"})
-			return
-		}
-		defer f.Close()
-		url, err := helper.ProcessImage(c, f, file)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process image"})
-			return
-		}
-		imageURLs = append(imageURLs, url)
-	}
+    var category adminModels.Category
+    if err := database.DB.Where("category_name = ?", requiredFields["categoryName"]).First(&category).Error; err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid category name"})
+        return
+    }
+    
+    files := form.File["images"]
+    if len(files) < 3 {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "At least 3 images are required"})
+        return
+    }
+    var imageURLs []string
+    for _, file := range files {
+        f, err := file.Open()
+        if err != nil {
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to open image"})
+            return
+        }
+        defer f.Close()
+        url, err := helper.ProcessImage(c, f, file)
+        if err != nil {
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process image"})
+            return
+        }
+        imageURLs = append(imageURLs, url)
+    }
 
-	product := adminModels.Product{
-		ProductName:  requiredFields["productName"],
-		Description:  requiredFields["description"],
-		Price:        price,
-		CategoryName: requiredFields["categoryName"],
-        CategoryID: category.ID,
-		Images:       imageURLs,
-		IsListed:     true,
-	}
+    product := adminModels.Product{
+        ProductName:  requiredFields["productName"],
+        Description:  requiredFields["description"],
+        Brand:        requiredFields["brand"], // Set brand field
+        Price:        price,
+        CategoryName: requiredFields["categoryName"],
+        CategoryID:   category.ID,
+        Images:       imageURLs,
+        IsListed:     true,
+    }
 
-	colors := form.Value["color[]"]
-	variantPrices := form.Value["variantPrice[]"]
-	variantStocks := form.Value["variantStock[]"]
-	if len(colors) == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "At least one variant is required"})
-		return
-	}
-	if len(colors) != len(variantPrices) || len(colors) != len(variantStocks) {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Mismatch in variant fields (color, price, stock)"})
-		return
-	}
+    colors := form.Value["color[]"]
+    variantPrices := form.Value["variantPrice[]"]
+    variantStocks := form.Value["variantStock[]"]
+    if len(colors) == 0 {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "At least one variant is required"})
+        return
+    }
+    if len(colors) != len(variantPrices) || len(colors) != len(variantStocks) {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "Mismatch in variant fields (color, price, stock)"})
+        return
+    }
 
-	for i, color := range colors {
-		extraPrice, err := strconv.ParseFloat(variantPrices[i], 64)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Invalid extra price for variant %s", color)})
-			return
-		}
-		stock, err := strconv.ParseUint(variantStocks[i], 10, 32)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Invalid stock for variant %s", color)})
-			return
-		}
-		product.Variants = append(product.Variants, adminModels.Variants{
-			Color:      color,
-			ExtraPrice: extraPrice,
-			Stock:      uint(stock),
-		})
-	}
+    for i, color := range colors {
+        extraPrice, err := strconv.ParseFloat(variantPrices[i], 64)
+        if err != nil {
+            c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Invalid extra price for variant %s", color)})
+            return
+        }
+        stock, err := strconv.ParseUint(variantStocks[i], 10, 32)
+        if err != nil {
+            c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Invalid stock for variant %s", color)})
+            return
+        }
+        product.Variants = append(product.Variants, adminModels.Variants{
+            Color:      color,
+            ExtraPrice: extraPrice,
+            Stock:      uint(stock),
+        })
+    }
 
-	if err := database.DB.Create(&product).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create product"})
-		return
-	}
+    if err := database.DB.Create(&product).Error; err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create product"})
+        return
+    }
 
-	c.JSON(http.StatusOK, gin.H{
-		"status":  "success",
-		"message": "Product added successfully",
-		"product": product,
-	})
+    c.JSON(http.StatusOK, gin.H{
+        "status":  "success",
+        "message": "Product added successfully",
+        "product": product,
+    })
 }
-
 func EditProduct(c *gin.Context) {
     idStr := c.Param("id")
     id, err := strconv.Atoi(idStr)
@@ -180,6 +181,9 @@ func EditProduct(c *gin.Context) {
     }
     if desc := c.PostForm("description"); desc != "" {
         product.Description = desc
+    }
+    if brand := c.PostForm("brand"); brand != "" { // Add brand update logic
+        product.Brand = brand
     }
     if priceStr := c.PostForm("price"); priceStr != "" {
         price, err := strconv.ParseFloat(priceStr, 64)
@@ -253,7 +257,6 @@ func EditProduct(c *gin.Context) {
                 c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Invalid stock for variant %s", color)})
                 return
             }
-          
 
             if variant, exists := existingVariants[color]; exists {
                 if err := database.DB.Model(variant).Updates(map[string]interface{}{

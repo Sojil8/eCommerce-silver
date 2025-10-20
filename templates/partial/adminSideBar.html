@@ -1,11 +1,148 @@
-<div class="col-md-2 sidebar bg-gray-900 text-white p-4">
-    <a href="/admin/dashboard" class="block py-2 px-3 rounded hover:bg-gray-700 hover:text-white transition-colors {{if eq .ActivePage "customers"}}bg-blue-600 text-white{{end}}">Dashboard</a>
-    <a href="/admin/user-management" class="block py-2 px-3 rounded hover:bg-gray-700 hover:text-white transition-colors {{if eq .ActivePage "customers"}}bg-blue-600 text-white{{end}}">Customers</a>
-    <a href="/admin/category" class="block py-2 px-3 rounded hover:bg-gray-700 hover:text-white transition-colors {{if eq .ActivePage "categories"}}bg-blue-600 text-white{{end}}">Categories</a>
-    <a href="/admin/products" class="block py-2 px-3 rounded hover:bg-gray-700 hover:text-white transition-colors {{if eq .ActivePage "products"}}bg-blue-600 text-white{{end}}">Products</a>
-    <a href="/admin/orders" class="block py-2 px-3 rounded hover:bg-gray-700 hover:text-white transition-colors {{if eq .ActivePage "orders"}}bg-blue-600 text-white{{end}}">Orders</a>
-    <a href="/admin/returns" class="block py-2 px-3 rounded hover:bg-gray-700 hover:text-white transition-colors {{if eq .ActivePage "returns"}}bg-blue-600 text-white{{end}}">Returns</a>
-    <a href="/admin/offers" class="block py-2 px-3 rounded hover:bg-gray-700 hover:text-white transition-colors {{if eq .ActivePage "offers"}}bg-blue-600 text-white{{end}}">Offers</a>
-    <a href="/admin/coupons" class="block py-2 px-3 rounded hover:bg-gray-700 hover:text-white transition-colors {{if eq .ActivePage "coupons"}}bg-blue-600 text-white{{end}}">Coupons</a>
-    <a href="#" class="block py-2 px-3 rounded hover:bg-gray-700 hover:text-white transition-colors" onclick="logout(event)">Logout</a>
-</div>
+<!-- Sidebar Partial -->
+<aside class="sidebar fixed left-0 top-0 h-full w-64 p-4 flex flex-col">
+    <div class="flex items-center justify-center mb-6 pt-4">
+      <br>
+    </div>
+    <nav class="space-y-1 flex-grow">
+        <a href="/admin/dashboard" class="sidebar-link" data-page="dashboard">
+            <i class="fas fa-chart-line"></i>
+            <span>Dashboard</span>
+        </a>
+        <a href="/admin/user-management" class="sidebar-link" data-page="user-management">
+            <i class="fas fa-users"></i>
+            <span>Customers</span>
+        </a>
+        <a href="/admin/category" class="sidebar-link" data-page="category">
+            <i class="fas fa-tags"></i>
+            <span>Category</span>
+        </a>
+        <a href="/admin/products" class="sidebar-link" data-page="products">
+            <i class="fas fa-box"></i>
+            <span>Products</span>
+        </a>
+        <a href="/admin/orders" class="sidebar-link" data-page="orders">
+            <i class="fas fa-shopping-cart"></i>
+            <span>Orders</span>
+        </a>
+        <a href="/admin/returns" class="sidebar-link" data-page="returns">
+            <i class="fas fa-undo"></i>
+            <span>Return</span>
+        </a>
+        <a href="/admin/offers" class="sidebar-link" data-page="offers">
+            <i class="fas fa-percent"></i>
+            <span>Offers</span>
+        </a>
+        <a href="/admin/coupons" class="sidebar-link" data-page="coupons">
+            <i class="fas fa-ticket-alt"></i>
+            <span>Coupons</span>
+        </a>
+    </nav>
+</aside>
+
+<style>
+    .sidebar {
+        background: linear-gradient(180deg, #1f2937 0%, #111827 100%);
+        transition: transform 0.3s ease;
+    }
+    
+    .sidebar a {
+        display: flex;
+        align-items: center;
+        padding: 0.75rem 1rem;
+        border-radius: 8px;
+        color: #d1d5db;
+        text-decoration: none;
+        font-weight: 500;
+        font-size: 0.875rem;
+        transition: all 0.2s ease;
+        margin-bottom: 0.25rem;
+    }
+    
+    .sidebar a:hover {
+        background: #374151;
+        color: white;
+    }
+    
+    .sidebar a.active {
+        background: #3b82f6;
+        color: white;
+    }
+    
+    .sidebar a i {
+        width: 20px;
+        margin-right: 0.75rem;
+    }
+    
+    @media (max-width: 768px) {
+        .sidebar {
+            transform: translateX(-100%);
+            position: fixed;
+            z-index: 50;
+            height: 100vh;
+        }
+        .sidebar.active {
+            transform: translateX(0);
+        }
+    }
+</style>
+
+<script>
+    // Sidebar mobile toggle functionality
+    function setupSidebar() {
+        const toggleSidebar = document.getElementById('toggle-sidebar');
+        if (toggleSidebar) {
+            toggleSidebar.addEventListener('click', () =>
+                document.querySelector('.sidebar').classList.toggle('active')
+            );
+        }
+        
+        // Set active state based on current page
+        setActiveSidebarItem();
+    }
+
+    // Function to set active state based on current URL
+    function setActiveSidebarItem() {
+        const currentPath = window.location.pathname;
+        const sidebarLinks = document.querySelectorAll('.sidebar-link');
+        
+        // Remove active class from all links
+        sidebarLinks.forEach(link => {
+            link.classList.remove('active');
+        });
+        
+        // Find and activate the current page link
+        sidebarLinks.forEach(link => {
+            const linkHref = link.getAttribute('href');
+            const dataPage = link.getAttribute('data-page');
+            
+            // Check if current path matches the link href or data-page attribute
+            if (currentPath === linkHref || 
+                (dataPage && currentPath.includes(dataPage)) ||
+                (currentPath === '/admin' && dataPage === 'dashboard')) {
+                link.classList.add('active');
+            }
+        });
+        
+        // Fallback: if no active link found and we're on admin root, activate dashboard
+        if (currentPath === '/admin' || currentPath === '/admin/') {
+            const dashboardLink = document.querySelector('.sidebar-link[data-page="dashboard"]');
+            if (dashboardLink) {
+                dashboardLink.classList.add('active');
+            }
+        }
+    }
+
+    // Update active state when navigating (for SPA-like behavior)
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('.sidebar-link')) {
+            // Small delay to allow navigation to occur
+            setTimeout(setActiveSidebarItem, 100);
+        }
+    });
+
+    // Initialize sidebar when DOM is loaded
+    document.addEventListener('DOMContentLoaded', setupSidebar);
+    
+    // Also update active state when page loads (in case of direct navigation)
+    window.addEventListener('load', setActiveSidebarItem);
+</script>

@@ -37,7 +37,7 @@ func ForgotPasswordRequest(c *gin.Context) {
 		return
 	}
 
-	if user.Is_blocked {
+	if user.IsBlocked {
 		helper.ResponseWithErr(c, http.StatusForbidden, "Account blocked", "Your account has been blocked", "")
 		return
 	}

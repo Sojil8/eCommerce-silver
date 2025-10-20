@@ -67,9 +67,10 @@ type Return struct {
 
 type OrderBackUp struct {
 	gorm.Model
-	Subtotal      float64 `json:"subtotal"`
-	ShippingCost  float64 `json:"shipping_cost"`
-	OrderIdUnique string  `gorm:"type:varchar(255);unique"`
-	TotalPrice    float64 `json:"total_price"`
-	OfferDiscount float64 `json:"offer_discount"`
+	Subtotal       float64 `json:"subtotal"`
+	ShippingCost   float64 `json:"shipping_cost"`
+	OrderIdUnique  string  `gorm:"type:varchar(255);unique"`
+	TotalPrice     float64 `json:"total_price"`
+	OfferDiscount  float64 `json:"offer_discount"`
+	CouponDiscount float64 `json:"coupon_discount"`
 }

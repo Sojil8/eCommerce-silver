@@ -118,6 +118,12 @@ func EditProfile(c *gin.Context) {
 		}
 	}
 
+	var existingUser userModels.Users
+	if err := database.DB.Where("email = ?", editProfileRequest.Email).First(&existingUser).Error; err == nil {
+		helper.ResponseWithErr(c,http.StatusBadRequest,"email already exits","email already exists","")
+		return
+	}
+
 	if editProfileRequest.Email != user.Email {
 		otp, err := helper.GenerateAndStoreOTP(editProfileRequest.Email)
 		if err != nil {
@@ -156,8 +162,8 @@ func EditProfile(c *gin.Context) {
 		user.ProfileImage = imgURL
 	}
 	user.UserName = editProfileRequest.UserName
-	user.First_name = editProfileRequest.FirstName
-	user.Last_name = editProfileRequest.LastName
+	user.FirstName = editProfileRequest.FirstName
+	user.LastName = editProfileRequest.LastName
 	user.Phone = editProfileRequest.Phone
 
 	if err := database.DB.Save(&user).Error; err != nil {
@@ -210,8 +216,8 @@ func VerifyEditEmail(c *gin.Context) {
 	}
 
 	user.UserName = tempData["username"].(string)
-	user.First_name = tempData["first_name"].(string)
-	user.Last_name = tempData["last_name"].(string)
+	user.FirstName = tempData["first_name"].(string)
+	user.LastName = tempData["last_name"].(string)
 	user.Email = tempData["email"].(string)
 	user.Phone = tempData["phone"].(string)
 
@@ -438,7 +444,6 @@ func ShowWallet(c *gin.Context) {
 		}
 
 	}
-
 
 	var transactionHistory []userModels.WalletTransaction
 	if err := database.DB.Where("wallet_id = ?", wallet.ID).Order("created_at DESC").Find(&transactionHistory).Error; err != nil {

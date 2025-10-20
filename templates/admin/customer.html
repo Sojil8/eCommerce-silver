@@ -43,16 +43,18 @@
 </head>
 <body class="bg-gray-100 font-sans">
     <div class="container flex min-h-screen">
+        {{template "adminNavbar.html"}}
         <!-- Sidebar -->
         <div class="sidebar w-64 bg-gray-900 text-white p-4 flex flex-col fixed left-0 top-0 h-full">
             <div class="sidebar-header mb-6">
                 <h2 class="text-2xl font-bold text-center">Admin Panel</h2>
             </div>
             <div class="sidebar-menu space-y-2 flex-grow">
-               {{template "adminSideBar.html"}}
+                {{template "adminSideBar.html"}}
             </div>
         </div>
-
+        
+        <br>
         <!-- Main Content Wrapper for Centering -->
         <div class="main-content-wrapper">
             <div class="main-content p-6 mt-10">
@@ -68,7 +70,6 @@
                     <table class="w-full table-auto">
                         <thead class="bg-gray-800 text-white">
                             <tr>
-                                <th class="py-3 px-4 text-left">ID</th>
                                 <th class="py-3 px-4 text-left">Name</th>
                                 <th class="py-3 px-4 text-left">Email</th>
                                 <th class="py-3 px-4 text-left">Phone No</th>
@@ -79,19 +80,18 @@
                         <tbody class="text-gray-700">
                             {{ range .users }}
                             <tr class="hover:bg-gray-50 transition-colors">
-                                <td class="py-3 px-4">{{ .ID }}</td>
                                 <td class="py-3 px-4">{{ .UserName }}</td>
                                 <td class="py-3 px-4">{{ .Email }}</td>
                                 <td class="py-3 px-4">{{ .Phone }}</td>
                                 <td class="py-3 px-4">
-                                    {{ if .Is_blocked }}
+                                    {{ if .IsBlocked }}
                                         <span class="text-red-500 font-medium">Blocked</span>
                                     {{ else }}
                                         <span class="text-green-500 font-medium">Active</span>
                                     {{ end }}
                                 </td>
                                 <td class="py-3 px-4">
-                                    {{ if .Is_blocked }}
+                                    {{ if .IsBlocked }}
                                     <button class="block-unblock-btn bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600 hover-scale transition-all" data-id="{{ .ID }}" data-action="unblock">Unblock</button>
                                     {{ else }}
                                     <button class="block-unblock-btn bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 hover-scale transition-all" data-id="{{ .ID }}" data-action="block">Block</button>

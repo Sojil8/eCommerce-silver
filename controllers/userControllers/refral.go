@@ -28,7 +28,7 @@ func ShowRefralPage(c *gin.Context) {
 
 
 	var referrals []userModels.Refral
-	if err := database.DB.Where("user_id = ?", userID).Find(&referrals).Error; err != nil {
+	if err := database.DB.Where("refred_user_id = ?", userID).Find(&referrals).Error; err != nil {
 		helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to fetch referrals", "Database error", err.Error())
 		return
 	}
@@ -89,7 +89,7 @@ func GetReferralData(c *gin.Context) {
 			continue 
 		}
 		referralData = append(referralData, ReferralResponse{
-			FriendName: friend.First_name,
+			FriendName: friend.FirstName,
 			Status:     referral.ReferralIsUsed,
 			Reward:     referral.RewardUser,
 			Date:       referral.CreatedAt.Format("2006-01-02"),

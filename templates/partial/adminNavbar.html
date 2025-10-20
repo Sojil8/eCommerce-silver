@@ -1,0 +1,119 @@
+<!-- Navbar Partial -->
+<nav class="topbar fixed top-0 left-0 right-0 z-40 shadow-lg">
+    <div class="max-w-full mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex justify-between items-center h-16">
+            <div class="flex items-center">
+                <button id="toggle-sidebar" class="md:hidden text-white mr-4 focus:outline-none bg-blue-700 p-2 rounded-lg">
+                    <i class="fas fa-bars text-lg"></i>
+                </button>
+                <div class="flex items-center">
+                    <i class="fas fa-chart-pie text-white text-xl mr-3"></i>
+                    <h1 class="text-white text-xl font-semibold">Admin</h1>
+                </div>
+            </div>
+            <div class="flex items-center space-x-3">
+                <div class="hidden md:flex items-center space-x-2 bg-blue-500/20 px-3 py-1 rounded-lg">
+                    <i class="fas fa-calendar text-blue-200"></i>
+                    <span class="text-white text-sm" id="current-date"></span>
+                </div>
+               
+                <button onclick="logoutAdmin()" class="btn btn-danger">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span class="hidden sm:inline">Logout</span>
+                </button>
+            </div>
+        </div>
+    </div>
+</nav>
+
+<style>
+    .topbar {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        backdrop-filter: blur(8px);
+    }
+    
+    .btn {
+        padding: 0.625rem 1.25rem;
+        border-radius: 8px;
+        font-weight: 500;
+        font-size: 0.875rem;
+        border: none;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .btn-secondary {
+        background: rgba(255, 255, 255, 0.1);
+        color: white;
+        backdrop-filter: blur(10px);
+    }
+    
+    .btn-secondary:hover {
+        background: rgba(255, 255, 255, 0.2);
+    }
+    
+    .btn-danger {
+        background: #ef4444;
+        color: white;
+    }
+    
+    .btn-danger:hover {
+        background: #dc2626;
+    }
+</style>
+
+<script>
+    // Set current date in navbar
+    function setupNavbar() {
+        document.getElementById('current-date').textContent = new Date().toLocaleDateString('en-US', { 
+            weekday: 'long', 
+            year: 'numeric', 
+            month: 'long', 
+            day: 'numeric' 
+        });
+    }
+
+    // Logout function
+    async function logoutAdmin() {
+        try {
+            const response = await fetch('/admin/logout', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                credentials: 'include'
+            });
+
+            if (response.ok) {
+                window.location.href = '/admin/login';
+            } else {
+                const errorData = await response.json();
+                console.error('Logout failed:', errorData);
+                // You can add a SweetAlert here if you want user feedback
+                alert('Logout failed. Please try again.');
+            }
+        } catch (error) {
+            console.error('Logout error:', error);
+            alert('An error occurred during logout. Please try again.');
+        }
+    }
+
+    // Initialize navbar when DOM is loaded
+    document.addEventListener('DOMContentLoaded', function() {
+        setupNavbar();
+        
+        // Add event listener for sidebar toggle
+        const toggleSidebar = document.getElementById('toggle-sidebar');
+        if (toggleSidebar) {
+            toggleSidebar.addEventListener('click', function() {
+                const sidebar = document.querySelector('.sidebar');
+                if (sidebar) {
+                    sidebar.classList.toggle('active');
+                }
+            });
+        }
+    });
+</script>

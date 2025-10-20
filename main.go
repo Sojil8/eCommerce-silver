@@ -7,6 +7,7 @@ import (
 	"github.com/Sojil8/eCommerce-silver/pkg"
 	"github.com/Sojil8/eCommerce-silver/routes"
 	"github.com/Sojil8/eCommerce-silver/services"
+	"github.com/Sojil8/eCommerce-silver/utils/helper"
 	"github.com/Sojil8/eCommerce-silver/utils/storage"
 	"github.com/gin-gonic/gin"
 )
@@ -19,21 +20,22 @@ func init() {
 	router.SetFuncMap(config.SetupTemplateFunctions())
 	router.LoadHTMLGlob("templates/**/*")
 	config.LoadEnv()
+	database.ConnectDb()
 	services.Cloudnary()
 	services.InitRazorPay()
 	services.InitGoogleOAuth()
-	database.ConnectDb()
 	middleware.SecretKeyCheck()
-	database.MigrageHandler()
 	storage.InitRedis()
 	pkg.LoggerInit()
+	helper.StartCouponExpiryScheduler()
+
 }
 
 func main() {
+	database.MigrageHandler()
 	routes.AdminRoutes(router)
 	routes.UserRoutes(router)
 
 	router.Run()
 
-	
 }

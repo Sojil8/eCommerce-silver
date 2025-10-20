@@ -3,6 +3,8 @@ package controllers
 import (
 	"encoding/json"
 	"net/http"
+	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/Sojil8/eCommerce-silver/database"
@@ -16,8 +18,11 @@ type ShopQuery struct {
 	Search   string  `json:"search"`
 	Sort     string  `json:"sort"`
 	Category string  `json:"category"`
+	Brand    string  `json:"brand"` // Added Brand field
 	PriceMin float64 `json:"price_min"`
 	PriceMax float64 `json:"price_max"`
+	Page     int     `json:"page"`
+	Limit    int     `json:"limit"`
 }
 
 type ShopProduct struct {
@@ -29,6 +34,17 @@ type ShopProduct struct {
 	OfferName          string  `json:"offer_name"`
 }
 
+type PaginationData struct {
+	CurrentPage  int
+	TotalPages   int
+	TotalItems   int64
+	ItemsPerPage int
+	HasPrevious  bool
+	HasNext      bool
+	StartItem    int
+	EndItem      int
+}
+
 func GetUserShop(c *gin.Context) {
 	var query ShopQuery
 	if c.Request.Method == "POST" {
@@ -36,23 +52,44 @@ func GetUserShop(c *gin.Context) {
 			query.Search = c.Query("search")
 			query.Sort = c.Query("sort")
 			query.Category = c.Query("category")
+			query.Brand = c.Query("brand") // Added Brand query parameter
 			if min := c.Query("price_min"); min != "" {
 				json.Unmarshal([]byte(min), &query.PriceMin)
 			}
 			if max := c.Query("price_max"); max != "" {
 				json.Unmarshal([]byte(max), &query.PriceMax)
 			}
+			if page := c.Query("page"); page != "" {
+				query.Page, _ = strconv.Atoi(page)
+			}
+			if limit := c.Query("limit"); limit != "" {
+				query.Limit, _ = strconv.Atoi(limit)
+			}
 		}
 	} else {
 		query.Search = c.Query("search")
 		query.Sort = c.Query("sort")
 		query.Category = c.Query("category")
+		query.Brand = c.Query("brand") // Added Brand query parameter
 		if min := c.Query("price_min"); min != "" {
 			json.Unmarshal([]byte(min), &query.PriceMin)
 		}
 		if max := c.Query("price_max"); max != "" {
 			json.Unmarshal([]byte(max), &query.PriceMax)
 		}
+		if page := c.Query("page"); page != "" {
+			query.Page, _ = strconv.Atoi(page)
+		}
+		if limit := c.Query("limit"); limit != "" {
+			query.Limit, _ = strconv.Atoi(limit)
+		}
+	}
+
+	if query.Page < 1 {
+		query.Page = 1
+	}
+	if query.Limit < 1 {
+		query.Limit = 6
 	}
 
 	db := database.DB.Model(&adminModels.Product{}).
@@ -62,11 +99,15 @@ func GetUserShop(c *gin.Context) {
 
 	if query.Search != "" {
 		searchTerm := "%" + strings.ToLower(query.Search) + "%"
-		db = db.Where("LOWER(products.product_name) LIKE ? OR LOWER(products.description) LIKE ?", searchTerm, searchTerm)
+		db = db.Where("LOWER(products.product_name) LIKE ? OR LOWER(products.description) LIKE ? OR LOWER(products.brand) LIKE ?", searchTerm, searchTerm, searchTerm) // Added brand to search
 	}
 
 	if query.Category != "" {
 		db = db.Where("products.category_name = ?", query.Category)
+	}
+
+	if query.Brand != "" {
+		db = db.Where("products.brand = ?", query.Brand) // Added brand filtering
 	}
 
 	// Adjust price filtering to account for variant extra price
@@ -78,20 +119,14 @@ func GetUserShop(c *gin.Context) {
 		db = db.Where("(products.price + COALESCE((SELECT variants.extra_price FROM variants WHERE variants.product_id = products.id LIMIT 1), 0)) <= ?", query.PriceMax)
 	}
 
-	// Adjust sorting to include variant extra price
-	switch query.Sort {
-	case "price_low_to_high":
-		db = db.Order("(products.price + COALESCE((SELECT variants.extra_price FROM variants WHERE variants.product_id = products.id LIMIT 1), 0)) ASC")
-	case "price_high_to_low":
-		db = db.Order("(products.price + COALESCE((SELECT variants.extra_price FROM variants WHERE variants.product_id = products.id LIMIT 1), 0)) DESC")
-	case "a_to_z":
-		db = db.Order("products.product_name ASC")
-	case "z_to_a":
-		db = db.Order("products.product_name DESC")
-	default:
-		db = db.Order("products.id DESC")
+	// Get total count before pagination
+	var totalCount int64
+	if err := db.Count(&totalCount).Error; err != nil {
+		helper.ResponseWithErr(c, http.StatusInternalServerError, "error:failed to count products", "error:failed to count products", "")
+		return
 	}
 
+	// Fetch all filtered products (no limit/offset/order here, we'll handle sorting and pagination in memory)
 	var products []adminModels.Product
 	if err := db.Find(&products).Error; err != nil {
 		helper.ResponseWithErr(c, http.StatusInternalServerError, "error:failed to fetch products", "error:failed to fetch products", "")
@@ -131,9 +166,89 @@ func GetUserShop(c *gin.Context) {
 		shopProducts = append(shopProducts, shopProduct)
 	}
 
+	// Now sort the shopProducts in memory based on the query.Sort, using the final price (offer if applicable)
+	switch query.Sort {
+	case "price_low_to_high":
+		sort.Slice(shopProducts, func(i, j int) bool {
+			priceI := shopProducts[i].OfferPrice
+			if !shopProducts[i].IsOffer {
+				priceI = shopProducts[i].OriginalPrice
+			}
+			priceJ := shopProducts[j].OfferPrice
+			if !shopProducts[j].IsOffer {
+				priceJ = shopProducts[j].OriginalPrice
+			}
+			return priceI < priceJ
+		})
+	case "price_high_to_low":
+		sort.Slice(shopProducts, func(i, j int) bool {
+			priceI := shopProducts[i].OfferPrice
+			if !shopProducts[i].IsOffer {
+				priceI = shopProducts[i].OriginalPrice
+			}
+			priceJ := shopProducts[j].OfferPrice
+			if !shopProducts[j].IsOffer {
+				priceJ = shopProducts[j].OriginalPrice
+			}
+			return priceI > priceJ
+		})
+	case "a_to_z":
+		sort.Slice(shopProducts, func(i, j int) bool {
+			return shopProducts[i].ProductName < shopProducts[j].ProductName
+		})
+	case "z_to_a":
+		sort.Slice(shopProducts, func(i, j int) bool {
+			return shopProducts[i].ProductName > shopProducts[j].ProductName
+		})
+	default:
+		sort.Slice(shopProducts, func(i, j int) bool {
+			return shopProducts[i].ID > shopProducts[j].ID // Default: newest first (ID DESC)
+		})
+	}
+
+	// Update totalCount and pagination based on the sorted shopProducts
+	totalCount = int64(len(shopProducts))
+	totalPages := int((totalCount + int64(query.Limit) - 1) / int64(query.Limit))
+
+	// Apply in-memory pagination
+	offset := (query.Page - 1) * query.Limit
+	if offset > len(shopProducts) {
+		offset = len(shopProducts)
+	}
+	end := offset + query.Limit
+	if end > len(shopProducts) {
+		end = len(shopProducts)
+	}
+	paginatedShopProducts := shopProducts[offset:end]
+
+	// Calculate pagination data
+	startItem := offset + 1
+	endItem := offset + len(paginatedShopProducts)
+	if totalCount == 0 {
+		startItem = 0
+	}
+
+	pagination := PaginationData{
+		CurrentPage:  query.Page,
+		TotalPages:   totalPages,
+		TotalItems:   totalCount,
+		ItemsPerPage: query.Limit,
+		HasPrevious:  query.Page > 1,
+		HasNext:      query.Page < totalPages,
+		StartItem:    startItem,
+		EndItem:      endItem,
+	}
+
 	var categories []adminModels.Category
 	if err := database.DB.Where("status = ?", true).Find(&categories).Error; err != nil {
 		helper.ResponseWithErr(c, http.StatusInternalServerError, "error:Failed to fetch categories", "error:Failed to fetch categories", "")
+		return
+	}
+
+	// Fetch distinct brands
+	var brands []string
+	if err := database.DB.Model(&adminModels.Product{}).Where("is_listed = ?", true).Distinct("brand").Pluck("brand", &brands).Error; err != nil {
+		helper.ResponseWithErr(c, http.StatusInternalServerError, "error:Failed to fetch brands", "error:Failed to fetch brands", "")
 		return
 	}
 
@@ -141,9 +256,11 @@ func GetUserShop(c *gin.Context) {
 	userName, nameExists := c.Get("user_name")
 	if !exists || !nameExists {
 		c.HTML(http.StatusOK, "shop.html", gin.H{
-			"Products":      shopProducts,
+			"Products":      paginatedShopProducts,
 			"Categories":    categories,
+			"Brands":        brands, // Added Brands to template data
 			"Query":         query,
+			"Pagination":    pagination,
 			"status":        "success",
 			"UserName":      "Guest",
 			"WishlistCount": 0,
@@ -165,9 +282,11 @@ func GetUserShop(c *gin.Context) {
 	}
 
 	c.HTML(http.StatusOK, "shop.html", gin.H{
-		"Products":      shopProducts,
+		"Products":      paginatedShopProducts,
 		"Categories":    categories,
+		"Brands":        brands, // Added Brands to template data
 		"Query":         query,
+		"Pagination":    pagination,
 		"UserName":      userNameStr,
 		"ProfileImage":  userData.ProfileImage,
 		"WishlistCount": wishlistCount,

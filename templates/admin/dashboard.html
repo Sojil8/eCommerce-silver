@@ -8,37 +8,239 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #f8fafc;
+            color: #1e293b;
+        }
+        
         .card {
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            background: white;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+            transition: all 0.2s ease;
         }
+        
         .card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+            border-color: #cbd5e1;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
         }
+        
+        .stat-card {
+            background: white;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+            padding: 1.5rem;
+            transition: all 0.2s ease;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.08);
+        }
+        
+        .stat-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+        }
+        
+        /* Updated Sidebar Styles */
+        .sidebar {
+            background: linear-gradient(180deg, #1f2937 0%, #111827 100%);
+            transition: transform 0.3s ease;
+        }
+        
+        .sidebar a {
+            display: flex;
+            align-items: center;
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            color: #d1d5db;
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 0.875rem;
+            transition: all 0.2s ease;
+            margin-bottom: 0.25rem;
+        }
+        
+        .sidebar a:hover {
+            background: #374151;
+            color: white;
+        }
+        
+        .sidebar a.active {
+            background: #3b82f6;
+            color: white;
+        }
+        
+        .sidebar a i {
+            width: 20px;
+            margin-right: 0.75rem;
+        }
+        
+        /* Updated Topbar Styles */
+        .topbar {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            backdrop-filter: blur(8px);
+        }
+        
+        .btn {
+            padding: 0.625rem 1.25rem;
+            border-radius: 8px;
+            font-weight: 500;
+            font-size: 0.875rem;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .btn-primary {
+            background: #3b82f6;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #2563eb;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(59, 130, 246, 0.3);
+        }
+        
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            backdrop-filter: blur(10px);
+        }
+        
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+        
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+        
+        .filter-btn {
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            font-weight: 500;
+            font-size: 0.875rem;
+            border: 1px solid #e2e8f0;
+            background: white;
+            color: #64748b;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .filter-btn:hover {
+            border-color: #cbd5e1;
+            background: #f8fafc;
+        }
+        
+        .filter-btn.active {
+            background: #3b82f6;
+            color: white;
+            border-color: #3b82f6;
+        }
+        
+        input[type="date"] {
+            padding: 0.5rem 0.75rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            transition: all 0.2s ease;
+        }
+        
+        input[type="date"]:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        thead {
+            background: #f8fafc;
+        }
+        
+        th {
+            padding: 0.75rem 1rem;
+            text-align: left;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        
+        td {
+            padding: 1rem;
+            border-top: 1px solid #f1f5f9;
+            font-size: 0.875rem;
+        }
+        
+        tbody tr {
+            transition: background 0.2s ease;
+        }
+        
+        tbody tr:hover {
+            background: #f8fafc;
+        }
+        
+        .chart-container {
+            height: 300px;
+            position: relative;
+            padding: 1rem 0;
+        }
+        
         .loading {
             display: inline-block;
             width: 20px;
             height: 20px;
-            border: 3px solid #f3f3f3;
-            border-top: 3px solid #3498db;
+            border: 3px solid #e2e8f0;
+            border-top: 3px solid #3b82f6;
             border-radius: 50%;
             animation: spin 1s linear infinite;
         }
+        
         @keyframes spin {
             to { transform: rotate(360deg); }
         }
-        .gradient-bg {
-            background: linear-gradient(135deg, #667eea, #764ba2);
+        
+        .section-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: #0f172a;
+            margin-bottom: 1rem;
         }
-        .chart-container {
-            height: 300px;
-        }
-        .sidebar {
-            transition: transform 0.3s ease-in-out;
-        }
+        
         @media (max-width: 768px) {
             .sidebar {
                 transform: translateX(-100%);
+                position: fixed;
+                z-index: 50;
+                height: 100vh;
             }
             .sidebar.active {
                 transform: translateX(0);
@@ -49,229 +251,240 @@
         }
     </style>
 </head>
-<body class="bg-gray-50">
+<body>
     <!-- Sidebar -->
-    <aside class="sidebar fixed left-0 top-0 h-full w-64 bg-gray-900 text-white p-4 flex flex-col">
-        <h2 class="text-2xl font-bold text-center mb-6">Admin Panel</h2>
-        <nav class="space-y-2 flex-grow">
-            <a href="/admin/dashboard" class="block py-2 px-3 rounded bg-blue-600 hover:bg-blue-700 transition-colors">Dashboard</a>
-            <a href="/admin/user-management" class="block py-2 px-3 rounded hover:bg-gray-700 transition-colors">Customers</a>
-            <a href="/admin/category" class="block py-2 px-3 rounded hover:bg-gray-700 transition-colors">Category</a>
-            <a href="/admin/products" class="block py-2 px-3 rounded hover:bg-gray-700 transition-colors">Products</a>
-            <a href="/admin/orders" class="block py-2 px-3 rounded hover:bg-gray-700 transition-colors">Orders</a>
-            <a href="/admin/returns" class="block py-2 px-3 rounded hover:bg-gray-700 transition-colors">Return</a>
-            <a href="/admin/offers" class="block py-2 px-3 rounded hover:bg-gray-700 transition-colors">Offers</a>
-            <a href="/admin/coupons" class="block py-2 px-3 rounded hover:bg-gray-700 transition-colors">Coupons</a>
-            <a href="#" class="block py-2 px-3 rounded hover:bg-gray-700 transition-colors" onclick="logoutAdmin()">Logout</a>
+    <aside class="sidebar fixed left-0 top-0 h-full w-64 p-4 flex flex-col">
+        <div class="flex items-center justify-center mb-6 pt-4">
+           <br>
+           <br>
+        </div>
+        <nav class="space-y-1 flex-grow">
+            {{template "adminSideBar.html"}}
         </nav>
     </aside>
 
-    <!-- Navigation -->
-    <nav class="gradient-bg shadow-lg">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between h-16 items-center">
-                <div class="flex items-center">
-                    <button id="toggle-sidebar" class="md:hidden text-white mr-4 focus:outline-none">
-                        <i class="fas fa-bars text-xl"></i>
+    <!-- Top Bar -->
+    <nav class="topbar fixed top-0 left-0 right-0 z-40 shadow-lg">
+        <div class="max-w-full mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">                  
+                    <div class="flex items-center">
+                        <i class="fas fa-chart-pie text-white text-xl mr-3"></i>
+                        <h1 class="text-white text-xl font-semibold">Dashboard Overview</h1>
+                    </div>
+                <div class="flex items-center space-x-3">
+                    <div class="hidden md:flex items-center space-x-2 bg-blue-500/20 px-3 py-1 rounded-lg">
+                        <i class="fas fa-calendar text-blue-200"></i>
+                        <span class="text-white text-sm" id="current-date"></span>
+                    </div>
+                    
+                    <button onclick="exportData('pdf')" class="btn btn-secondary">
+                        <i class="fas fa-file-pdf"></i>
+                        <span class="hidden sm:inline">Export PDF</span>
                     </button>
-                    <h1 class="text-white text-xl font-bold">eCommerce Admin Dashboard</h1>
-                </div>
-                <div class="flex items-center space-x-4">
-                    <button onclick="exportData('csv')" class="bg-white text-blue-600 px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-50 transition">
-                        <i class="fas fa-download mr-2"></i>Export CSV
-                    </button>
-                    <button onclick="exportData('pdf')" class="bg-white text-blue-600 px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-50 transition">
-                        <i class="fas fa-file-pdf mr-2"></i>Export PDF
-                    </button>
-                    <button onclick="logoutAdmin()" class="bg-red-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-red-700 transition">
-                        <i class="fas fa-sign-out-alt mr-2"></i>Logout
-                    </button>
+
+                <button onclick="logoutAdmin()" class="btn btn-danger">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span class="hidden sm:inline">Logout</span>
+                </button>
                 </div>
             </div>
         </div>
     </nav>
 
     <!-- Main Content -->
-    <main class="main-content ml-0 md:ml-64 pt-20 md:pt-6">
-        <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-            <!-- Filter Buttons -->
-            <section class="mb-6">
-                <div class="bg-white rounded-lg shadow p-4">
-                    <h3 class="text-lg font-medium text-gray-900 mb-4">Filter Reports</h3>
-                    <div class="flex flex-col sm:flex-row sm:space-x-4 space-y-4 sm:space-y-0">
-                        <div class="flex space-x-4">
-                            <button onclick="filterData('daily')" id="daily-btn" class="filter-btn px-4 py-2 rounded-md text-sm font-medium bg-gray-200 text-gray-700 hover:bg-gray-300">Daily</button>
-                            <button onclick="filterData('weekly')" id="weekly-btn" class="filter-btn px-4 py-2 rounded-md text-sm font-medium bg-blue-600 text-white">Weekly</button>
-                            <button onclick="filterData('monthly')" id="monthly-btn" class="filter-btn px-4 py-2 rounded-md text-sm font-medium bg-gray-200 text-gray-700 hover:bg-gray-300">Monthly</button>
-                            <button onclick="filterData('yearly')" id="yearly-btn" class="filter-btn px-4 py-2 rounded-md text-sm font-medium bg-gray-200 text-gray-700 hover:bg-gray-300">Yearly</button>
+    <main class="main-content ml-0 md:ml-64 pt-16 pb-8">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <!-- Filter Section -->
+            <section class="mb-8">
+                <div class="card p-6">
+                    <h3 class="section-title">Filter Reports</h3>
+                    <div class="flex flex-col lg:flex-row gap-4">
+                        <div class="flex gap-2 flex-wrap">
+                            <button onclick="filterData('daily')" id="daily-btn" class="filter-btn">Daily</button>
+                            <button onclick="filterData('weekly')" id="weekly-btn" class="filter-btn active">Weekly</button>
+                            <button onclick="filterData('monthly')" id="monthly-btn" class="filter-btn">Monthly</button>
+                            <button onclick="filterData('yearly')" id="yearly-btn" class="filter-btn">Yearly</button>
                         </div>
-                        <div class="flex space-x-2">
-                            <input type="date" id="start-date" class="p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                            <input type="date" id="end-date" class="p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                            <button onclick="filterData('custom')" id="custom-btn" class="filter-btn px-4 py-2 rounded-md text-sm font-medium bg-gray-200 text-gray-700 hover:bg-gray-300">Apply</button>
+                        <div class="flex gap-2 flex-wrap lg:ml-auto">
+                            <input type="date" id="start-date">
+                            <input type="date" id="end-date">
+                            <button onclick="filterData('custom')" id="custom-btn" class="filter-btn">Apply</button>
                         </div>
                     </div>
                 </div>
             </section>
 
             <!-- Stats Cards -->
-            <section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                <div class="card bg-white rounded-lg shadow p-6 flex items-center">
-                    <i class="fas fa-users text-blue-600 text-2xl mr-4"></i>
-                    <div>
-                        <p class="text-sm font-medium text-gray-600">Total Users</p>
-                        <p class="text-2xl font-bold text-gray-900" id="total-users">-</p>
+            <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                <div class="stat-card">
+                    <div class="flex items-start justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-slate-500 mb-1">Total Users</p>
+                            <p class="text-2xl font-bold text-slate-900" id="total-users">-</p>
+                        </div>
+                        <div class="stat-icon" style="background: #eff6ff; color: #3b82f6;">
+                            <i class="fas fa-users"></i>
+                        </div>
                     </div>
                 </div>
-                <div class="card bg-white rounded-lg shadow p-6 flex items-center">
-                    <i class="fas fa-shopping-cart text-green-600 text-2xl mr-4"></i>
-                    <div>
-                        <p class="text-sm font-medium text-gray-600">Total Orders</p>
-                        <p class="text-2xl font-bold text-gray-900" id="total-orders">-</p>
+                <div class="stat-card">
+                    <div class="flex items-start justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-slate-500 mb-1">Total Orders</p>
+                            <p class="text-2xl font-bold text-slate-900" id="total-orders">-</p>
+                        </div>
+                        <div class="stat-icon" style="background: #f0fdf4; color: #22c55e;">
+                            <i class="fas fa-shopping-cart"></i>
+                        </div>
                     </div>
                 </div>
-                <div class="card bg-white rounded-lg shadow p-6 flex items-center">
-                    <i class="fas fa-dollar-sign text-yellow-600 text-2xl mr-4"></i>
-                    <div>
-                        <p class="text-sm font-medium text-gray-600">Total Revenue</p>
-                        <p class="text-2xl font-bold text-gray-900" id="total-revenue">-</p>
+                <div class="stat-card">
+                    <div class="flex items-start justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-slate-500 mb-1">Total Revenue</p>
+                            <p class="text-2xl font-bold text-slate-900" id="total-revenue">-</p>
+                        </div>
+                        <div class="stat-icon" style="background: #fef3c7; color: #f59e0b;">
+                            <i class="fas fa-dollar-sign"></i>
+                        </div>
                     </div>
                 </div>
-                <div class="card bg-white rounded-lg shadow p-6 flex items-center">
-                    <i class="fas fa-box text-purple-600 text-2xl mr-4"></i>
-                    <div>
-                        <p class="text-sm font-medium text-gray-600">Total Products</p>
-                        <p class="text-2xl font-bold text-gray-900" id="total-products">-</p>
+                <div class="stat-card">
+                    <div class="flex items-start justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-slate-500 mb-1">Total Products</p>
+                            <p class="text-2xl font-bold text-slate-900" id="total-products">-</p>
+                        </div>
+                        <div class="stat-icon" style="background: #faf5ff; color: #a855f7;">
+                            <i class="fas fa-box"></i>
+                        </div>
                     </div>
                 </div>
-                <div class="card bg-white rounded-lg shadow p-6 flex items-center">
-                    <i class="fas fa-calculator text-blue-600 text-2xl mr-4"></i>
-                    <div>
-                        <p class="text-sm font-medium text-gray-600">Average Order Value</p>
-                        <p class="text-2xl font-bold text-gray-900" id="avg-order-value">-</p>
-                    </div>
-                </div>
+                <div class="stat-card">
+    <div class="flex items-start justify-between">
+        <div>
+            <p class="text-sm font-medium text-slate-500 mb-1">Total Discount</p>
+            <p class="text-2xl font-bold text-slate-900" id="total-discount">-</p>
+            <p class="text-xs text-slate-400">Offer + Coupon</p>
+        </div>
+        <div class="stat-icon" style="background: #f0fdf4; color: #10b981;">
+            <i class="fas fa-tags"></i>
+        </div>
+    </div>
+</div>
             </section>
 
             <!-- Order Status Cards -->
             <section class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                <div class="card bg-white rounded-lg shadow p-6 flex items-center">
-                    <i class="fas fa-clock text-orange-600 text-xl mr-4"></i>
-                    <div>
-                        <p class="text-sm font-medium text-gray-600">Pending Orders</p>
-                        <p class="text-xl font-bold text-gray-900" id="pending-orders">-</p>
+                <div class="stat-card">
+                    <div class="flex items-center gap-4">
+                        <div class="stat-icon" style="background: #fff7ed; color: #f97316;">
+                            <i class="fas fa-clock"></i>
+                        </div>
+                        <div>
+                            <p class="text-sm font-medium text-slate-500">Pending Orders</p>
+                            <p class="text-xl font-bold text-slate-900" id="pending-orders">-</p>
+                        </div>
                     </div>
                 </div>
-                <div class="card bg-white rounded-lg shadow p-6 flex items-center">
-                    <i class="fas fa-check-circle text-green-600 text-xl mr-4"></i>
-                    <div>
-                        <p class="text-sm font-medium text-gray-600">Completed Orders</p>
-                        <p class="text-xl font-bold text-gray-900" id="completed-orders">-</p>
+                <div class="stat-card">
+                    <div class="flex items-center gap-4">
+                        <div class="stat-icon" style="background: #f0fdf4; color: #22c55e;">
+                            <i class="fas fa-check-circle"></i>
+                        </div>
+                        <div>
+                            <p class="text-sm font-medium text-slate-500">Completed Orders</p>
+                            <p class="text-xl font-bold text-slate-900" id="completed-orders">-</p>
+                        </div>
                     </div>
                 </div>
-                <div class="card bg-white rounded-lg shadow p-6 flex items-center">
-                    <i class="fas fa-times-circle text-red-600 text-xl mr-4"></i>
-                    <div>
-                        <p class="text-sm font-medium text-gray-600">Cancelled Orders</p>
-                        <p class="text-xl font-bold text-gray-900" id="cancelled-orders">-</p>
+                <div class="stat-card">
+                    <div class="flex items-center gap-4">
+                        <div class="stat-icon" style="background: #fef2f2; color: #ef4444;">
+                            <i class="fas fa-times-circle"></i>
+                        </div>
+                        <div>
+                            <p class="text-sm font-medium text-slate-500">Cancelled Orders</p>
+                            <p class="text-xl font-bold text-slate-900" id="cancelled-orders">-</p>
+                        </div>
                     </div>
                 </div>
             </section>
 
-            <!-- Charts -->
+            <!-- Charts Section -->
             <section class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-                <div class="bg-white rounded-lg shadow p-6">
-                    <h3 class="text-lg font-medium text-gray-900 mb-4">Sales Overview</h3>
+                <div class="card p-6">
+                    <h3 class="section-title">Sales Overview</h3>
                     <div class="chart-container"><canvas id="salesChart"></canvas></div>
                 </div>
-                <div class="bg-white rounded-lg shadow p-6">
-                    <h3 class="text-lg font-medium text-gray-900 mb-4">Monthly Revenue</h3>
+                <div class="card p-6">
+                    <h3 class="section-title">Monthly Revenue</h3>
                     <div class="chart-container"><canvas id="revenueChart"></canvas></div>
                 </div>
-                <div class="bg-white rounded-lg shadow p-6">
-                    <h3 class="text-lg font-medium text-gray-900 mb-4">Top Selling Products</h3>
+                <div class="card p-6">
+                    <h3 class="section-title">Top Selling Products</h3>
                     <div class="chart-container"><canvas id="topProductsChart"></canvas></div>
                 </div>
-                <div class="bg-white rounded-lg shadow p-6">
-                    <h3 class="text-lg font-medium text-gray-900 mb-4">Top Categories</h3>
+                <div class="card p-6">
+                    <h3 class="section-title">Top Categories</h3>
                     <div class="chart-container"><canvas id="topCategoriesChart"></canvas></div>
+                </div>
+                <div class="card p-6">
+                    <h3 class="section-title">Top Selling Brands</h3>
+                    <div class="chart-container"><canvas id="topBrandsChart"></canvas></div>
                 </div>
             </section>
 
             <!-- Data Tables -->
             <section class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-                <div class="bg-white rounded-lg shadow p-6">
-                    <h3 class="text-lg font-medium text-gray-900 mb-4">Inventory Status</h3>
+                <div class="card p-6">
+                    <h3 class="section-title">Inventory Status</h3>
                     <div class="overflow-x-auto">
-                        <table class="min-w-full divide-y divide-gray-200">
-                            <thead class="bg-gray-50">
+                        <table>
+                            <thead>
                                 <tr>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Product</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Stock</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                                    <th>Product</th>
+                                    <th>Stock</th>
+                                    <th>Status</th>
                                 </tr>
                             </thead>
-                            <tbody id="inventory-table" class="divide-y divide-gray-200">
-                                <tr class="loading-placeholder hidden">
-                                    <td colspan="3" class="px-4 py-4 text-center text-gray-500">
-                                        <div class="flex justify-center items-center">
-                                            <div class="loading"></div>
-                                            <span class="ml-2">Loading...</span>
-                                        </div>
-                                    </td>
-                                </tr>
-                                <tr><td colspan="3" class="px-4 py-4 text-center text-gray-500">Loading...</td></tr>
+                            <tbody id="inventory-table">
+                                <tr><td colspan="3" class="text-center text-slate-500">Loading...</td></tr>
                             </tbody>
                         </table>
                     </div>
                 </div>
-                <div class="bg-white rounded-lg shadow p-6">
-                    <h3 class="text-lg font-medium text-gray-900 mb-4">Recent Orders</h3>
+                <div class="card p-6">
+                    <h3 class="section-title">Recent Orders</h3>
                     <div class="overflow-x-auto">
-                        <table class="min-w-full divide-y divide-gray-200">
-                            <thead class="bg-gray-50">
+                        <table>
+                            <thead>
                                 <tr>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Order ID</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Customer</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                                    <th>Order ID</th>
+                                    <th>Customer</th>
+                                    <th>Amount</th>
+                                    <th>Status</th>
                                 </tr>
                             </thead>
-                            <tbody id="recent-orders-table" class="divide-y divide-gray-200">
-                                <tr class="loading-placeholder hidden">
-                                    <td colspan="4" class="px-4 py-4 text-center text-gray-500">
-                                        <div class="flex justify-center items-center">
-                                            <div class="loading"></div>
-                                            <span class="ml-2">Loading...</span>
-                                        </div>
-                                    </td>
-                                </tr>
-                                <tr><td colspan="4" class="px-4 py-4 text-center text-gray-500">Loading...</td></tr>
+                            <tbody id="recent-orders-table">
+                                <tr><td colspan="4" class="text-center text-slate-500">Loading...</td></tr>
                             </tbody>
                         </table>
                     </div>
                 </div>
-                <div class="bg-white rounded-lg shadow p-6">
-                    <h3 class="text-lg font-medium text-gray-900 mb-4">Active Coupons</h3>
+                <div class="card p-6">
+                    <h3 class="section-title">Active Coupons</h3>
                     <div class="overflow-x-auto">
-                        <table class="min-w-full divide-y divide-gray-200">
-                            <thead class="bg-gray-50">
+                        <table>
+                            <thead>
                                 <tr>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Code</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Used</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Discount</th>
+                                    <th>Code</th>
+                                    <th>Used</th>
+                                    <th>Discount</th>
                                 </tr>
                             </thead>
-                            <tbody id="coupon-usage-table" class="divide-y divide-gray-200">
-                                <tr class="loading-placeholder hidden">
-                                    <td colspan="3" class="px-4 py-4 text-center text-gray-500">
-                                        <div class="flex justify-center items-center">
-                                            <div class="loading"></div>
-                                            <span class="ml-2">Loading...</span>
-                                        </div>
-                                    </td>
-                                </tr>
-                                <tr><td colspan="3" class="px-4 py-4 text-center text-gray-500">Loading...</td></tr>
+                            <tbody id="coupon-usage-table">
+                                <tr><td colspan="3" class="text-center text-slate-500">Loading...</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -280,409 +493,507 @@
         </div>
     </main>
 
-    <script>        
-        const API_BASE = '/admin';
-        const CHART_DEFAULTS = {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { display: false } }
-        };
+<script>
+    // Set current date
+    document.getElementById('current-date').textContent = new Date().toLocaleDateString('en-US', { 
+        weekday: 'long', 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric' 
+    });
 
-        let charts = {
-            sales: null,
-            revenue: null,
-            topProducts: null,
-            topCategories: null
-        };
-        let state = {
-            filter: '{{.Filter}}',
-            startDate: '{{.StartDate}}',
-            endDate: '{{.EndDate}}'
-        };
-
-        document.addEventListener('DOMContentLoaded', () => {
-            initDashboard();
-            setupEventListeners();
-            setInterval(() => {
-                if (!state.startDate || !state.endDate || new Date(state.endDate) >= new Date()) {
-                    loadDashboardData();
-                }
-            }, 30000);
-        });
-
-        function initDashboard() {
-    // Load initial data via AJAX instead of using undefined initialData
-    loadDashboardData();
-    updateFilterButtons();
-    if (state.startDate && state.endDate) {
-        document.getElementById('start-date').value = state.startDate;
-        document.getElementById('end-date').value = state.endDate;
-    }
-}
-
-// Also update your loadDashboardData function to handle the URL construction better:
-async function loadDashboardData() {
-    let url = `${API_BASE}/dashboard/data?filter=${state.filter}`;
-    if (state.startDate && state.endDate) {
-        url += `&start_date=${encodeURIComponent(state.startDate)}&end_date=${encodeURIComponent(state.endDate)}`;
-    }
-    
-    try {
-        showLoadingState(true);
-        const response = await fetch(url);
-        const result = await response.json();
-        if (result.status === 'success') {
-            updateDashboard(result.data);
-        } else {
-            throw new Error(result.message || 'Unknown error');
+    const API_BASE = '/admin';
+    const CHART_DEFAULTS = {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { 
+            legend: { display: false },
+            tooltip: {
+                backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                padding: 12,
+                titleFont: { size: 13, weight: '600' },
+                bodyFont: { size: 12 },
+                borderColor: 'rgba(148, 163, 184, 0.1)',
+                borderWidth: 1,
+                displayColors: false
+            }
         }
-    } catch (error) {
-        console.error('Error loading dashboard data:', error);
-        showErrorState(error.message);
-    } finally {
-        showLoadingState(false);
-    }
-}
+    };
 
-        function setupEventListeners() {
-            document.getElementById('toggle-sidebar')?.addEventListener('click', () =>
+    let charts = {
+        sales: null,
+        revenue: null,
+        topProducts: null,
+        topCategories: null,
+        topBrands: null
+    };
+    let state = {
+        filter: '{{.Filter}}',
+        startDate: '{{.StartDate}}',
+        endDate: '{{.EndDate}}'
+    };
+
+    function filterData(filter) {
+        state.filter = filter;
+        updateFilterButtons();
+        if (filter === 'custom') {
+            const { value: startDate } = document.getElementById('start-date');
+            const { value: endDate } = document.getElementById('end-date');
+            if (!startDate || !endDate) {
+                alert('Please select both start and end dates.');
+                return;
+            }
+            state.startDate = startDate;
+            state.endDate = endDate;
+        } else if (filter === 'yearly') {
+            const end = new Date();
+            const start = new Date(end.getFullYear(), 0, 1);
+            state.startDate = start.toISOString().split('T')[0];
+            state.endDate = end.toISOString().split('T')[0];
+            document.getElementById('start-date').value = state.startDate;
+            document.getElementById('end-date').value = state.endDate;
+        } else {
+            state.startDate = '';
+            state.endDate = '';
+            document.getElementById('start-date').value = '';
+            document.getElementById('end-date').value = '';
+        }
+        loadDashboardData();
+    }
+
+    function initDashboard() {
+        console.log('Initializing dashboard with filter:', state.filter);
+        loadDashboardData();
+        updateFilterButtons();
+        if (state.startDate && state.endDate) {
+            document.getElementById('start-date').value = state.startDate;
+            document.getElementById('end-date').value = state.endDate;
+        }
+    }
+
+    async function loadDashboardData() {
+        let url = `${API_BASE}/dashboard/data?filter=${state.filter}`;
+        if (state.startDate && state.endDate) {
+            url += `&start_date=${encodeURIComponent(state.startDate)}&end_date=${encodeURIComponent(state.endDate)}`;
+        }
+        console.log('Fetching dashboard data from:', url);
+        
+        try {
+            const response = await fetch(url);
+            const result = await response.json();
+            console.log('Dashboard data received:', result);
+            if (result.status === 'success') {
+                updateDashboard(result.data);
+            } else {
+                throw new Error(result.message || 'Unknown error');
+            }
+        } catch (error) {
+            console.error('Error loading dashboard data:', error);
+            showErrorState(error.message);
+        }
+    }
+
+    function setupEventListeners() {
+        const toggleSidebar = document.getElementById('toggle-sidebar');
+        if (toggleSidebar) {
+            toggleSidebar.addEventListener('click', () =>
                 document.querySelector('.sidebar').classList.toggle('active')
             );
         }
+    }
 
-        async function loadDashboardData() {
-            const url = `${API_BASE}/dashboard/data?filter=${state.filter}${state.startDate ? `&start_date=${encodeURIComponent(state.startDate)}&end_date=${encodeURIComponent(state.endDate)}` : ''}`;
-            try {
-                showLoadingState(true);
-                const response = await fetch(url);
-                const result = await response.json();
-                if (result.status === 'success') {
-                    updateDashboard(result.data);
-                } else {
-                    throw new Error(result.message || 'Unknown error');
-                }
-            } catch (error) {
-                console.error('Error loading dashboard data:', error);
-                showErrorState(error.message);
-            } finally {
-                showLoadingState(false);
-            }
+    function showErrorState(message) {
+        const existingErrors = document.querySelectorAll('.error-message');
+        existingErrors.forEach(error => error.remove());
+        
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'error-message card p-4 mb-6';
+        errorDiv.style.background = '#fef2f2';
+        errorDiv.style.border = '1px solid #fecaca';
+        errorDiv.innerHTML = `
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <i class="fas fa-exclamation-circle text-red-600"></i>
+                    <span class="text-sm text-red-800"><strong>Error:</strong> ${message || 'Failed to load data.'}</span>
+                </div>
+                <button onclick="loadDashboardData()" class="btn btn-primary" style="padding: 0.5rem 1rem;">Retry</button>
+            </div>
+        `;
+        document.querySelector('.main-content > div').prepend(errorDiv);
+        setTimeout(() => errorDiv.remove(), 5000);
+    }
+
+    function updateDashboard(data = {}) {
+        const safeData = {
+            total_users: data.total_users || 0,
+            total_orders: data.total_orders || 0,
+            total_revenue: data.total_revenue || 0,
+            total_products: data.total_products || 0,
+            pending_orders: data.pending_orders || 0,
+            completed_orders: data.completed_orders || 0,
+            cancelled_orders: data.cancelled_orders || 0,
+            avg_order_value: data.avg_order_value || 0,
+            top_products: Array.isArray(data.top_products) ? data.top_products : [],
+            top_categories: Array.isArray(data.top_categories) ? data.top_categories : [],
+            top_brands: Array.isArray(data.top_brands) ? data.top_brands : [],
+            recent_orders: Array.isArray(data.recent_orders) ? data.recent_orders : [],
+            sales_data: Array.isArray(data.sales_data) ? data.sales_data : [],
+            inventory_status: Array.isArray(data.inventory_status) ? data.inventory_status : [],
+            coupon_usage: Array.isArray(data.coupon_usage) ? data.coupon_usage : [],
+            monthly_revenue: Array.isArray(data.monthly_revenue) ? data.monthly_revenue : []
+        };
+
+        updateStats(safeData);
+        updateCharts(safeData);
+        updateTables(safeData);
+    }
+
+    function updateStats(data) {
+        const formatNumber = (num) => num.toLocaleString();
+        const formatCurrency = (num) => `$${num.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+        
+        document.getElementById('total-users').textContent = formatNumber(data.total_users);
+        document.getElementById('total-orders').textContent = formatNumber(data.total_orders);
+        document.getElementById('total-revenue').textContent = formatCurrency(data.total_revenue);
+        document.getElementById('total-products').textContent = formatNumber(data.total_products);
+        document.getElementById('pending-orders').textContent = formatNumber(data.pending_orders);
+        document.getElementById('completed-orders').textContent = formatNumber(data.completed_orders);
+        document.getElementById('cancelled-orders').textContent = formatNumber(data.cancelled_orders);
+       document.getElementById('total-discount').textContent = formatCurrency(data.total_discount || 0);
+    }
+    function updateCharts(data) {
+        updateTopProductsChart(data.top_products);
+        updateTopCategoriesChart(data.top_categories);
+        updateTopBrandsChart(data.top_brands);
+        updateSalesChart(data.sales_data);
+        updateRevenueChart(data.monthly_revenue);
+    }
+
+    function updateTables(data) {
+        updateInventoryTable(data.inventory_status);
+        updateRecentOrdersTable(data.recent_orders);
+        updateCouponUsageTable(data.coupon_usage);
+    }
+
+    function createChart(ctx, type, data, options) {
+        if (!ctx) return;
+        
+        if (charts[ctx.id] && typeof charts[ctx.id].destroy === 'function') {
+            charts[ctx.id].destroy();
         }
-
-        function showLoadingState(loading) {
-            document.querySelectorAll('.loading-placeholder').forEach(el => {
-                el.style.display = loading ? 'table-row' : 'none';
-            });
-            document.querySelectorAll('.card, .chart-container, table').forEach(el => {
-                el.style.opacity = loading ? '0.5' : '1';
-            });
+        
+        if (!data.labels || !data.labels.length || !data.datasets || !data.datasets.length) {
+            const context = ctx.getContext('2d');
+            context.clearRect(0, 0, ctx.width, ctx.height);
+            context.font = '14px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto';
+            context.textAlign = 'center';
+            context.fillStyle = '#94a3b8';
+            context.fillText('No data available', ctx.width / 2, ctx.height / 2);
+            return;
         }
-
-        function showErrorState(message) {
-            const existingErrors = document.querySelectorAll('.error-message');
-            existingErrors.forEach(error => error.remove());
-            
-            const errorDiv = document.createElement('div');
-            errorDiv.className = 'error-message bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4';
-            errorDiv.innerHTML = `
-                <strong>Error:</strong> ${message || 'Failed to load data. Please try again.'}
-                <button onclick="loadDashboardData()" class="ml-4 bg-red-600 text-white px-2 py-1 rounded text-sm">Retry</button>
-            `;
-            document.querySelector('.main-content > div').prepend(errorDiv);
-            setTimeout(() => errorDiv.remove(), 5000);
-        }
-
-        function updateDashboard({
-            total_users = 0,
-            total_orders = 0,
-            total_revenue = 0,
-            total_products = 0,
-            pending_orders = 0,
-            completed_orders = 0,
-            cancelled_orders = 0,
-            avg_order_value = 0,
-            top_products = [],
-            top_categories = [],
-            recent_orders = [],
-            sales_data = [],
-            inventory_status = [],
-            coupon_usage = [],
-            monthly_revenue = []
-        }) {
-            updateStats({ total_users, total_orders, total_revenue, total_products, pending_orders, completed_orders, cancelled_orders, avg_order_value });
-            updateCharts({ top_products, top_categories, sales_data, monthly_revenue });
-            updateTables({ inventory_status, recent_orders, coupon_usage });
-        }
-
-        function updateStats(data) {
-            const formatNumber = (num) => num.toLocaleString();
-            const formatCurrency = (num) => `$${num.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
-            document.getElementById('total-users').textContent = formatNumber(data.total_users);
-            document.getElementById('total-orders').textContent = formatNumber(data.total_orders);
-            document.getElementById('total-revenue').textContent = formatCurrency(data.total_revenue);
-            document.getElementById('total-products').textContent = formatNumber(data.total_products);
-            document.getElementById('pending-orders').textContent = formatNumber(data.pending_orders);
-            document.getElementById('completed-orders').textContent = formatNumber(data.completed_orders);
-            document.getElementById('cancelled-orders').textContent = formatNumber(data.cancelled_orders);
-            document.getElementById('avg-order-value').textContent = formatCurrency(data.avg_order_value);
-        }
-
-        function updateCharts({ top_products, top_categories, sales_data, monthly_revenue }) {
-            updateTopProductsChart(top_products);
-            updateTopCategoriesChart(top_categories);
-            updateSalesChart(sales_data);
-            updateRevenueChart(monthly_revenue);
-        }
-
-        function updateTables({ inventory_status, recent_orders, coupon_usage }) {
-            updateInventoryTable(inventory_status);
-            updateRecentOrdersTable(recent_orders);
-            updateCouponUsageTable(coupon_usage);
-        }
-
-        function createChart(ctx, type, data, options) {
-            if (charts[ctx.id] && typeof charts[ctx.id].destroy === 'function') {
-                charts[ctx.id].destroy();
-            }
-            if (!data.labels.length) {
-                const context = ctx.getContext('2d');
-                context.clearRect(0, 0, ctx.width, ctx.height);
-                context.font = '14px Arial';
-                context.fillText('No data available', 50, 50);
-                return;
-            }
+        
+        try {
             charts[ctx.id] = new Chart(ctx, { type, data, options });
+        } catch (error) {
+            console.error('Error creating chart:', error);
         }
+    }
 
-        function updateTopProductsChart(products) {
-            const ctx = document.getElementById('topProductsChart');
-            if (!ctx) return;
-            createChart(ctx, 'bar', {
-                labels: products.map(p => p.product_name || 'Unknown'),
-                datasets: [{
-                    label: 'Units Sold',
-                    data: products.map(p => p.total_sold || 0),
-                    backgroundColor: 'rgba(59, 130, 246, 0.6)',
-                    borderColor: 'rgba(59, 130, 246, 1)',
-                    borderWidth: 1
-                }]
-            }, {
-                ...CHART_DEFAULTS,
-                scales: {
-                    y: { beginAtZero: true, title: { display: true, text: 'Units Sold' } },
-                    x: { title: { display: true, text: 'Product' }, ticks: { autoSkip: false, maxRotation: 45, minRotation: 45 } }
+    function updateTopProductsChart(products = []) {
+        const ctx = document.getElementById('topProductsChart');
+        if (!ctx) return;
+        
+        createChart(ctx, 'bar', {
+            labels: products.map(p => p?.product_name || 'Unknown').slice(0, 10),
+            datasets: [{
+                data: products.map(p => p?.total_sold || 0).slice(0, 10),
+                backgroundColor: '#3b82f6',
+                borderRadius: 6,
+                barThickness: 24
+            }]
+        }, {
+            ...CHART_DEFAULTS,
+            scales: {
+                y: { 
+                    beginAtZero: true, 
+                    border: { display: false },
+                    grid: { color: '#f1f5f9' },
+                    ticks: { color: '#64748b', font: { size: 11 } }
                 },
-                plugins: { ...CHART_DEFAULTS.plugins, tooltip: { callbacks: { label: ctx => `Units Sold: ${ctx.parsed.y}` } } }
-            });
-        }
+                x: { 
+                    border: { display: false },
+                    grid: { display: false },
+                    ticks: { color: '#64748b', font: { size: 11 }, maxRotation: 45, minRotation: 45 }
+                }
+            }
+        });
+    }
 
-        function updateTopCategoriesChart(categories) {
-            const ctx = document.getElementById('topCategoriesChart');
-            if (!ctx) return;
-            createChart(ctx, 'bar', {
-                labels: categories.map(c => c.category_name || 'Unknown'),
-                datasets: [{
-                    label: 'Units Sold',
-                    data: categories.map(c => c.total_sold || 0),
-                    backgroundColor: 'rgba(34, 197, 94, 0.6)',
-                    borderColor: 'rgba(34, 197, 94, 1)',
-                    borderWidth: 1
-                }]
-            }, {
-                ...CHART_DEFAULTS,
-                scales: {
-                    y: { beginAtZero: true, title: { display: true, text: 'Units Sold' } },
-                    x: { title: { display: true, text: 'Category' }, ticks: { autoSkip: false, maxRotation: 45, minRotation: 45 } }
+    function updateTopCategoriesChart(categories = []) {
+        const ctx = document.getElementById('topCategoriesChart');
+        if (!ctx) return;
+        
+        createChart(ctx, 'bar', {
+            labels: categories.map(c => c?.category_name || 'Unknown').slice(0, 10),
+            datasets: [{
+                data: categories.map(c => c?.total_sold || 0).slice(0, 10),
+                backgroundColor: '#22c55e',
+                borderRadius: 6,
+                barThickness: 24
+            }]
+        }, {
+            ...CHART_DEFAULTS,
+            scales: {
+                y: { 
+                    beginAtZero: true,
+                    border: { display: false },
+                    grid: { color: '#f1f5f9' },
+                    ticks: { color: '#64748b', font: { size: 11 } }
                 },
-                plugins: { ...CHART_DEFAULTS.plugins, tooltip: { callbacks: { label: ctx => `Units Sold: ${ctx.parsed.y}` } } }
-            });
-        }
+                x: { 
+                    border: { display: false },
+                    grid: { display: false },
+                    ticks: { color: '#64748b', font: { size: 11 }, maxRotation: 45, minRotation: 45 }
+                }
+            }
+        });
+    }
 
-        function updateSalesChart(salesData) {
-            const ctx = document.getElementById('salesChart');
-            if (!ctx) return;
-            const labels = salesData.map((item, i) => item.date?.trim() || `Period ${i + 1}`);
-            createChart(ctx, 'line', {
-                labels,
-                datasets: [
-                    {
-                        label: 'Sales ($)',
-                        data: salesData.map(item => item.sales || 0),
-                        borderColor: 'rgb(59, 130, 246)',
-                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                        tension: 0.4,
-                        fill: true,
-                        yAxisID: 'y'
-                    },
-                    {
-                        label: 'Orders',
-                        data: salesData.map(item => item.orders || 0),
-                        borderColor: 'rgb(34, 197, 94)',
-                        backgroundColor: 'rgba(34, 197, 94, 0.1)',
-                        tension: 0.4,
-                        fill: true,
-                        yAxisID: 'y1'
+    function updateTopBrandsChart(brands = []) {
+        const ctx = document.getElementById('topBrandsChart');
+        if (!ctx) return;
+        
+        createChart(ctx, 'bar', {
+            labels: brands.map(b => b?.brand_name || 'Unknown').slice(0, 5),
+            datasets: [{
+                data: brands.map(b => b?.total_sold || 0).slice(0, 5),
+                backgroundColor: '#a855f7',
+                borderRadius: 6,
+                barThickness: 24
+            }]
+        }, {
+            ...CHART_DEFAULTS,
+            scales: {
+                y: { 
+                    beginAtZero: true,
+                    border: { display: false },
+                    grid: { color: '#f1f5f9' },
+                    ticks: { color: '#64748b', font: { size: 11 } }
+                },
+                x: { 
+                    border: { display: false },
+                    grid: { display: false },
+                    ticks: { color: '#64748b', font: { size: 11 }, maxRotation: 45, minRotation: 45 }
+                }
+            }
+        });
+    }
+
+    function updateSalesChart(salesData = []) {
+        const ctx = document.getElementById('salesChart');
+        if (!ctx) return;
+        
+        createChart(ctx, 'line', {
+            labels: salesData.map((item, i) => item?.date?.trim() || `Period ${i + 1}`),
+            datasets: [
+                {
+                    label: 'Sales',
+                    data: salesData.map(item => item?.sales || 0),
+                    borderColor: '#3b82f6',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    tension: 0.4,
+                    fill: true,
+                    borderWidth: 2,
+                    pointRadius: 4,
+                    pointHoverRadius: 6,
+                    pointBackgroundColor: '#3b82f6',
+                    yAxisID: 'y'
+                },
+                {
+                    label: 'Orders',
+                    data: salesData.map(item => item?.orders || 0),
+                    borderColor: '#22c55e',
+                    backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                    tension: 0.4,
+                    fill: true,
+                    borderWidth: 2,
+                    pointRadius: 4,
+                    pointHoverRadius: 6,
+                    pointBackgroundColor: '#22c55e',
+                    yAxisID: 'y1'
+                }
+            ]
+        }, {
+            ...CHART_DEFAULTS,
+            scales: {
+                y: { 
+                    beginAtZero: true, 
+                    position: 'left',
+                    border: { display: false },
+                    grid: { color: '#f1f5f9' },
+                    ticks: { color: '#64748b', font: { size: 11 } }
+                },
+                y1: { 
+                    beginAtZero: true, 
+                    position: 'right',
+                    border: { display: false },
+                    grid: { drawOnChartArea: false },
+                    ticks: { color: '#64748b', font: { size: 11 } }
+                },
+                x: {
+                    border: { display: false },
+                    grid: { display: false },
+                    ticks: { color: '#64748b', font: { size: 11 } }
+                }
+            },
+            plugins: {
+                ...CHART_DEFAULTS.plugins,
+                legend: { 
+                    display: true, 
+                    position: 'top',
+                    align: 'end',
+                    labels: {
+                        usePointStyle: true,
+                        pointStyle: 'circle',
+                        padding: 15,
+                        font: { size: 12 },
+                        color: '#64748b'
                     }
-                ]
-            }, {
-                ...CHART_DEFAULTS,
-                scales: {
-                    y: { beginAtZero: true, position: 'left', title: { display: true, text: 'Sales ($)' } },
-                    y1: { beginAtZero: true, position: 'right', title: { display: true, text: 'Orders' }, grid: { drawOnChartArea: false } }
+                }
+            }
+        });
+    }
+
+    function updateRevenueChart(revenueData = []) {
+        const ctx = document.getElementById('revenueChart');
+        if (!ctx) return;
+        
+        createChart(ctx, 'bar', {
+            labels: revenueData.map(item => item?.month || 'Unknown'),
+            datasets: [{
+                data: revenueData.map(item => item?.revenue || 0),
+                backgroundColor: '#f59e0b',
+                borderRadius: 6,
+                barThickness: 32
+            }]
+        }, {
+            ...CHART_DEFAULTS,
+            scales: { 
+                y: { 
+                    beginAtZero: true,
+                    border: { display: false },
+                    grid: { color: '#f1f5f9' },
+                    ticks: { color: '#64748b', font: { size: 11 } }
                 },
-                plugins: {
-                    ...CHART_DEFAULTS.plugins,
-                    legend: { display: true, position: 'top' },
-                    tooltip: { callbacks: { label: ctx => ctx.dataset.label === 'Sales ($)' ? `Sales: $${ctx.parsed.y.toFixed(2)}` : `Orders: ${ctx.parsed.y}` } }
+                x: {
+                    border: { display: false },
+                    grid: { display: false },
+                    ticks: { color: '#64748b', font: { size: 11 } }
                 }
-            });
-        }
+            }
+        });
+    }
 
-        function updateRevenueChart(revenueData) {
-            const ctx = document.getElementById('revenueChart');
-            if (!ctx) return;
-            createChart(ctx, 'bar', {
-                labels: revenueData.map(item => item.month || 'Unknown'),
-                datasets: [{
-                    label: 'Monthly Revenue',
-                    data: revenueData.map(item => item.revenue || 0),
-                    backgroundColor: 'rgba(147, 51, 234, 0.8)',
-                    borderColor: 'rgba(147, 51, 234, 1)',
-                    borderWidth: 1
-                }]
-            }, {
-                ...CHART_DEFAULTS,
-                scales: { y: { beginAtZero: true, title: { display: true, text: 'Revenue ($)' } } }
-            });
-        }
+    function updateInventoryTable(inventory = []) {
+        const tbody = document.getElementById('inventory-table');
+        
+        tbody.innerHTML = inventory.length ? inventory.map(item => `
+            <tr>
+                <td class="text-slate-900">${item?.product_name || 'Unknown'}</td>
+                <td class="text-slate-900">${item?.stock || 0}</td>
+                <td class="font-medium ${item?.status === 'Out of Stock' ? 'text-red-600' : item?.status === 'Low Stock' ? 'text-orange-500' : 'text-green-600'}">${item?.status || 'Unknown'}</td>
+            </tr>
+        `).join('') : '<tr><td colspan="3" class="text-center text-slate-500">No inventory data</td></tr>';
+    }
 
-        function updateInventoryTable(inventory) {
-            const tbody = document.getElementById('inventory-table');
-            tbody.innerHTML = inventory.length ? inventory.map(item => `
+    function updateRecentOrdersTable(orders = []) {
+        const tbody = document.getElementById('recent-orders-table');
+        
+        tbody.innerHTML = orders.length ? orders.map(order => {
+            const statusClass = order?.status === 'Delivered' ? 'text-green-600' : 
+                              order?.status === 'Pending' ? 'text-orange-500' : 
+                              order?.status === 'Cancelled' ? 'text-red-600' : 'text-blue-600';
+            return `
                 <tr>
-                    <td class="px-4 py-4 text-sm text-gray-900">${item.product_name || 'Unknown'}</td>
-                    <td class="px-4 py-4 text-sm text-gray-900">${item.stock || 0}</td>
-                    <td class="px-4 py-4 text-sm font-medium ${item.status === 'Out of Stock' ? 'text-red-600' : item.status === 'Low Stock' ? 'text-yellow-600' : 'text-green-600'}">${item.status || 'Unknown'}</td>
+                    <td class="text-slate-900 font-medium">#${order?.order_id || 'N/A'}</td>
+                    <td class="text-slate-900">${order?.user?.user_name || order?.user?.name || 'Guest'}</td>
+                    <td class="text-slate-900 font-medium">${(order?.total_price || 0).toFixed(2)}</td>
+                    <td class="font-medium ${statusClass} capitalize">${order?.status || 'Pending'}</td>
                 </tr>
-            `).join('') : '<tr><td colspan="3" class="px-4 py-4 text-center text-gray-500">No inventory data</td></tr>';
-        }
+            `;
+        }).join('') : '<tr><td colspan="4" class="text-center text-slate-500">No recent orders</td></tr>';
+    }
 
-        function updateRecentOrdersTable(orders) {
-            const tbody = document.getElementById('recent-orders-table');
-            tbody.innerHTML = orders.length ? orders.map(order => {
-                const statusClass = order.status === 'Delivered' ? 'text-green-600' : order.status === 'Pending' ? 'text-yellow-600' : order.status === 'Cancelled' ? 'text-red-600' : 'text-blue-600';
-                return `
-                    <tr>
-                        <td class="px-4 py-4 text-sm text-gray-900">#${order.order_id || 'N/A'}</td>
-                        <td class="px-4 py-4 text-sm text-gray-900">${order.user?.user_name || order.user?.name || 'Guest'}</td>
-                        <td class="px-4 py-4 text-sm text-gray-900">$${order.total_price?.toFixed(2) || '0.00'}</td>
-                        <td class="px-4 py-4 text-sm font-medium ${statusClass} capitalize">${order.status || 'Pending'}</td>
-                    </tr>
-                `;
-            }).join('') : '<tr><td colspan="4" class="px-4 py-4 text-center text-gray-500">No recent orders</td></tr>';
-        }
+    function updateCouponUsageTable(coupons = []) {
+        const tbody = document.getElementById('coupon-usage-table');
+        
+        tbody.innerHTML = coupons.length ? coupons.map(coupon => `
+            <tr>
+                <td class="text-slate-900 font-medium">${coupon?.coupon_code || 'N/A'}</td>
+                <td class="text-slate-900">${coupon?.used_count || 0}</td>
+                <td class="text-slate-900 font-medium">${(coupon?.total_discount || 0).toFixed(2)}</td>
+            </tr>
+        `).join('') : '<tr><td colspan="3" class="text-center text-slate-500">No coupon data</td></tr>';
+    }
 
-        function updateCouponUsageTable(coupons) {
-            const tbody = document.getElementById('coupon-usage-table');
-            tbody.innerHTML = coupons.length ? coupons.map(coupon => `
-                <tr>
-                    <td class="px-4 py-4 text-sm text-gray-900">${coupon.coupon_code || 'N/A'}</td>
-                    <td class="px-4 py-4 text-sm text-gray-900">${coupon.used_count || 0}</td>
-                    <td class="px-4 py-4 text-sm text-gray-900">$${coupon.total_discount?.toFixed(2) || '0.00'}</td>
-                </tr>
-            `).join('') : '<tr><td colspan="3" class="px-4 py-4 text-center text-gray-500">No coupon data</td></tr>';
-        }
-
-        function updateFilterButtons() {
-            document.querySelectorAll('.filter-btn').forEach(btn => {
-                btn.classList.toggle('bg-blue-600', btn.id === `${state.filter}-btn`);
-                btn.classList.toggle('text-white', btn.id === `${state.filter}-btn`);
-                btn.classList.toggle('bg-gray-200', btn.id !== `${state.filter}-btn`);
-                btn.classList.toggle('text-gray-700', btn.id !== `${state.filter}-btn`);
-                btn.classList.toggle('hover:bg-gray-300', btn.id !== `${state.filter}-btn`);
-            });
-        }
-
-        function filterData(filter) {
-            state.filter = filter;
-            updateFilterButtons();
-            let url = `${API_BASE}/dashboard/data?filter=${filter}`;
-            if (filter === 'custom') {
-                const { value: startDate } = document.getElementById('start-date');
-                const { value: endDate } = document.getElementById('end-date');
-                if (!startDate || !endDate) {
-                    alert('Please select both start and end dates.');
-                    return;
-                }
-                state.startDate = startDate;
-                state.endDate = endDate;
-                url += `&start_date=${encodeURIComponent(startDate)}&end_date=${encodeURIComponent(endDate)}`;
-            } else if (filter === 'yearly') {
-                const end = new Date();
-                const start = new Date(end.getFullYear(), 0, 1);
-                state.startDate = start.toISOString().split('T')[0];
-                state.endDate = end.toISOString().split('T')[0];
-                url += `&start_date=${encodeURIComponent(state.startDate)}&end_date=${encodeURIComponent(state.endDate)}`;
-                document.getElementById('start-date').value = state.startDate;
-                document.getElementById('end-date').value = state.endDate;
+    function updateFilterButtons() {
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            if (btn.id === `${state.filter}-btn`) {
+                btn.classList.add('active');
             } else {
-                state.startDate = state.endDate = '';
-                document.getElementById('start-date').value = '';
-                document.getElementById('end-date').value = '';
+                btn.classList.remove('active');
             }
-            loadDashboardData(url);
-        }
+        });
+    }
 
-        async function exportData(format) {
-            try {
-                let url = `${API_BASE}/dashboard/export?format=${format}&filter=${state.filter}`;
-                if (state.filter === 'custom' || state.filter === 'yearly') {
-                    url += `&start_date=${encodeURIComponent(state.startDate)}&end_date=${encodeURIComponent(state.endDate)}`;
-                }
-                const response = await fetch(url);
-                if (!response.ok) throw new Error(`Failed to export ${format.toUpperCase()}`);
-                const blob = await response.blob();
-                const link = document.createElement('a');
-                link.href = window.URL.createObjectURL(blob);
-                link.download = `sales_report_${state.filter}_${new Date().toISOString().split('T')[0]}.${format}`;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                window.URL.revokeObjectURL(link.href);
-            } catch (error) {
-                console.error(`Error exporting ${format}:`, error);
-                showErrorState(`Error exporting ${format.toUpperCase()}. Please try again.`);
+    async function exportData(format) {
+        try {
+            let url = `${API_BASE}/dashboard/export?format=${format}&filter=${state.filter}`;
+            if (state.filter === 'custom' || state.filter === 'yearly') {
+                url += `&start_date=${encodeURIComponent(state.startDate)}&end_date=${encodeURIComponent(state.endDate)}`;
             }
+            const response = await fetch(url);
+            if (!response.ok) throw new Error(`Failed to export ${format.toUpperCase()}`);
+            const blob = await response.blob();
+            const link = document.createElement('a');
+            link.href = window.URL.createObjectURL(blob);
+            link.download = `sales_report_${state.filter}_${new Date().toISOString().split('T')[0]}.${format}`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(link.href);
+        } catch (error) {
+            console.error(`Error exporting ${format}:`, error);
+            showErrorState(`Error exporting ${format.toUpperCase()}. Please try again.`);
         }
+    }
 
-        async function logoutAdmin() {
-            try {
-                const response = await fetch(`${API_BASE}/logout`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' }
-                });
-                if (response.ok) {
-                    window.location.href = `${API_BASE}/login`;
-                } else {
-                    throw new Error('Logout failed');
-                }
-            } catch (error) {
-                console.error('Error logging out:', error);
-                showErrorState('Error logging out. Please try again.');
+    async function logoutAdmin() {
+        try {
+            const response = await fetch(`${API_BASE}/logout`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            if (response.ok) {
+                window.location.href = `${API_BASE}/login`;
+            } else {
+                throw new Error('Logout failed');
             }
+        } catch (error) {
+            console.error('Error logging out:', error);
+            showErrorState('Error logging out. Please try again.');
         }
+    }
 
-        async function logAction(action, description, entityType = '', entityId = 0) {
-            try {
-                await fetch(`${API_BASE}/dashboard/log-action`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action, description, entity_type: entityType, entity_id: entityId })
-                });
-            } catch (error) {
-                console.error('Error logging action:', error);
+    document.addEventListener('DOMContentLoaded', () => {
+        initDashboard();
+        setupEventListeners();
+        setInterval(() => {
+            if (!state.startDate || !state.endDate || new Date(state.endDate) >= new Date()) {
+                loadDashboardData();
             }
-        }
-    </script>
+        }, 30000);
+    });
+</script>
 </body>
 </html>

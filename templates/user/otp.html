@@ -80,6 +80,40 @@
             let timeLeft = 60;
             let timerId = null;
 
+            (function() {
+    // Check if this is a back navigation
+    if (performance.navigation.type === 2) {
+        // User came via back button
+        window.location.replace('/login');
+        return;
+    }
+
+    // Replace history state to prevent going back
+    history.pushState(null, null, location.href);
+    
+    window.addEventListener('popstate', function() {
+        // Push state again to prevent back navigation
+        history.pushState(null, null, location.href);
+        
+        // Optionally show a message
+        alert('Please use the navigation buttons provided.');
+    });
+
+    // When OTP is successfully verified
+    window.addEventListener('otpVerified', function() {
+        // Mark in sessionStorage that verification is complete
+        sessionStorage.setItem('otpVerified', 'true');
+        
+        // Clear the page from history
+        window.location.replace('/login');
+    });
+
+    // Check if user already verified
+    if (sessionStorage.getItem('otpVerified') === 'true') {
+        window.location.replace('/login');
+    }
+})();
+
             // Function to start or restart the timer
             function startTimer() {
                 if (timerId) {
@@ -201,6 +235,17 @@
                 errorMsg.classList.remove("hidden");
             }
         });
+         history.pushState(null, null, location.href);
+    window.onpopstate = function () {
+        history.go(1);
+    };
+
+    // Alternative: Redirect authenticated users
+    window.addEventListener('pageshow', function(event) {
+        if (event.persisted) {
+            window.location.reload();
+        }
+    });
     </script>
 </body>
 </html>

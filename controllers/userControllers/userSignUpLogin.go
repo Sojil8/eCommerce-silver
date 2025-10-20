@@ -147,6 +147,37 @@ func ShowOTPPage(c *gin.Context) {
 		c.Redirect(http.StatusSeeOther, "/signup")
 		return
 	}
+
+	// Check if user is already logged in
+	tokenString, err := c.Cookie("jwt_token")
+	if err == nil && tokenString != "" {
+		claims := &middleware.Claims{}
+		token, err := jwt.ParseWithClaims(tokenString, claims, func(t *jwt.Token) (interface{}, error) {
+			return middleware.SecretKey, nil
+		})
+		if err == nil && token.Valid {
+			c.Redirect(http.StatusSeeOther, "/home")
+			return
+		}
+	}
+
+	// Check if OTP session exists in Redis
+	userKey := fmt.Sprintf("user:%s", email)
+	exists, err := storage.RedisClient.Exists(storage.Ctx, userKey).Result()
+	if err != nil || exists == 0 {
+		// No valid OTP session, redirect to signup
+		c.Redirect(http.StatusSeeOther, "/signup?message=Session+expired.+Please+sign+up+again")
+		return
+	}
+
+	// Check if OTP was already verified
+	verifiedKey := fmt.Sprintf("otp_verified:%s", email)
+	verified, _ := storage.RedisClient.Exists(storage.Ctx, verifiedKey).Result()
+	if verified > 0 {
+		c.Redirect(http.StatusSeeOther, "/login?message=Already+verified.+Please+login")
+		return
+	}
+
 	c.HTML(http.StatusOK, "otp.html", gin.H{
 		"title": "OTP Verification",
 		"email": email,
@@ -157,7 +188,6 @@ var otpInput struct {
 	Email string `json:"email" form:"email" binding:"required,email"`
 	OTP   string `json:"otp" form:"otp" binding:"required,len=6"`
 }
-
 func VerifyOTP(c *gin.Context) {
 	if err := c.ShouldBind(&otpInput); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input", "field": "otp"})
@@ -240,14 +270,19 @@ func VerifyOTP(c *gin.Context) {
 		}
 	}
 
+	// Delete Redis key BEFORE sending response
 	storage.RedisClient.Del(storage.Ctx, userKey)
+	
+	// Mark OTP as verified in a separate key that expires quickly
+	verifiedKey := fmt.Sprintf("otp_verified:%s", email)
+	storage.RedisClient.Set(storage.Ctx, verifiedKey, "true", 2*time.Minute)
+	
 	c.JSON(http.StatusOK, gin.H{
 		"status":   "ok",
 		"message":  "OTP verified successfully",
 		"redirect": "/login",
 	})
 }
-
 func ResendOTP(c *gin.Context) {
 	var resendRequest struct {
 		Email string `json:"email" binding:"required,email"`
@@ -345,7 +380,7 @@ func LoginPostUser(c *gin.Context) {
 		return
 	}
 
-	if user.Is_blocked {
+	if user.IsBlocked {
 		helper.ResponseWithErr(c, http.StatusForbidden, "Account blocked", "Your account has been blocked", "")
 		return
 	}

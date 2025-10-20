@@ -131,28 +131,7 @@
                         {{else}}badge-return{{end}}">
                         {{.Order.Status}}
                     </span>
-                    <div class="relative inline-block text-left" id="action-dropdown">
-                        <button type="button" class="inline-flex justify-center w-full rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none" id="action-menu-button" aria-expanded="false" aria-haspopup="true">
-                            Actions
-                            <i class="fa-solid fa-chevron-down ml-2 -mr-1 h-5 w-5"></i>
-                        </button>
-                        <div class="hidden origin-top-right absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none" id="action-menu" role="menu" aria-orientation="vertical" aria-labelledby="action-menu-button">
-                            <div class="py-1" role="none">
-                                {{if eq .Order.Status "Pending"}}
-                                <a href="/admin/orders/{{.Order.OrderIdUnique}}/confirm" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" role="menuitem">Confirm Order</a>
-                                {{else if eq .Order.Status "Confirmed"}}
-                                <a href="/admin/orders/{{.Order.OrderIdUnique}}/ship" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" role="menuitem">Mark as Shipped</a>
-                                {{else if eq .Order.Status "Shipped"}}
-                                <a href="/admin/orders/{{.Order.OrderIdUnique}}/outfordelivery" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" role="menuitem">Mark as Out for Delivery</a>
-                                {{else if eq .Order.Status "Out for Delivery"}}
-                                <a href="/admin/orders/{{.Order.OrderIdUnique}}/deliver" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" role="menuitem">Mark as Delivered</a>
-                                {{end}}
-                                {{if ne .Order.Status "Cancelled" }}
-                                <a href="/admin/orders/{{.Order.OrderIdUnique}}/cancel" class="block px-4 py-2 text-sm text-red-600 hover:bg-gray-100" role="menuitem">Cancel Order</a>
-                                {{end}}
-                            </div>
-                        </div>
-                    </div>
+                   
                 </div>
             </div>
             <div class="border-t border-gray-200">
@@ -193,6 +172,19 @@
                             {{.Order.PaymentMethod}}
                         </dd>
                     </div>
+                     <div class="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                        <dt class="text-sm font-medium text-gray-500">Payment Status</dt>
+                        <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
+                            <span class="badge 
+                                {{if eq .Order.PaymentStatus "paid"}}badge-paid
+                                {{else if eq .Order.PaymentStatus "pending"}}badge-pending-payment
+                                {{else if eq .Order.PaymentStatus "failed"}}badge-failed
+                                {{else if eq .Order.PaymentStatus "refunded"}}badge-refunded
+                                {{else}}badge-pending-payment{{end}}">
+                                {{if eq .Order.PaymentStatus ""}}Payment Pending{{else}}{{.Order.PaymentStatus | title}}{{end}}
+                            </span>
+                        </dd>
+                    </div>                      
                 </dl>
             </div>
         </div>
@@ -208,6 +200,7 @@
                             <tr>
                                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product</th>
                                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Variant</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Offer</th>
                                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
                                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity</th>
                                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
@@ -238,13 +231,32 @@
                                     <div class="text-sm text-gray-900">{{.Variants.Color}}</div>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
+                                    <div class="text-sm text-gray-900">
+                                        {{if .OfferName}}
+                                        {{.OfferName}}
+                                        {{else}}
+                                        None
+                                        {{end}}
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    {{if .OfferName}}
+                                    <div class="text-sm text-gray-900 line-through">${{printf "%.2f" (add .Product.Price .Variants.ExtraPrice)}}</div>
+                                    <div class="text-sm text-green-600">${{printf "%.2f" (sub (add .Product.Price .Variants.ExtraPrice) .DiscountAmount)}}</div>
+                                    {{else}}
                                     <div class="text-sm text-gray-900">${{printf "%.2f" (add .Product.Price .Variants.ExtraPrice)}}</div>
+                                    {{end}}
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <div class="text-sm text-gray-900">{{.Quantity}}</div>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
+                                    {{if .OfferName}}
+                                    <div class="text-sm text-gray-900 line-through">${{printf "%.2f" (mul (add .Product.Price .Variants.ExtraPrice) .Quantity)}}</div>
+                                    <div class="text-sm text-green-600">${{printf "%.2f" (mul (sub (add .Product.Price .Variants.ExtraPrice) .DiscountAmount) .Quantity)}}</div>
+                                    {{else}}
                                     <div class="text-sm text-gray-900">${{printf "%.2f" (mul (add .Product.Price .Variants.ExtraPrice) .Quantity)}}</div>
+                                    {{end}}
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
@@ -262,28 +274,75 @@
             </div>
         </div>
 
-        <div class="bg-white shadow overflow-hidden sm:rounded-lg">
-            <div class="px-4 py-5 sm:px-6">
-                <h3 class="text-lg leading-6 font-medium text-gray-900">Order Summary (Original Amounts)</h3>
-                <p class="mt-1 text-sm text-gray-500">Reflects the order amounts at the time of placement</p>
+        <!-- Replace the existing Order Summary section -->
+<div class="bg-white shadow overflow-hidden sm:rounded-lg">
+    <div class="px-4 py-5 sm:px-6">
+        <h3 class="text-lg leading-6 font-medium text-gray-900">Order Summary</h3>
+        <p class="mt-1 text-sm text-gray-500">
+            {{if .AllItemsCancelled}}
+            Reflects the original order amounts at the time of placement (Order Cancelled)
+            {{else}}
+            Reflects the current order amounts for active items
+            {{end}}
+        </p>
+    </div>
+    <div class="border-t border-gray-200">
+        <dl>
+            <div class="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                <dt class="text-sm font-medium text-gray-500">Subtotal</dt>
+                <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
+                    {{if .AllItemsCancelled}}
+                    ${{printf "%.2f" .OrderBackUp.Subtotal}}
+                    {{else}}
+                    ${{printf "%.2f" .CurrentSubtotal}}
+                    {{end}}
+                </dd>
             </div>
-            <div class="border-t border-gray-200">
-                <dl>
-                    <div class="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-                        <dt class="text-sm font-medium text-gray-500">Subtotal</dt>
-                        <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">${{printf "%.2f" .OrderBackUp.Subtotal}}</dd>
-                    </div>
-                    <div class="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-                        <dt class="text-sm font-medium text-gray-500">Offer Discount</dt>
-                        <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">-${{printf "%.2f" .OrderBackUp.OfferDiscount}}</dd>
-                    </div>
-                    <div class="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-                        <dt class="text-sm font-medium text-gray-500">Total</dt>
-                        <dd class="mt-1 text-sm font-medium text-gray-900 sm:mt-0 sm:col-span-2">${{printf "%.2f" .OrderBackUp.TotalPrice}}</dd>
-                    </div>
-                </dl>
+            <div class="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                <dt class="text-sm font-medium text-gray-500">Offer Discount</dt>
+                <dd class="mt-1 text-sm text-green-600 sm:mt-0 sm:col-span-2">
+                    {{if .AllItemsCancelled}}
+                    -${{printf "%.2f" .OrderBackUp.OfferDiscount}}
+                    {{else}}
+                    -${{printf "%.2f" .CurrentOfferDiscount}}
+                    {{end}}
+                </dd>
             </div>
-        </div>
+            {{if or (gt .OrderBackUp.CouponDiscount 0.0) (gt .Order.CouponDiscount 0.0)}}
+            <div class="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                <dt class="text-sm font-medium text-gray-500">Coupon Discount</dt>
+                <dd class="mt-1 text-sm text-green-600 sm:mt-0 sm:col-span-2">
+                    {{if .AllItemsCancelled}}
+                    -${{printf "%.2f" .OrderBackUp.CouponDiscount}}
+                    {{else}}
+                    -${{printf "%.2f" .Order.CouponDiscount}}
+                    {{end}}
+                </dd>
+            </div>
+            {{end}}
+            <div class="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                <dt class="text-sm font-medium text-gray-500">Shipping Cost</dt>
+                <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
+                    {{if .AllItemsCancelled}}
+                    ${{printf "%.2f" .OrderBackUp.ShippingCost}}
+                    {{else}}
+                    ${{printf "%.2f" .Order.ShippingCost}}
+                    {{end}}
+                </dd>
+            </div>
+            <div class="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                <dt class="text-sm font-medium text-gray-500">Total</dt>
+                <dd class="mt-1 text-sm font-medium text-gray-900 sm:mt-0 sm:col-span-2">
+                    {{if .AllItemsCancelled}}
+                    ${{printf "%.2f" .OrderBackUp.TotalPrice}}
+                    {{else}}
+                    ${{printf "%.2f" .CurrentTotal}}
+                    {{end}}
+                </dd>
+            </div>
+        </dl>
+    </div>
+</div>
     </div>
 
     <!-- Toast Notification -->
@@ -321,51 +380,7 @@
                 });
             }
 
-            // Action dropdown
-            const actionMenuButton = document.getElementById('action-menu-button');
-            const actionMenu = document.getElementById('action-menu');
-            if (actionMenuButton && actionMenu) {
-                actionMenuButton.addEventListener('click', () => {
-                    actionMenu.classList.toggle('hidden');
-                });
-    
-                document.addEventListener('click', (event) => {
-                    if (!actionMenuButton.contains(event.target) && !actionMenu.contains(event.target)) {
-                        actionMenu.classList.add('hidden');
-                    }
-                });
-            }
-
-            // Status change actions
-            const statusActions = document.querySelectorAll('#action-menu a[href^="/admin/orders/"]');
-            statusActions.forEach(action => {
-                action.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    const url = this.href;
-                    
-                    fetch(url, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        }
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.status === 'ok') {
-                            showToast(data.message);
-                            setTimeout(() => {
-                                window.location.reload();
-                            }, 1500);
-                        } else {
-                            alert(data.error || 'Action failed');
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error:', error);
-                        alert('An error occurred while processing your request');
-                    });
-                });
-            });
+            
         });
 
         function showToast(message) {

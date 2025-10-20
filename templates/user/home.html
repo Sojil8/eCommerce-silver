@@ -35,34 +35,119 @@
       transform: rotate(0deg) scale(1.05);
     }
     
-    /* Wishlist heart styling */
+    /* Enhanced wishlist heart styling */
     .wishlist-btn {
       transition: all 0.3s ease;
       border: none;
       outline: none;
+      position: relative;
+      overflow: hidden;
     }
     .wishlist-btn:hover {
       transform: scale(1.1);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
     }
     .wishlist-btn:disabled {
       opacity: 0.7;
       cursor: not-allowed;
     }
+    
+    /* Heart icon states */
     .heart-icon {
-      transition: all 0.3s ease;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       color: #6b7280;
+      filter: drop-shadow(0 1px 2px rgba(0,0,0,0.1));
     }
     .heart-icon.active {
       color: #ef4444;
+      transform: scale(1.1);
+      filter: drop-shadow(0 2px 4px rgba(239,68,68,0.3));
     }
     .heart-icon:hover {
-      color: #ef4444;
+      color: #f87171;
+    }
+    .heart-icon.active:hover {
+      color: #dc2626;
     }
     
-    /* Loading state for wishlist button */
+    /* Loading state animations for wishlist */
     .wishlist-btn.loading {
       opacity: 0.6;
       pointer-events: none;
+    }
+    .wishlist-btn.loading .heart-icon {
+      animation: heartbeat 1s infinite;
+    }
+    
+    /* Add to cart button styles */
+    .cart-btn {
+      transition: all 0.3s ease;
+      position: relative;
+    }
+    .cart-btn:hover {
+      transform: scale(1.1);
+      filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+    }
+    .cart-btn.loading {
+      opacity: 0.6;
+      pointer-events: none;
+    }
+    .cart-btn.loading .cart-icon {
+      animation: spin 1s linear infinite;
+    }
+    .cart-btn:disabled {
+      opacity: 0.7;
+      cursor: not-allowed;
+    }
+    
+    @keyframes heartbeat {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.2); }
+      100% { transform: scale(1); }
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    /* Wishlist indicator badge */
+    .wishlist-indicator {
+      position: absolute;
+      top: -2px;
+      right: -2px;
+      width: 8px;
+      height: 8px;
+      background: linear-gradient(135deg, #ef4444, #dc2626);
+      border-radius: 50%;
+      opacity: 0;
+      transform: scale(0);
+      transition: all 0.3s ease;
+      border: 2px solid white;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+    .wishlist-indicator.active {
+      opacity: 1;
+      transform: scale(1);
+    }
+
+    /* Category and Brand card styles */
+    .category-card, .brand-card {
+      transition: all 0.3s ease;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    .category-card:hover, .brand-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+    }
+    .category-card img, .brand-card img {
+      object-fit: cover;
+      width: 100%;
+      height: 120px;
+      border-top-left-radius: 12px;
+      border-top-right-radius: 12px;
     }
   </style>
 </head>
@@ -70,7 +155,7 @@
   {{template "navbar.html" .}}
 
   <div class="relative w-full bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-500">
-    <img src="/static/Banner.jpg" alt="Banner Image" class="w-full h-96 object-cover opacity-70">
+    <img src="/static/images/Banner.jpg" alt="Banner Image" class="w-full h-96 object-cover opacity-70">
     <div class="absolute inset-0 flex items-center justify-center">
       <div class="text-center">
         <h2 class="text-5xl md:text-6xl font-bold text-white tracking-tight drop-shadow-xl">Discover Timeless Elegance</h2>
@@ -80,76 +165,247 @@
   </div>
 
   <div class="container mx-auto px-4 sm:px-6 lg:px-8 py-12 flex-grow">
-    <h2 class="text-4xl font-semibold text-gray-800 mb-12 text-center tracking-wide">Our Premium Watches</h2>
-    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-      {{if .Products}}
-        {{range .Products}}
-          <div class="product-card relative bg-white rounded-xl shadow-md overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
-            <div class="relative">
-              <img src="{{index .Images 0}}" alt="{{.ProductName}}" class="product-image w-full h-64 object-cover transition-transform duration-500">
-              <div class="absolute inset-0 flex items-center justify-center bg-black bg-opacity-0 hover:bg-opacity-30 transition-all duration-300">
-                <a href="/product/details/{{.ID}}" class="bg-gradient-to-r from-yellow-400 to-yellow-500 text-gray-900 px-6 py-2 rounded-full font-medium opacity-0 hover:opacity-100 transition-opacity duration-300 transform hover:scale-105">View Product</a>
-              </div>
-              
-              <!-- Wishlist Button -->
-              <button onclick="toggleWishlist('{{.ID}}', this)" 
-                      data-product-id="{{.ID}}"
-                      class="wishlist-btn absolute top-3 right-3 bg-white/90 backdrop-blur-sm w-10 h-10 rounded-full shadow-lg flex items-center justify-center">
-                <i class="fas fa-heart heart-icon text-lg"></i>
-              </button>
-              
-              {{if not (anyVariantInStock .Variants)}}
-                <div class="out-of-stock-badge absolute top-16 right-3 bg-gradient-to-r from-red-500 to-red-600 text-white text-xs font-semibold px-3 py-1 rounded-full shadow-sm">Out of Stock</div>
-              {{end}}
-              
-              {{if .IsOffer}}
-                <div class="absolute top-3 left-3">
-                  <div class="discount-pill bg-gradient-to-r from-green-500 to-emerald-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-md">
-                    {{.DiscountPercentage}}% OFF
-                  </div>
+    <!-- Our Premium Watches Section -->
+    <section class="mb-12">
+      <h2 class="text-4xl font-semibold text-gray-800 mb-12 text-center tracking-wide">Our Premium Watches</h2>
+      <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+        {{if .Products}}
+          {{range .Products}}
+            <div class="product-card relative bg-white rounded-xl shadow-md overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
+              <div class="relative">
+                <img src="{{index .Images 0}}" alt="{{.ProductName}}" class="product-image w-full h-64 object-cover transition-transform duration-500">
+                <div class="absolute inset-0 flex items-center justify-center bg-black bg-opacity-0 hover:bg-opacity-30 transition-all duration-300">
+                  <a href="/product/details/{{.ID}}" class="bg-gradient-to-r from-yellow-400 to-yellow-500 text-gray-900 px-6 py-2 rounded-full font-medium opacity-0 hover:opacity-100 transition-opacity duration-300 transform hover:scale-105">View Product</a>
                 </div>
-              {{end}}
-            </div>
-            <div class="p-5">
-              <h3 class="text-lg font-semibold text-gray-800 truncate">{{.ProductName}}</h3>
-              <p class="text-sm text-gray-500">{{.CategoryName}}</p>
-              <div class="flex justify-between items-center mt-4">
-                <div class="price-tag">
-                  {{if .IsOffer}}
-                    <div class="flex flex-col">
-                      <div class="flex items-center">
-                        <p class="text-red-600 font-bold text-xl">
-                          ${{printf "%.2f" .OfferPrice}}
-                        </p>
-                        <span class="line-through text-gray-400 text-sm ml-2">
-                          ${{printf "%.2f" .OriginalPrice}}
-                        </span>
-                      </div>
-                      <p class="text-xs text-green-600 font-medium">{{.OfferName}}</p>
-                    </div>
-                  {{else}}
-                    {{if gt (len .Variants) 0}}
-                      <p class="text-indigo-600 font-bold text-xl">
-                        ${{printf "%.2f" .OriginalPrice}}
-                      </p>
-                    {{else}}
-                      <p class="text-indigo-600 font-bold text-xl">
-                        ${{printf "%.2f" .OriginalPrice}}
-                      </p>
-                    {{end}}
-                  {{end}}
-                </div>
-                <button onclick="addToCart('{{.ID}}')" class="text-indigo-600 hover:text-indigo-800 transition-colors duration-200 transform hover:scale-110">
-                  <i class="fas fa-cart-plus text-2xl"></i>
+                
+                <!-- Wishlist Button -->
+                <button onclick="toggleWishlist('{{.ID}}', this)" 
+                        data-product-id="{{.ID}}"
+                        class="wishlist-btn absolute top-3 right-3 bg-white/90 backdrop-blur-sm w-11 h-11 rounded-full shadow-lg flex items-center justify-center group"
+                        title="Add to Wishlist">
+                  <i class="fas fa-heart heart-icon text-lg"></i>
+                  <div class="wishlist-indicator"></div>
                 </button>
+                
+                {{if not (anyVariantInStock .Variants)}}
+                  <div class="out-of-stock-badge absolute top-16 right-3 bg-gradient-to-r from-red-500 to-red-600 text-white text-xs font-semibold px-3 py-1 rounded-full shadow-sm">Out of Stock</div>
+                {{end}}
+                
+                {{if .IsOffer}}
+                  <div class="absolute top-3 left-3">
+                    <div class="discount-pill bg-gradient-to-r from-green-500 to-emerald-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-md">
+                      {{.DiscountPercentage}}% OFF
+                    </div>
+                  </div>
+                {{end}}
               </div>
+              <div class="p-5">
+                <h3 class="text-lg font-semibold text-gray-800 truncate">{{.ProductName}}</h3>
+                <p class="text-sm text-gray-500">{{.Brand}} | {{.CategoryName}}</p>
+                <div class="flex justify-between items-center mt-4">
+                  <div class="price-tag">
+                    {{if .IsOffer}}
+                      <div class="flex flex-col">
+                        <div class="flex items-center">
+                          <p class="text-red-600 font-bold text-xl">
+                            ${{printf "%.2f" .OfferPrice}}
+                          </p>
+                          <span class="line-through text-gray-400 text-sm ml-2">
+                            ${{printf "%.2f" .OriginalPrice}}
+                          </span>
+                        </div>
+                        <p class="text-xs text-green-600 font-medium">{{.OfferName}}</p>
+                      </div>
+                    {{else}}
+                      {{if gt (len .Variants) 0}}
+                        <p class="text-indigo-600 font-bold text-xl">
+                          ${{printf "%.2f" .OriginalPrice}}
+                        </p>
+                      {{else}}
+                        <p class="text-indigo-600 font-bold text-xl">
+                          ${{printf "%.2f" .OriginalPrice}}
+                        </p>
+                      {{end}}
+                    {{end}}
+                  </div>
+                  <button onclick="addToCart('{{.ID}}', this)" 
+                          data-product-id="{{.ID}}"
+                          class="cart-btn text-indigo-600 hover:text-indigo-800 transition-colors duration-200 transform hover:scale-110 {{if not (anyVariantInStock .Variants)}}disabled{{end}}"
+                          {{if not (anyVariantInStock .Variants)}}disabled{{end}}
+                          title="{{if (anyVariantInStock .Variants)}}Add to Cart{{else}}Out of Stock{{end}}">
+                    <i class="fas fa-cart-plus cart-icon text-2xl"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+          {{end}}
+        {{else}}
+          <p class="text-center text-gray-500 col-span-full text-lg font-medium">No products found</p>
+        {{end}}
+
+      </div>
+    </section>
+
+    <!-- Categories Section -->
+<section class="mb-12">
+  <h2 class="text-4xl font-semibold text-gray-800 mb-8 text-center tracking-wide">Explore by Category</h2>
+  <div class="flex flex-wrap justify-center gap-6">
+    <a href="/shop?category=Mechanical+Analog" class="category-card w-full sm:w-80">
+      <img src="/static/images/categories/analog.jpg" alt="Analog Watches" class="w-full h-48 object-cover rounded-t-xl">
+      <div class="p-4">
+        <h3 class="text-lg font-semibold text-gray-800">Mechanical Analog</h3>
+        <p class="text-sm text-gray-500">A vintage-inspired timepiece powered by pure mechanics—no battery needed. Classic analog hands with precision engineering, perfect for collectors and enthusiasts.</p>
+      </div>
+    </a>
+    <a href="/shop?category=Men" class="category-card w-full sm:w-80">
+      <img src="/static/images/categories/men.avif" alt="Digital Watches" class="w-full h-48 object-cover rounded-t-xl">
+      <div class="p-4">
+        <h3 class="text-lg font-semibold text-gray-800">Men</h3>
+        <p class="text-sm text-gray-500">Discover our exclusive collection of men's watches, combining style, performance, and elegance for every occasion.</p>
+      </div>
+    </a>
+    <a href="/shop?category=Women" class="category-card w-full sm:w-80">
+      <img src="/static/images/categories/women.png" alt="Women's" class="w-full h-48 object-cover rounded-t-xl">
+      <div class="p-4">
+        <h3 class="text-lg font-semibold text-gray-800">Women</h3>
+        <p class="text-sm text-gray-500">Elegant, timeless, and crafted to perfection — our women's watch collection blends sophistication with everyday wearability. Each timepiece is designed to complement your unique personality</p>
+      </div>
+    </a>
+  </div>
+</section>
+
+<!-- New Arrivals Section -->
+<section class="mb-12">
+  <h2 class="text-4xl font-semibold text-gray-800 mb-12 text-center tracking-wide">New Arrivals</h2>
+  <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
+    {{if .NewArrivals}}
+      {{range .NewArrivals}}
+        <div class="product-card relative bg-white rounded-xl shadow-md overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
+          <div class="relative">
+            <img src="{{index .Images 0}}" alt="{{.ProductName}}" class="product-image w-full h-64 object-cover transition-transform duration-500">
+            <div class="absolute inset-0 flex items-center justify-center bg-black bg-opacity-0 hover:bg-opacity-30 transition-all duration-300">
+              <a href="/product/details/{{.ID}}" class="bg-gradient-to-r from-yellow-400 to-yellow-500 text-gray-900 px-6 py-2 rounded-full font-medium opacity-0 hover:opacity-100 transition-opacity duration-300 transform hover:scale-105">View Product</a>
+            </div>
+            
+            <!-- Wishlist Button -->
+            <button onclick="toggleWishlist('{{.ID}}', this)" 
+                    data-product-id="{{.ID}}"
+                    class="wishlist-btn absolute top-3 right-3 bg-white/90 backdrop-blur-sm w-11 h-11 rounded-full shadow-lg flex items-center justify-center group"
+                    title="Add to Wishlist">
+              <i class="fas fa-heart heart-icon text-lg"></i>
+              <div class="wishlist-indicator"></div>
+            </button>
+            
+            {{if not (anyVariantInStock .Variants)}}
+              <div class="out-of-stock-badge absolute top-16 right-3 bg-gradient-to-r from-red-500 to-red-600 text-white text-xs font-semibold px-3 py-1 rounded-full shadow-sm">Out of Stock</div>
+            {{end}}
+            
+            {{if .IsOffer}}
+              <div class="absolute top-3 left-3">
+                <div class="discount-pill bg-gradient-to-r from-green-500 to-emerald-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-md">
+                  {{.DiscountPercentage}}% OFF
+                </div>
+              </div>
+            {{end}}
+          </div>
+          <div class="p-5">
+            <h3 class="text-lg font-semibold text-gray-800 truncate">{{.ProductName}}</h3>
+            <p class="text-sm text-gray-500">{{.Brand}} | {{.CategoryName}}</p>
+            <div class="flex justify-between items-center mt-4">
+              <div class="price-tag">
+                {{if .IsOffer}}
+                  <div class="flex flex-col">
+                    <div class="flex items-center">
+                      <p class="text-red-600 font-bold text-xl">
+                        ${{printf "%.2f" .OfferPrice}}
+                      </p>
+                      <span class="line-through text-gray-400 text-sm ml-2">
+                        ${{printf "%.2f" .OriginalPrice}}
+                      </span>
+                    </div>
+                    <p class="text-xs text-green-600 font-medium">{{.OfferName}}</p>
+                  </div>
+                {{else}}
+                  {{if gt (len .Variants) 0}}
+                    <p class="text-indigo-600 font-bold text-xl">
+                      ${{printf "%.2f" .OriginalPrice}}
+                    </p>
+                  {{else}}
+                    <p class="text-indigo-600 font-bold text-xl">
+                      ${{printf "%.2f" .OriginalPrice}}
+                    </p>
+                  {{end}}
+                {{end}}
+              </div>
+              <button onclick="addToCart('{{.ID}}', this)" 
+                      data-product-id="{{.ID}}"
+                      class="cart-btn text-indigo-600 hover:text-indigo-800 transition-colors duration-200 transform hover:scale-110 {{if not (anyVariantInStock .Variants)}}disabled{{end}}"
+                      {{if not (anyVariantInStock .Variants)}}disabled{{end}}
+                      title="{{if (anyVariantInStock .Variants)}}Add to Cart{{else}}Out of Stock{{end}}">
+                <i class="fas fa-cart-plus cart-icon text-2xl"></i>
+              </button>
             </div>
           </div>
-        {{end}}
-      {{else}}
-        <p class="text-center text-gray-500 col-span-full text-lg font-medium">No products found</p>
+        </div>
       {{end}}
-    </div>
+    {{else}}
+      <p class="text-center text-gray-500 col-span-full text-lg font-medium">No new arrivals found</p>
+    {{end}}
+  </div>
+</section>
+
+
+    <!-- About Section -->
+    <section class="mb-12">
+      <h2 class="text-4xl font-semibold text-gray-800 mb-8 text-center tracking-wide">About Silver Shop</h2>
+      <div class="bg-white rounded-xl shadow-md p-8 text-center">
+        <p class="text-gray-600 text-lg leading-relaxed">
+          At Silver Shop, we are passionate about bringing you the finest selection of premium watches from around the world. 
+          Founded in 2020, our mission is to offer timeless elegance and cutting-edge technology through our carefully curated 
+          collection. Whether you're seeking a classic analog watch, a modern smartwatch, or a luxurious timepiece, we have 
+          something for every style and occasion. Our commitment to quality, authenticity, and customer satisfaction makes us 
+          your trusted destination for watch enthusiasts.
+        </p>
+        <a href="/about" class="mt-6 inline-block bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-6 py-3 rounded-full font-medium hover:from-indigo-700 hover:to-purple-700 transition-all duration-300">
+          Learn More
+        </a>
+      </div>
+    </section>
+
+     <!-- Brands Section -->
+    <section class="mb-12">
+      <h2 class="text-4xl font-semibold text-gray-800 mb-8 text-center tracking-wide">Shop by Brand</h2>
+      <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+        <a href="/shop?brand=Rolex" class="brand-card">
+          <img src="/static/images/brands/rollex.jpg" alt="Rolex" class="w-full h-48 object-contain rounded-t-xl">
+          <div class="p-4">
+            <h3 class="text-lg font-semibold text-gray-800">Rolex</h3>
+            <p class="text-sm text-gray-500">Iconic luxury and precision</p>
+          </div>
+        </a>
+        <a href="/shop?brand=Omega" class="brand-card">
+          <img src="/static/images/brands/Omega" alt="Omega" class="w-full h-48 object-contain rounded-t-xl">
+          <div class="p-4">
+            <h3 class="text-lg font-semibold text-gray-800">Omega</h3>
+            <p class="text-sm text-gray-500">Heritage and innovation</p>
+          </div>
+        </a>
+        <a href="/shop?brand=Seven+Friday" class="brand-card">
+          <img src="/static/images/brands/SevenFriday.png" alt="Tag Heuer" class="w-full h-48 object-contain rounded-t-xl">
+          <div class="p-4">
+            <h3 class="text-lg font-semibold text-gray-800">Seven Friday</h3>
+            <p class="text-sm text-gray-500">Sporty elegance and performance</p>
+          </div>
+        </a>
+        <a href="/shop?brand=Casio" class="brand-card">
+          <img src="/static/images/brands/Casio.png" alt="Casio" class="w-full h-48 object-contain rounded-t-xl">
+          <div class="p-4">
+            <h3 class="text-lg font-semibold text-gray-800">Casio</h3>
+            <p class="text-sm text-gray-500">Reliable and versatile timepieces</p>
+          </div>
+        </a>
+      </div>
+    </section>
   </div>
 
   <footer class="bg-gradient-to-r from-indigo-800 to-purple-900 text-white py-8 mt-auto">
@@ -165,241 +421,398 @@
   </footer>
 
   <script>
-    // Store wishlist state - using Map for better performance
-    let wishlistItems = new Map();
-    let isLoadingWishlist = false;
+    // Enhanced wishlist state management
+    class WishlistManager {
+      constructor() {
+        this.items = new Map();
+        this.isLoading = false;
+        this.retryAttempts = 3;
+        this.retryDelay = 1000;
+        
+        // Bind methods to preserve context
+        this.toggle = this.toggle.bind(this);
+        this.loadInitialState = this.loadInitialState.bind(this);
+      }
 
-    // Add to cart function
-    async function addToCart(productId) {
+      // Load initial wishlist state with better error handling
+      async loadInitialState() {
+        if (this.isLoading) return;
+        
+        try {
+          this.isLoading = true;
+          console.log('Loading initial wishlist state...');
+          
+          const response = await this.makeRequest('/wishlist', { method: 'GET' });
+          
+          if (response.ok) {
+            const data = await response.json();
+            console.log('Wishlist API response:', data);
+            
+            // Clear existing state
+            this.items.clear();
+            
+            // Handle different possible response structures
+            let productIds = [];
+            
+            if (data.items && Array.isArray(data.items)) {
+              productIds = data.items.map(item => this.extractProductId(item));
+            } else if (data.products && Array.isArray(data.products)) {
+              productIds = data.products.map(item => this.extractProductId(item));
+            } else if (Array.isArray(data)) {
+              productIds = data.map(item => this.extractProductId(item));
+            } else if (data.wishlist && Array.isArray(data.wishlist)) {
+              productIds = data.wishlist.map(item => this.extractProductId(item));
+            }
+            
+            // Add to local state and update UI
+            productIds.forEach(id => {
+              if (id) {
+                this.items.set(id.toString(), true);
+                this.updateProductUI(id.toString(), true);
+              }
+            });
+            
+            console.log(`Wishlist loaded: ${this.items.size} items`);
+            return true;
+            
+          } else {
+            console.warn('Failed to load wishlist:', response.status, response.statusText);
+            return false;
+          }
+          
+        } catch (error) {
+          console.error('Error loading wishlist:', error);
+          return false;
+        } finally {
+          this.isLoading = false;
+        }
+      }
+
+      // Extract product ID from different object structures
+      extractProductId(item) {
+        if (typeof item === 'string' || typeof item === 'number') {
+          return item.toString();
+        }
+        if (typeof item === 'object' && item !== null) {
+          return (item.id || item.product_id || item.productId || item.ID)?.toString();
+        }
+        return null;
+      }
+
+      // Make HTTP request with retry logic
+      async makeRequest(url, options, attempt = 1) {
+        try {
+          const response = await fetch(url, {
+            credentials: 'include',
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+              ...options.headers
+            },
+            ...options
+          });
+          
+          return response;
+          
+        } catch (error) {
+          if (attempt < this.retryAttempts) {
+            console.log(`Request failed, retrying... (${attempt}/${this.retryAttempts})`);
+            await this.sleep(this.retryDelay * attempt);
+            return this.makeRequest(url, options, attempt + 1);
+          }
+          throw error;
+        }
+      }
+
+      // Sleep utility
+      sleep(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+      }
+
+      // Toggle wishlist item with enhanced error handling
+      async toggle(productId, buttonElement) {
+        if (!productId || !buttonElement) {
+          console.error('Invalid parameters for wishlist toggle');
+          return;
+        }
+
+        // Prevent multiple simultaneous requests
+        if (buttonElement.classList.contains('loading')) {
+          return;
+        }
+
+        const heartIcon = buttonElement.querySelector('.heart-icon');
+        const indicator = buttonElement.querySelector('.wishlist-indicator');
+        
+        if (!heartIcon) {
+          console.error('Heart icon not found');
+          return;
+        }
+
+        try {
+          // Set loading state
+          this.setLoadingState(buttonElement, true);
+          
+          const isCurrentlyInWishlist = this.items.has(productId);
+          console.log(`Toggling wishlist for product ${productId} (currently: ${isCurrentlyInWishlist ? 'in' : 'not in'} wishlist)`);
+          
+          // Make API request
+          const response = await this.makeRequest(`/wishlist/add/${productId}`, {
+            method: 'POST'
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            console.log('Wishlist toggle response:', data);
+            
+            // Determine final state based on response
+            let finalState;
+            let message;
+            
+            if (data.status === 'REMOVED' || data.action === 'removed') {
+              finalState = false;
+              message = 'Product removed from wishlist';
+            } else if (data.status === 'ADDED' || data.action === 'added') {
+              finalState = true;
+              message = 'Product added to wishlist';
+            } else {
+              // Fallback: toggle based on current state
+              finalState = !isCurrentlyInWishlist;
+              message = finalState ? 'Product added to wishlist' : 'Product removed from wishlist';
+            }
+            
+            // Update local state and UI
+            if (finalState) {
+              this.items.set(productId, true);
+            } else {
+              this.items.delete(productId);
+            }
+            
+            this.updateProductUI(productId, finalState);
+            this.showNotification(finalState, message);
+            
+          } else {
+            // Handle error response
+            const errorText = await response.text();
+            let errorMessage = 'Failed to update wishlist';
+            
+            try {
+              const errorData = JSON.parse(errorText);
+              errorMessage = errorData.error || errorData.message || errorMessage;
+            } catch (e) {
+              errorMessage = errorText || errorMessage;
+            }
+            
+            console.error('Wishlist API error:', response.status, errorMessage);
+            this.showErrorNotification(errorMessage);
+          }
+          
+        } catch (error) {
+          console.error('Wishlist toggle error:', error);
+          this.showErrorNotification('Network error. Please check your connection and try again.');
+          
+        } finally {
+          this.setLoadingState(buttonElement, false);
+        }
+      }
+
+      // Update product UI state
+      updateProductUI(productId, isInWishlist) {
+        const buttons = document.querySelectorAll(`[data-product-id="${productId}"]`);
+        
+        buttons.forEach(button => {
+          const heartIcon = button.querySelector('.heart-icon');
+          const indicator = button.querySelector('.wishlist-indicator');
+          
+          if (heartIcon) {
+            if (isInWishlist) {
+              heartIcon.classList.add('active');
+              button.title = 'Remove from Wishlist';
+            } else {
+              heartIcon.classList.remove('active');
+              button.title = 'Add to Wishlist';
+            }
+          }
+          
+          if (indicator) {
+            if (isInWishlist) {
+              indicator.classList.add('active');
+            } else {
+              indicator.classList.remove('active');
+            }
+          }
+        });
+      }
+
+      // Set loading state for button
+      setLoadingState(buttonElement, isLoading) {
+        if (isLoading) {
+          buttonElement.classList.add('loading');
+          buttonElement.disabled = true;
+        } else {
+          buttonElement.classList.remove('loading');
+          buttonElement.disabled = false;
+        }
+      }
+
+      // Show success notification
+      showNotification(isAdded, message) {
+        Swal.fire({
+          icon: isAdded ? 'success' : 'info',
+          title: isAdded ? 'Added to Wishlist!' : 'Removed from Wishlist',
+          text: message,
+          timer: 2000,
+          showConfirmButton: false,
+          toast: true,
+          position: 'top-end',
+          timerProgressBar: true
+        });
+      }
+
+      // Show error notification
+      showErrorNotification(message) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Wishlist Error',
+          text: message,
+          confirmButtonColor: '#ef4444'
+        });
+      }
+
+      // Check if product is in wishlist
+      isInWishlist(productId) {
+        return this.items.has(productId);
+      }
+
+      // Get wishlist count
+      getCount() {
+        return this.items.size;
+      }
+    }
+
+    // Initialize wishlist manager
+    const wishlistManager = new WishlistManager();
+
+    // Global functions for template compatibility
+    async function toggleWishlist(productId, buttonElement) {
+      return wishlistManager.toggle(productId, buttonElement);
+    }
+
+    // Updated add to cart function
+    async function addToCart(productId, buttonElement) {
+      if (!productId || !buttonElement) {
+        console.error('Invalid parameters for add to cart');
+        return;
+      }
+
+      // Prevent multiple clicks
+      if (buttonElement.classList.contains('loading')) {
+        return;
+      }
+
       try {
-        const response = await fetch(`/cart/add/${productId}`, {
+        // Set loading state
+        buttonElement.classList.add('loading');
+        buttonElement.disabled = true;
+
+        // Convert productId to number and prepare payload
+        const payload = {
+          product_id: parseInt(productId, 10),  // Ensure it's a proper integer
+          quantity: 1
+        };
+
+        console.log('Sending payload to /cart/add:', payload);
+
+        // Send request to add to cart with default variant (variant_id omitted)
+        const response = await fetch('/cart/add', {
           method: 'POST',
-          headers: { 
+          headers: {
             'Content-Type': 'application/json',
             'Accept': 'application/json'
           },
+          body: JSON.stringify(payload),
           credentials: 'include'
         });
-        
-        const data = await response.json();
-        
+
+        console.log('Response status:', response.status);
+        console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+
+        let data;
+        try {
+          data = await response.json();
+          console.log('Response data:', data);
+        } catch (parseError) {
+          console.error('Failed to parse JSON response:', parseError);
+          const textResponse = await response.text();
+          console.error('Raw response:', textResponse);
+          throw new Error('Invalid JSON response from server');
+        }
+
         if (response.ok) {
           Swal.fire({
             icon: 'success',
             title: 'Added to Cart!',
-            text: 'Product has been added to your cart.',
+            text: data.message || 'Product has been added to your cart.',
             timer: 1500,
             showConfirmButton: false,
             toast: true,
             position: 'top-end'
           });
         } else {
+          let errorMessage = data.error || 'Failed to add to cart';
+          
+          // Map specific backend errors to user-friendly messages
+          const errorMessages = {
+            'No variants available for this product': 'This product is not available in any variant.',
+            'Product is not available': 'This product is currently unavailable.',
+            'Not enough stock available': 'Not enough stock available.',
+            'Quantity exceeds maximum limit': 'Quantity exceeds the maximum allowed per product.',
+            'Product category is not available': 'This product category is not available.',
+            'Quantity limit exceeded': 'You have reached the maximum quantity for this product.'
+          };
+          
+          errorMessage = errorMessages[data.error] || errorMessage;
+
           Swal.fire({
             icon: 'error',
-            title: 'Error',
-            text: data.error || 'Failed to add to cart'
+            title: 'Cannot Add to Cart',
+            text: errorMessage
           });
         }
       } catch (error) {
         console.error('Add to cart error:', error);
         Swal.fire({
           icon: 'error',
-          title: 'Error',
-          text: 'Something went wrong. Please try again.'
-        });
-      }
-    }
-
-    // Toggle wishlist function - improved with better error handling
-    async function toggleWishlist(productId, buttonElement) {
-      // Prevent multiple simultaneous requests
-      if (buttonElement.classList.contains('loading')) {
-        return;
-      }
-
-      try {
-        // Add loading state
-        buttonElement.classList.add('loading');
-        const heartIcon = buttonElement.querySelector('.heart-icon');
-        
-        // Check current state from the UI (more reliable than local state)
-        const isCurrentlyInWishlist = heartIcon.classList.contains('active');
-        
-        console.log(`Product ${productId}: Currently in wishlist: ${isCurrentlyInWishlist}`);
-        
-        let response;
-        let endpoint;
-        let method;
-        
-        // Use only the add endpoint since it handles both add and remove
-        endpoint = `/wishlist/add/${productId}`;
-        method = 'POST';
-        console.log(`Toggling wishlist for product ${productId}, currently: ${isCurrentlyInWishlist ? 'removing' : 'adding'}`);
-
-        
-        response = await fetch(endpoint, {
-          method: method,
-          headers: { 
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-          },
-          credentials: 'include'
-        });
-        
-        console.log(`Response status: ${response.status}`);
-        
-        // Handle response - check the status field to determine what happened
-        if (response.ok) {
-          const responseData = await response.json();
-          
-          if (responseData.status === 'REMOVED') {
-            // Successfully removed
-            wishlistItems.delete(productId);
-            heartIcon.classList.remove('active');
-            console.log(`Successfully removed product ${productId} from wishlist`);
-            
-            Swal.fire({
-              icon: 'info',
-              title: 'Removed from Wishlist',
-              text: 'Product has been removed from your wishlist.',
-              timer: 1500,
-              showConfirmButton: false,
-              toast: true,
-              position: 'top-end'
-            });
-          } else {
-            // Successfully added
-            wishlistItems.set(productId, true);
-            heartIcon.classList.add('active');
-            console.log(`Successfully added product ${productId} to wishlist`);
-            
-            Swal.fire({
-              icon: 'success',
-              title: 'Added to Wishlist!',
-              text: 'Product has been added to your wishlist.',
-              timer: 1500,
-              showConfirmButton: false,
-              toast: true,
-              position: 'top-end'
-            });
-          }
-        } else {
-          // Handle error response
-          let errorMessage = 'Something went wrong. Please try again.';
-          let errorData = {};
-          
-          try {
-            const responseText = await response.text();
-            console.log('Error response:', responseText);
-            
-            // Try to parse as JSON
-            if (responseText) {
-              try {
-                errorData = JSON.parse(responseText);
-                errorMessage = errorData.error || errorData.message || errorMessage;
-              } catch (jsonError) {
-                // If not JSON, use the text as error message
-                errorMessage = responseText || errorMessage;
-              }
-            }
-          } catch (parseError) {
-            console.log('Could not parse error response:', parseError);
-          }
-          
-          console.error(`Wishlist operation failed: ${errorMessage}`, errorData);
-          
-          Swal.fire({
-            icon: 'error',
-            title: 'Error',
-            text: errorMessage,
-            footer: `Status: ${response.status} | Product ID: ${productId}`
-          });
-        }
-        
-      } catch (error) {
-        console.error('Wishlist error:', error);
-        
-        // Show user-friendly error message
-        Swal.fire({
-          icon: 'error',
           title: 'Connection Error',
-          text: 'Unable to update wishlist. Please check your connection and try again.',
-          footer: `Product ID: ${productId}`
+          text: 'Network error. Please check your connection and try again.'
         });
-        
       } finally {
-        // Always remove loading state
+        // Remove loading state
         buttonElement.classList.remove('loading');
+        buttonElement.disabled = buttonElement.classList.contains('disabled');
       }
-    }
-
-    // Load initial wishlist state when page loads
-    async function loadInitialWishlistState() {
-      if (isLoadingWishlist) return;
-      
-      try {
-        isLoadingWishlist = true;
-        
-        const response = await fetch('/wishlist', {
-          method: 'GET',
-          headers: {
-            'Accept': 'application/json'
-          },
-          credentials: 'include'
-        });
-        
-        if (response.ok) {
-          const wishlistData = await response.json();
-          
-          // Clear existing wishlist state
-          wishlistItems.clear();
-          
-          // Assuming your backend returns an array of products or product IDs
-          if (wishlistData.products && Array.isArray(wishlistData.products)) {
-            wishlistData.products.forEach(product => {
-              const productId = product.id || product.product_id || product;
-              wishlistItems.set(productId.toString(), true);
-              updateHeartIcon(productId.toString());
-            });
-          }
-          
-          console.log('Wishlist loaded successfully:', wishlistItems.size, 'items');
-        } else {
-          console.log('Could not load wishlist (status:', response.status, ')');
-        }
-      } catch (error) {
-        console.log('Could not load initial wishlist state:', error);
-      } finally {
-        isLoadingWishlist = false;
-      }
-    }
-
-    // Helper function to update heart icon state
-    function updateHeartIcon(productId) {
-      const buttons = document.querySelectorAll(`[data-product-id="${productId}"]`);
-      buttons.forEach(button => {
-        const heartIcon = button.querySelector('.heart-icon');
-        if (heartIcon) {
-          if (wishlistItems.has(productId)) {
-            heartIcon.classList.add('active');
-          } else {
-            heartIcon.classList.remove('active');
-          }
-        }
-      });
     }
 
     // Initialize when DOM is loaded
     document.addEventListener('DOMContentLoaded', function() {
-      loadInitialWishlistState();
+      console.log('Page loaded, initializing wishlist...');
+      wishlistManager.loadInitialState();
     });
 
-    // Optional: Refresh wishlist state when user comes back to the tab
+    // Refresh wishlist when user returns to tab
     document.addEventListener('visibilitychange', function() {
-      if (!document.hidden) {
-        loadInitialWishlistState();
+      if (!document.hidden && !wishlistManager.isLoading) {
+        console.log('Tab became visible, refreshing wishlist state...');
+        wishlistManager.loadInitialState();
       }
     });
+
+    // Optional: Periodic refresh (every 30 seconds when tab is active)
+    setInterval(() => {
+      if (!document.hidden && !wishlistManager.isLoading) {
+        wishlistManager.loadInitialState();
+      }
+    }, 30000);
   </script>
 </body>
-</html>   
+</html>

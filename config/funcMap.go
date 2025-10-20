@@ -19,14 +19,12 @@ func SetupTemplateFunctions() template.FuncMap {
 		"sub": func(a, b interface{}) float64 {
 			return toFloat64(a) - toFloat64(b)
 		},
-
 		"add": func(a, b interface{}) interface{} {
 			if aInt, ok := a.(int); ok {
 				if bInt, ok := b.(int); ok {
 					return aInt + bInt
 				}
 			}
-
 			aFloat := toFloat64(a)
 			bFloat := toFloat64(b)
 			return aFloat + bFloat
@@ -41,7 +39,6 @@ func SetupTemplateFunctions() template.FuncMap {
 			case string:
 				countInt, _ = strconv.Atoi(v)
 			}
-
 			var result []int
 			for i := 0; i < countInt; i++ {
 				result = append(result, i)
@@ -79,6 +76,9 @@ func SetupTemplateFunctions() template.FuncMap {
 		},
 		"safe": func(s string) template.HTML {
 			return template.HTML(s)
+		},
+		"lt": func(a, b interface{}) bool {
+			return toFloat64(a) < toFloat64(b)
 		},
 	}
 }

@@ -9,30 +9,30 @@ import (
 
 func UserRoutes(c *gin.Engine) {
 	userGroup := c.Group("/")
+	userGroup.Use(middleware.ClearCache())
 	{
-		userGroup.Use(middleware.ClearCache())
-		userGroup.GET("/signup", controllers.ShowSignUp)
-		userGroup.POST("/signup", controllers.UserSignUp)
-		userGroup.GET("/signup/otp", controllers.ShowOTPPage)
-		userGroup.POST("/signup/otp", controllers.VerifyOTP)
-		userGroup.POST("/signup/otp/resend", controllers.ResendOTP)
-		userGroup.GET("/login", controllers.ShowLogin)
-		userGroup.POST("/login", controllers.LoginPostUser)
+		userGroup.GET("/signup", controllers.ShowSignUp,middleware.PreventBackButton())
+		userGroup.POST("/signup", controllers.UserSignUp,middleware.PreventBackButton())
+		userGroup.GET("/signup/otp", controllers.ShowOTPPage,middleware.PreventBackButton())
+		userGroup.POST("/signup/otp", controllers.VerifyOTP,middleware.PreventBackButton())
+		userGroup.POST("/signup/otp/resend", controllers.ResendOTP,middleware.PreventBackButton())
+		userGroup.GET("/login", controllers.ShowLogin,middleware.PreventBackButton())
+		userGroup.POST("/login", controllers.LoginPostUser,middleware.PreventBackButton())
 
 		//Forgot Password routes
-		userGroup.GET("/forgot-password", controllers.ShowForgotPassword)
-		userGroup.POST("/forgot-password", controllers.ForgotPasswordRequest)
-		userGroup.GET("/forgot-password/otp", controllers.ShowResetOTPPage)
-		userGroup.POST("/forgot-password/otp", controllers.VerifyResetOTP)
-		userGroup.GET("/forgot-password/reset", controllers.ShowResetPassword)
-		userGroup.POST("/forgot-password/reset", controllers.ResetPassword)
+		userGroup.GET("/forgot-password", controllers.ShowForgotPassword,middleware.PreventBackButton())
+		userGroup.POST("/forgot-password", controllers.ForgotPasswordRequest,middleware.PreventBackButton())
+		userGroup.GET("/forgot-password/otp", controllers.ShowResetOTPPage,middleware.PreventBackButton())
+		userGroup.POST("/forgot-password/otp", controllers.VerifyResetOTP,middleware.PreventBackButton())
+		userGroup.GET("/forgot-password/reset", controllers.ShowResetPassword,middleware.PreventBackButton())
+		userGroup.POST("/forgot-password/reset", controllers.ResetPassword,middleware.PreventBackButton())
 
 		authGroup := c.Group("/auth")
-		authGroup.GET("/google", services.GoogleLogin)
+		authGroup.GET("/google", services.GoogleLogin,middleware.PreventBackButton())
 		authGroup.GET("/google/callback", services.GoogleCallback)
 
 		protected := userGroup.Group("")
-		protected.Use(middleware.Authenticate("jwt_token", "User", "/login"), middleware.ClearCache())
+		protected.Use(middleware.Authenticate("jwt_token", "User", "/login"), middleware.ClearCache(),middleware.PreventBackButton())
 		{
 			protected.GET("/home", controllers.GetUserProducts)
 			protected.GET("/product/details/:id", controllers.GetProductDetails)
@@ -49,7 +49,7 @@ func UserRoutes(c *gin.Engine) {
 			protected.POST("/profile/change-password", controllers.ChangePassword)
 			protected.GET("/wallet", controllers.ShowWallet)
 			protected.GET("/refral", controllers.ShowRefralPage)
-			// protected.GET("/referral-data", controllers.GetReferralData)
+			protected.GET("/referral-data", controllers.GetReferralData)
 			// protected.POST("/refral-invite", controllers.VerifiRefralCode)
 
 			// Cart
@@ -82,13 +82,13 @@ func UserRoutes(c *gin.Engine) {
 			protected.GET("/orders/details/:order_id", controllers.ShowOrderDetails)
 			protected.GET("/orders/invoice/:order_id", controllers.DownloadInvoice)
 			protected.GET("/orders/search", controllers.GetOrderList)
-			protected.POST("/orders/retry-payment/:order_id", controllers.RetryPayment) 
+			protected.POST("/orders/retry-payment/:order_id", controllers.RetryPayment)
 
 			//wishlist
 			protected.GET("/wishlist", controllers.ShowWishlist)
 			protected.POST("/wishlist/add/:id", controllers.AddToWishlist)
 			protected.DELETE("/wishlist/remove/:id", controllers.RemoveWishList)
-			protected.POST("/wishlist/add-all-to-cart",controllers.AddAllToCartFromWishlist)
+			protected.POST("/wishlist/add-all-to-cart", controllers.AddAllToCartFromWishlist)
 			protected.POST("/wishlist/variant-price", controllers.GetVariantPrice)
 
 			//coupons
@@ -97,9 +97,8 @@ func UserRoutes(c *gin.Engine) {
 			protected.GET("/checkout/available-coupons", controllers.GetAvailableCoupons)
 
 			protected.POST("/logout", controllers.LogoutUser)
-		}	
+		}
 
 		c.NoRoute(controllers.NotFound)
 	}
 }
-

@@ -6,9 +6,9 @@ import (
 	"time"
 
 	"github.com/Sojil8/eCommerce-silver/database"
-	"github.com/Sojil8/eCommerce-silver/utils/helper"
 	"github.com/Sojil8/eCommerce-silver/models/adminModels"
 	"github.com/Sojil8/eCommerce-silver/models/userModels"
+	"github.com/Sojil8/eCommerce-silver/utils/helper"
 	"github.com/gin-gonic/gin"
 )
 
@@ -102,6 +102,7 @@ func ApplyCoupon(c *gin.Context) {
 	}
 
 	discount := originalTotalPrice * (coupon.DiscountPercentage / 100)
+	shipping := helper.CalculateShipping(cart.TotalPrice)
 	finalPrice := totalPrice + shipping - discount
 
 	c.JSON(http.StatusOK, gin.H{
@@ -175,7 +176,9 @@ func RemoveCoupon(c *gin.Context) {
 	if err := database.DB.Save(&cart).Error; err != nil {
 		helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to remove coupon", "Database error", "")
 		return
-	}
+	}	
+
+	shipping := helper.CalculateShipping(cart.TotalPrice)
 
 	finalPrice := cart.TotalPrice + shipping
 

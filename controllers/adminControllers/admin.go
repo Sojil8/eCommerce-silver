@@ -2,7 +2,6 @@ package controllers
 
 import (
 	"errors"
-	"fmt"
 
 	"net/http"
 
@@ -31,7 +30,7 @@ func ShowLoginPage(c *gin.Context) {
 			return middleware.SecretKey, nil
 		})
 		if err == nil && token.Valid {
-			c.Redirect(http.StatusSeeOther, "/admin/user-management")
+			c.Redirect(http.StatusSeeOther, "/admin/dashboard")
 			return
 		}
 	}
@@ -76,8 +75,6 @@ func AdminLogin(c *gin.Context) {
 		"token":   token,
 		"code":    http.StatusOK,
 	})
-	fmt.Println("-----------------admin login succesfull--------------------")
-
 }
 
 func AdminLogout(c *gin.Context) {

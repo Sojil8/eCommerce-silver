@@ -12,22 +12,37 @@ import (
 )
 
 func GetUserProducts(c *gin.Context) {
-
+	// Fetch all listed products with their categories and variants
 	db := database.DB.Model(&adminModels.Product{}).
 		Joins("JOIN categories ON categories.category_name = products.category_name").
-		Where("products.is_listed=? AND categories.status = ?", true, true).
+		Where("products.is_listed = ? AND categories.status = ?", true, true).
 		Preload("Variants")
 
 	var products []adminModels.Product
 	if err := db.Find(&products).Error; err != nil {
-		helper.ResponseWithErr(c, http.StatusInternalServerError, "error:failed to fetch products", "error:failed to fetch products", "")
+		helper.ResponseWithErr(c, http.StatusInternalServerError, "error: failed to fetch products", "error: failed to fetch products", "")
 		return
 	}
 
 	if products == nil {
-		log.Println("product are not retreving")
+		log.Println("products are not retrieving")
 	}
 
+	// Fetch 5 most recent products for New Arrivals
+	var newArrivals []adminModels.Product
+	if err := database.DB.Model(&adminModels.Product{}).
+		Joins("JOIN categories ON categories.category_name = products.category_name").
+		Where("products.is_listed = ? AND categories.status = ?", true, true).
+		Preload("Variants").
+		Order("products.created_at DESC").
+		Limit(5).
+		Find(&newArrivals).Error; err != nil {
+		log.Println("error: failed to fetch new arrivals", err)
+		// Continue even if new arrivals fail, to avoid breaking the page
+		newArrivals = []adminModels.Product{}
+	}
+
+	// Structure to include offer details
 	type ProductWithOffer struct {
 		adminModels.Product
 		OfferPrice         float64
@@ -37,8 +52,8 @@ func GetUserProducts(c *gin.Context) {
 		OfferName          string
 	}
 
-	var produtWithOffers []ProductWithOffer
-
+	// Process all products
+	var productWithOffers []ProductWithOffer
 	for _, product := range products {
 		variantExtraPrice := 0.0
 		if len(product.Variants) > 0 {
@@ -47,7 +62,7 @@ func GetUserProducts(c *gin.Context) {
 
 		offer := helper.GetBestOfferForProduct(&product, variantExtraPrice)
 
-		produtWithOffers = append(produtWithOffers, ProductWithOffer{
+		productWithOffers = append(productWithOffers, ProductWithOffer{
 			Product:            product,
 			OfferPrice:         offer.DiscountedPrice,
 			OriginalPrice:      offer.OriginalPrice,
@@ -55,19 +70,40 @@ func GetUserProducts(c *gin.Context) {
 			IsOffer:            offer.IsOfferApplied,
 			OfferName:          offer.OfferName,
 		})
-
 	}
 
+	// Process new arrivals
+	var newArrivalsWithOffers []ProductWithOffer
+	for _, product := range newArrivals {
+		variantExtraPrice := 0.0
+		if len(product.Variants) > 0 {
+			variantExtraPrice = product.Variants[0].ExtraPrice
+		}
+
+		offer := helper.GetBestOfferForProduct(&product, variantExtraPrice)
+
+		newArrivalsWithOffers = append(newArrivalsWithOffers, ProductWithOffer{
+			Product:            product,
+			OfferPrice:         offer.DiscountedPrice,
+			OriginalPrice:      offer.OriginalPrice,
+			DiscountPercentage: offer.DiscountPercentage,
+			IsOffer:            offer.IsOfferApplied,
+			OfferName:          offer.OfferName,
+		})
+	}
+
+	// Retrieve user data
 	user, exists := c.Get("user")
 	userName, nameExists := c.Get("user_name")
 	if !exists || !nameExists {
 		c.HTML(http.StatusOK, "home.html", gin.H{
-			"status":        "success",
-			"Products":      produtWithOffers,
-			"UserName":      "Guest",
-			"WishlistCount": 0,
-			"CartCount":     0,
-			"ProfileImage":  "",
+			"status":            "success",
+			"Products":          productWithOffers,
+			"NewArrivals":       newArrivalsWithOffers, // Add new arrivals to template
+			"UserName":          "Guest",
+			"WishlistCount":     0,
+			"CartCount":         0,
+			"ProfileImage":      "",
 		})
 		return
 	}
@@ -84,11 +120,12 @@ func GetUserProducts(c *gin.Context) {
 	}
 
 	c.HTML(http.StatusOK, "home.html", gin.H{
-		"status":        "success",
-		"Products":      produtWithOffers,
-		"UserName":      userNameStr,
-		"ProfileImage":  userData.ProfileImage,
-		"WishlistCount": wishlistCount,
-		"CartCount":     cartCount,
+		"status":            "success",
+		"Products":          productWithOffers,
+		"NewArrivals":       newArrivalsWithOffers, // Add new arrivals to template
+		"UserName":          userNameStr,
+		"ProfileImage":      userData.ProfileImage,
+		"WishlistCount":     wishlistCount,
+		"CartCount":         cartCount,
 	})
 }

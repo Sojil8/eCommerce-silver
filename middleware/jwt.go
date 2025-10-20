@@ -98,7 +98,7 @@ func Authenticate(cookieName, expectedRole, loginRedirect string) gin.HandlerFun
 				c.Abort()
 				return
 			}
-			if user.Is_blocked {
+			if user.IsBlocked {
 				c.SetCookie(cookieName, "", -1, "/", "", false, true)
 				c.Redirect(http.StatusSeeOther, "/login?error=Your+account+has+been+blocked")
 				c.Abort()

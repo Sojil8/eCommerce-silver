@@ -3,6 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <title>Admin Login</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
@@ -25,7 +28,7 @@
                 id="email" 
                 class="w-full px-4 py-2 bg-gray-800 border border-gray-700 text-white rounded-md focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none placeholder-gray-400" 
                 placeholder="Enter your email" 
-                
+                required
             >
             <input 
                 type="password" 
@@ -33,7 +36,7 @@
                 id="password" 
                 class="w-full px-4 py-2 bg-gray-800 border border-gray-700 text-white rounded-md focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none placeholder-gray-400" 
                 placeholder="Enter your password" 
-                
+                required
             >
             <div id="error" class="text-red-400 text-sm hidden"></div>
             <button 
@@ -46,6 +49,9 @@
     </div>
 
     <script>
+        // Base URL for the backend
+        const BASE_URL = 'http://localhost:8888';
+
         // Function to get cookie by name
         function getCookie(name) {
             const value = `; ${document.cookie}`;
@@ -53,48 +59,45 @@
             if (parts.length === 2) return parts.pop().split(';').shift();
             return null;
         }
-    
-        // Base URL for the backend (adjust if different)
-        const BASE_URL = 'http://localhost:8888'; // Change this if your server runs elsewhere
-    
+
         // Check if already logged in
         async function checkAuth() {
             const token = getCookie('jwtTokensAdmin');
             if (token) {
                 try {
-                    const response = await fetch(`${BASE_URL}/admin/login`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        credentials: 'include',
-                        body: JSON.stringify({})
+                    // Check if token is valid by accessing a protected endpoint
+                    const response = await fetch(`${BASE_URL}/admin/dashboard`, {
+                        method: 'GET',
+                        credentials: 'include'
                     });
-    
+
                     if (response.ok) {
-                        const result = await response.json();
-                        if (result.status === 'success') {
-                            window.location.href = `${BASE_URL}/admin/user-management`;
-                        }
+                        // Already authenticated, redirect to dashboard
+                        window.location.replace(`${BASE_URL}/admin/dashboard`);
                     }
                 } catch (error) {
                     console.error('Auth check error:', error);
+                    // If there's an error, clear the invalid token
+                    document.cookie = 'jwtTokensAdmin=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
                 }
             }
         }
-    
-        window.onload = checkAuth;
-    
-        // Handle form submission
+
+        // Handle form submission - SINGLE handler
         document.getElementById('adminLoginForm').addEventListener('submit', async function(event) {
             event.preventDefault();
-    
+
             const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
             const errorElement = document.getElementById('error');
-    
+            const submitButton = event.target.querySelector('button[type="submit"]');
+
             errorElement.style.display = 'none';
-    
+            
+            // Disable button to prevent multiple submissions
+            submitButton.disabled = true;
+            submitButton.textContent = 'Logging in...';
+
             const data = { email, password };
             
             try {
@@ -107,20 +110,50 @@
                     body: JSON.stringify(data)
                 });
                 
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    errorElement.textContent = errorData.message || 'Login failed';
-                    errorElement.style.display = 'block';
+                if (response.redirected) {
+                    // If server redirects, follow it
+                    window.location.replace(response.url);
                     return;
                 }
                 
                 const result = await response.json();
-                console.log("Login response:", result);
-                window.location.href = `${BASE_URL}/admin/user-management`;
+                
+                if (!response.ok) {
+                    errorElement.textContent = result.message || 'Login failed';
+                    errorElement.style.display = 'block';
+                    return;
+                }
+                
+                // Login successful - use replace() to prevent back navigation
+                console.log("Login successful:", result);
+                window.location.replace(`${BASE_URL}/admin/dashboard`);
+                
             } catch (error) {
                 errorElement.textContent = 'An error occurred. Please try again.';
                 errorElement.style.display = 'block';
                 console.error('Login error:', error);
+            } finally {
+                // Re-enable button
+                submitButton.disabled = false;
+                submitButton.textContent = 'Login';
+            }
+        });
+
+        // Prevent back navigation to cached login page
+        window.addEventListener('pageshow', function(event) {
+            if (event.persisted) {
+                // Page was loaded from cache, reload to ensure fresh state
+                window.location.reload();
+            }
+        });
+
+        // Initialize on load
+        window.addEventListener('load', function() {
+            checkAuth();
+            
+            // Clear any existing history state
+            if (window.history.replaceState) {
+                window.history.replaceState(null, null, window.location.href);
             }
         });
     </script>

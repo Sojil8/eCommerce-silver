@@ -224,6 +224,7 @@ func ShowOrderDetails(c *gin.Context) {
 		}
 	}
 
+	// Retrieve user data (following the exact pattern from GetUserProducts)
 	user, exists := c.Get("user")
 	userName, nameExists := c.Get("user_name")
 	if !exists || !nameExists {
@@ -246,6 +247,7 @@ func ShowOrderDetails(c *gin.Context) {
 	userData := user.(userModels.Users)
 	userNameStr := userName.(string)
 
+	// Fetch wishlist and cart counts (following the exact pattern from GetUserProducts)
 	var wishlistCount, cartCount int64
 	if err := database.DB.Model(&userModels.Wishlist{}).Where("user_id = ?", userData.ID).Count(&wishlistCount).Error; err != nil {
 		log.Printf("Failed to fetch wishlist count for user_id=%d: %v", userData.ID, err)
@@ -263,10 +265,10 @@ func ShowOrderDetails(c *gin.Context) {
 		"status":                    "success",
 		"Order":                     order,
 		"ShippingAddress":           address,
-		"UserName":                  userNameStr,
+		"UserName":                  userNameStr,           
 		"ProfileImage":              userData.ProfileImage,
-		"WishlistCount":             wishlistCount,
-		"CartCount":                 cartCount,
+		"WishlistCount":             wishlistCount,         
+		"CartCount":                 cartCount,            
 		"CurrentTotalOfferDiscount": currentTotalOfferDiscount,
 		"OrderBackup":               orderBackup,
 		"HasBackup":                 hasBackup,
@@ -358,20 +360,16 @@ func CancelOrder(c *gin.Context) {
 				}
 			}
 		}
-		var coupons adminModels.Coupons
-		if coupons.ID != 0 {
+
+		if order.CouponID != 0 {
+			var coupons adminModels.Coupons
 			if err := tx.First(&coupons, order.CouponID).Error; err != nil {
-				return fmt.Errorf("failed to get the coupon detials: %v", err)
-			} else {
-				if !time.Now().Before(coupons.ExpiryDate) {
-					coupons.UsedCount++
-
-					if err := tx.Save(coupons).Error; err != nil {
-						return fmt.Errorf("failed to update coupon used count: %v", err)
-					}
-				}
+				return fmt.Errorf("failed to get the coupon details: %v", err)
 			}
-
+			coupons.UsedCount--
+			if err := tx.Save(&coupons).Error; err != nil {
+				return fmt.Errorf("failed to update coupon used count: %v", err)
+			}
 		}
 
 		order.PaymentStatus = "RefundedToWallet"
@@ -461,7 +459,9 @@ func CancelOrderItem(c *gin.Context) {
 			return fmt.Errorf("failed to update variant stock: %v", err)
 		}
 
-		remainingSubtotal := order.Subtotal - (cancelItem.UnitPrice+cancelItem.DiscountAmount/float64(cancelItem.Quantity))*float64(cancelItem.Quantity)
+		// Simplified: Use totals directly to avoid floating-point division issues
+		itemOriginalTotal := cancelItem.ItemTotal + cancelItem.DiscountAmount
+		remainingSubtotal := order.Subtotal - itemOriginalTotal
 		pkg.Log.Info("CancelItem",
 			zap.Uint("itemID", cancelItem.ID),
 			zap.Float64("subtotal", order.Subtotal),
@@ -471,6 +471,8 @@ func CancelOrderItem(c *gin.Context) {
 		var coupon adminModels.Coupons
 		couponDiscount := order.CouponDiscount
 		var couponAdjustment float64
+
+		// originalCouponID := order.CouponID // Store for potential decrement
 
 		if order.CouponID != 0 {
 			if err := tx.First(&coupon, order.CouponID).Error; err != nil {
@@ -488,6 +490,11 @@ func CancelOrderItem(c *gin.Context) {
 				couponDiscount = 0
 				order.CouponID = 0
 				order.CouponCode = ""
+				// Fixed: Decrement coupon used count when removing
+				coupon.UsedCount--
+				if err := tx.Save(&coupon).Error; err != nil {
+					return fmt.Errorf("failed to update coupon used count: %v", err)
+				}
 			} else {
 				couponDiscount = remainingSubtotal * (coupon.DiscountPercentage / 100)
 				couponAdjustment = order.CouponDiscount - couponDiscount
@@ -558,7 +565,7 @@ func CancelOrderItem(c *gin.Context) {
 
 			if couponLoss > 0 {
 				currentBalance := wallet.Balance
-				wallet.Balance -= couponLoss	
+				wallet.Balance -= couponLoss
 				if err := tx.Save(&wallet).Error; err != nil {
 					pkg.Log.Error("Failed to update wallet balance for coupon loss", zap.Uint("userID", userID), zap.Error(err))
 					return fmt.Errorf("failed to update wallet balance for coupon loss: %v", err)
@@ -599,6 +606,7 @@ func CancelOrderItem(c *gin.Context) {
 		order.CouponDiscount = couponDiscount
 		order.OfferDiscount -= cancelItem.DiscountAmount
 		order.TotalDiscount = order.OfferDiscount + order.CouponDiscount
+		order.PaymentStatus = "Partialy Refunded"
 
 		order.TotalPrice = order.Subtotal - order.CouponDiscount - order.OfferDiscount + order.ShippingCost
 
@@ -681,10 +689,17 @@ func CancelOrderItem(c *gin.Context) {
 				pkg.Log.Error("Failed to fetch payment details for full cancellation", zap.Uint("orderID", order.ID), zap.Error(err))
 				return fmt.Errorf("failed to fetch payment details: %v", err)
 			}
+
+			// Fixed: Load backup and restore ALL fields for consistency (matches CancelOrder behavior)
 			var orderBackUp userModels.OrderBackUp
 			if err := tx.Where("order_id_unique = ?", orderID).First(&orderBackUp).Error; err != nil {
 				return err
 			}
+			order.Subtotal = orderBackUp.Subtotal
+			order.ShippingCost = orderBackUp.ShippingCost
+			order.OfferDiscount = orderBackUp.OfferDiscount
+			order.CouponDiscount = orderBackUp.CouponDiscount
+			order.TotalDiscount = orderBackUp.OfferDiscount + orderBackUp.CouponDiscount
 			order.TotalPrice = orderBackUp.TotalPrice
 			order.Status = "Cancelled"
 			if err := tx.Save(&order).Error; err != nil {

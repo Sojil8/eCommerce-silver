@@ -57,7 +57,8 @@ func ListOrder(c *gin.Context) {
 	if filterStatus != "" {
 		query = query.Where("orders.status = ?", filterStatus)
 	}
-	query = query.Where("orders.status <> ?", "Failed")
+	// Remove the exclusion of "Failed" if you want to include all statuses, or explicitly include "Returned"
+	// query = query.Where("orders.status <> ?", "Failed") // Removed to allow all statuses
 
 	// Count total orders
 	var total int64
@@ -100,13 +101,16 @@ var req struct {
 
 func UpdateOrderStatus(c *gin.Context) {
 	orderID := c.Param("order_id")
+	var req struct {
+		Status string `json:"status" binding:"required"`
+	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
 		return
 	}
 
-	validStatuses := []string{"Pending", "Shipped", "Out for Delivery", "Delivered", "Cancelled"}
+	validStatuses := []string{"Pending", "Shipped", "Out for Delivery", "Delivered", "Cancelled", "Returned"}
 	isValid := false
 	for _, s := range validStatuses {
 		if s == req.Status {
@@ -118,64 +122,129 @@ func UpdateOrderStatus(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid status"})
 		return
 	}
+
 	err := database.DB.Transaction(func(tx *gorm.DB) error {
 		var order userModels.Orders
 		if err := tx.Where("order_id_unique = ?", orderID).Preload("OrderItems").First(&order).Error; err != nil {
-			return err
-		}
-		if order.Status == "Cancelled" || order.Status == "Delivered" {
-			return gin.Error{Meta: gin.H{"error": "Cannot change status of Cancelled or Delivered orders"}}
-		}
-		if req.Status == "Cancelled" || req.Status == "Pending" {
-			return gin.Error{Meta: gin.H{"error": "Only Pending orders can be cancelled"}}
+			return fmt.Errorf("order not found: %v", err)
 		}
 
+		// Prevent changing status of final states
+		if order.Status == "Cancelled" || order.Status == "Returned" {
+			return gin.Error{Meta: gin.H{"error": "Cannot change status of Cancelled or Returned orders"}}
+		}
+		if order.Status == "Delivered" && req.Status != "Return Requested" {
+			return gin.Error{Meta: gin.H{"error": "Delivered orders can only transition to Return Requested"}}
+		}
+
+		// Prevent direct transition to Cancelled or Returned
+		if req.Status == "Cancelled" || req.Status == "Returned" {
+			return gin.Error{Meta: gin.H{"error": "Cannot directly set status to Cancelled or Returned"}}
+		}
+
+		// Update PaymentStatus for COD orders when status changes to Delivered
+		if req.Status == "Delivered" && order.PaymentMethod == "COD" {
+			order.PaymentStatus = "Paid"
+		}
+
+		// Restock items if cancelling
 		if req.Status == "Cancelled" {
 			for _, item := range order.OrderItems {
 				if err := incrementStock(tx, item.VariantsID, item.Quantity); err != nil {
-					return err
+					return fmt.Errorf("failed to restock item: %v", err)
 				}
 			}
 		}
-		if req.Status == "Delivered" {
-			order.Status = "Paid"
-		}
+
 		order.Status = req.Status
 		return tx.Save(&order).Error
 	})
+
 	if err != nil {
 		if ginErr, ok := err.(gin.Error); ok && ginErr.Meta != nil {
 			c.JSON(http.StatusBadRequest, ginErr.Meta)
 		} else {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update status"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to update status: %v", err)})
 		}
 		return
 	}
+
 	c.JSON(http.StatusOK, gin.H{"status": "ok", "message": "Status updated"})
-
 }
-
 func ViewOrdetailsAdmin(c *gin.Context) {
 	orderID := c.Param("order_id")
 	var order userModels.Orders
-	if err := database.DB.Where("order_id_unique  = ?", orderID).Preload("OrderItems.Product").Preload("OrderItems.Variants").
-		Preload("User").First(&order).Error; err != nil {
+	if err := database.DB.Where("order_id_unique = ?", orderID).
+		Preload("OrderItems.Product").
+		Preload("OrderItems.Variants").
+		Preload("User").
+		First(&order).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Order not found"})
 		return
 	}
 
 	var orderBackUp userModels.OrderBackUp
-	if err := database.DB.Where("order_id_unique = ?", orderID).First(&orderBackUp).Error; err != nil {
+	if err := database.DB.Where("order_id_unique = ?", orderID).
+		First(&orderBackUp).Error; err != nil {
 		helper.ResponseWithErr(c, http.StatusNotFound, "", "", "")
 		return
 	}
 
 	var address adminModels.ShippingAddress
-	database.DB.Where("order_id = ?", orderID).First(&address)
+	if err := database.DB.Where("order_id = ?", orderID).First(&address).Error; err != nil {
+		// Handle case where address might not exist
+		address = adminModels.ShippingAddress{}
+	}
+
+	// Calculate current totals for active items
+	var currentSubtotal float64
+	var currentOfferDiscount float64
+	var allItemsCancelled bool = true
+
+	for _, item := range order.OrderItems {
+		if item.Status != "Cancelled" {
+			allItemsCancelled = false
+			// itemTotal := (item.Product.Price + item.Variants.ExtraPrice - item.DiscountAmount) * float64(item.Quantity)
+			currentSubtotal += (item.Product.Price + item.Variants.ExtraPrice) * float64(item.Quantity)
+			currentOfferDiscount += item.DiscountAmount * float64(item.Quantity)
+		}
+	}
+
+	// Calculate current total
+	currentTotal := currentSubtotal - currentOfferDiscount - order.CouponDiscount + order.ShippingCost
+	if allItemsCancelled {
+		currentTotal = 0 // No active items, total is 0
+	}
+
+	// Update order in database if necessary
+	if !allItemsCancelled && order.Status != "Cancelled" {
+		order.Subtotal = currentSubtotal
+		order.OfferDiscount = currentOfferDiscount
+		order.TotalDiscount = currentOfferDiscount + order.CouponDiscount
+		order.TotalPrice = currentTotal
+		if err := database.DB.Save(&order).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update order totals"})
+			return
+		}
+	} else if allItemsCancelled && order.Status != "Cancelled" {
+		order.Status = "Cancelled"
+		order.TotalPrice = 0
+		order.Subtotal = 0
+		order.TotalDiscount = 0
+		if err := database.DB.Save(&order).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update order status"})
+			return
+		}
+	}
+
 	c.HTML(http.StatusOK, "orderDetailsAdmin.html", gin.H{
-		"Order":       order,
-		"Address":     address,
-		"OrderBackUp": orderBackUp,
+		"Order":                order,
+		"Address":              address,
+		"OrderBackUp":          orderBackUp,
+		"CurrentSubtotal":      currentSubtotal,
+		"CurrentTotal":         currentTotal,
+		"CurrentOfferDiscount": currentOfferDiscount,
+		"AllItemsCancelled":    allItemsCancelled,
 	})
 }
 func ListReturnRequests(c *gin.Context) {
@@ -220,51 +289,52 @@ func VerifyReturnRequest(c *gin.Context) {
 		}
 
 		if returnRequest.Approve {
-			if returnReq.Order.PaymentMethod != "Cash On Delivery" {
-				wallet, err := config.EnshureWallet(tx, returnReq.Order.UserID)
-				if err != nil {
-					return fmt.Errorf("failed to ensure wallet: %v", err)
-				}
-				currentBalance := wallet.Balance
-				wallet.Balance += returnReq.Order.TotalPrice
-				if err := tx.Save(&wallet).Error; err != nil {
-					return fmt.Errorf("failed to update wallet balance: %v", err)
-				}
+			wallet, err := config.EnshureWallet(tx, returnReq.Order.UserID)
+			if err != nil {
+				return fmt.Errorf("failed to ensure wallet: %v", err)
+			}
+			currentBalance := wallet.Balance
+			wallet.Balance += returnReq.Order.TotalPrice
+			if err := tx.Save(&wallet).Error; err != nil {
+				return fmt.Errorf("failed to update wallet balance: %v", err)
+			}
 
-				walletTransaction := userModels.WalletTransaction{
-					UserID:        returnReq.Order.UserID,
-					WalletID:      wallet.ID,
-					Amount:        returnReq.Order.TotalPrice,
-					LastBalance:   currentBalance,
-					Description:   fmt.Sprintf("Refund for approved return of order %s", returnReq.Order.OrderIdUnique),
-					Type:          "Credited",
-					Receipt:       "rcpt-" + uuid.New().String(),
-					OrderID:       returnReq.Order.OrderIdUnique,
-					TransactionID: fmt.Sprintf("TXN-%d-%d", time.Now().UnixNano(), rand.Intn(10000)),
-					PaymentMethod: returnReq.Order.PaymentMethod,
-				}
-				if err:=tx.Create(&walletTransaction).Error;err!=nil{
-					pkg.Log.Error("Failed to create wallet transaction for return refund", zap.Uint("userID", returnReq.Order.UserID), zap.Error(err))
-                    return fmt.Errorf("failed to create wallet transaction: %v", err)
-				}
+			walletTransaction := userModels.WalletTransaction{
+				UserID:        returnReq.Order.UserID,
+				WalletID:      wallet.ID,
+				Amount:        returnReq.Order.TotalPrice,
+				LastBalance:   currentBalance,
+				Description:   fmt.Sprintf("Refund for approved return of order %s", returnReq.Order.OrderIdUnique),
+				Type:          "Credited",
+				Receipt:       "rcpt-" + uuid.New().String(),
+				OrderID:       returnReq.Order.OrderIdUnique,
+				TransactionID: fmt.Sprintf("TXN-%d-%d", time.Now().UnixNano(), rand.Intn(10000)),
+				PaymentMethod: returnReq.Order.PaymentMethod,
+			}
+			if err := tx.Create(&walletTransaction).Error; err != nil {
+				pkg.Log.Error("Failed to create wallet transaction for return refund", zap.Uint("userID", returnReq.Order.UserID), zap.Error(err))
+				return fmt.Errorf("failed to create wallet transaction: %v", err)
+			}
 
-				var payment adminModels.PaymentDetails
-				if err := tx.Where("order_id = ? AND status IN ?", returnReq.Order.ID, []string{"Success", "PartiallyRefundedToWallet"}).
-					First(&payment).Error; err != nil {
-					if err == gorm.ErrRecordNotFound {
-						fmt.Printf("Warning: No payment details found for order_id=%d\n", returnReq.Order.ID)
-					} else {
-						return fmt.Errorf("failed to fetch payment details: %v", err)
-					}
+			var payment adminModels.PaymentDetails
+			if err := tx.Where("order_id = ? AND status IN ?", returnReq.Order.ID, []string{"Success", "PartiallyRefundedToWallet"}).
+				First(&payment).Error; err != nil {
+				if err == gorm.ErrRecordNotFound {
+					pkg.Log.Warn("No payment details found for order_id", zap.Uint("orderID", returnReq.Order.ID))
 				} else {
-					payment.Status = "RefundedToWallet"
-					payment.Amount = 0
-					if err := tx.Save(&payment).Error; err != nil {
-						return fmt.Errorf("failed to update payment status: %v", err)
-					}
+					return fmt.Errorf("failed to fetch payment details: %v", err)
+				}
+			} else {
+				payment.Status = "RefundedToWallet"
+				payment.Amount = 0
+				if err := tx.Save(&payment).Error; err != nil {
+					return fmt.Errorf("failed to update payment status: %v", err)
 				}
 			}
 
+			// Update order PaymentStatus
+			returnReq.Order.PaymentStatus = "RefundedToWallet"
+			returnReq.Order.Status = "Returned"
 			for _, item := range returnReq.Order.OrderItems {
 				if item.Status == "Active" || item.Status == "Delivered" {
 					if err := incrementStock(tx, item.VariantsID, item.Quantity); err != nil {
@@ -274,10 +344,11 @@ func VerifyReturnRequest(c *gin.Context) {
 					if err := tx.Save(&item).Error; err != nil {
 						return fmt.Errorf("failed to update item status: %v", err)
 					}
+					if err := helper.UpdateProductStock(tx, item.ProductID); err != nil {
+						return err
+					}
 				}
 			}
-
-			returnReq.Order.Status = "Returned"
 		} else {
 			for _, item := range returnReq.Order.OrderItems {
 				if item.Status == "Active" || item.Status == "Delivered" {
@@ -288,6 +359,7 @@ func VerifyReturnRequest(c *gin.Context) {
 				}
 			}
 			returnReq.Order.Status = "Return Rejected"
+			returnReq.Order.PaymentStatus = "Paid" // Assuming the payment remains successful if return is rejected
 		}
 
 		if err := tx.Save(&returnReq.Order).Error; err != nil {

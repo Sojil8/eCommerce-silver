@@ -22,7 +22,7 @@ import (
 	"gorm.io/gorm/clause"
 )
 
-const shipping = 10.0
+// const shipping = 10.0
 const minimumOrderAmount = 10.0
 
 func ShowCheckout(c *gin.Context) {
@@ -97,8 +97,9 @@ func ShowCheckout(c *gin.Context) {
 
 	if len(validCartItems) == 0 {
 		log.Printf("No valid items in cart for user %v", userID)
-		helper.ResponseWithErr(c, http.StatusBadRequest, "No valid products in cart",
-			"All products in your cart are either out of stock or have insufficient quantity", "")
+		helper.ResponseWithErr(c, http.StatusSeeOther, "No valid products in cart",
+			"All products in your cart are either out of stock or have insufficient quantity", "/cart")
+		// c.Redirect(http.StatusSeeOther,"/cart")
 		return
 	}
 
@@ -126,6 +127,8 @@ func ShowCheckout(c *gin.Context) {
 		helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to load user details", err.Error(), "")
 		return
 	}
+
+	shipping := helper.CalculateShipping(totalPrice)
 
 	finalPrice := totalPrice + shipping
 	var appliedCoupon adminModels.Coupons
@@ -317,6 +320,8 @@ func PlaceOrder(c *gin.Context) {
 			database.DB.Save(&cart)
 		}
 	}
+
+	shipping := helper.CalculateShipping(totalPrice)
 	finalPrice := totalPrice + shipping - couponDiscount
 	if finalPrice < minimumOrderAmount {
 		pkg.Log.Warn("Order amount too low", zap.Float64("finalPrice", finalPrice))
@@ -377,11 +382,12 @@ func PlaceOrder(c *gin.Context) {
 	}
 
 	orderBackUp := userModels.OrderBackUp{
-		Subtotal:      originalTotalPrice,
-		ShippingCost:  shipping,
-		TotalPrice:    finalPrice,
-		OfferDiscount: OfferDiscount,
-		OrderIdUnique: orderID,
+		Subtotal:       originalTotalPrice,
+		ShippingCost:   shipping,
+		TotalPrice:     finalPrice,
+		OfferDiscount:  OfferDiscount,
+		OrderIdUnique:  orderID,
+		CouponDiscount: couponDiscount,
 	}
 	if err := tx.Create(&orderBackUp).Error; err != nil {
 		pkg.Log.Error("Failed to create order backup", zap.Error(err))
@@ -396,9 +402,9 @@ func PlaceOrder(c *gin.Context) {
 			ProductID:      item.ProductID,
 			VariantsID:     item.VariantsID,
 			Quantity:       item.Quantity,
-			UnitPrice:      item.DiscountedPrice,
+			UnitPrice:      item.Price,
 			ItemTotal:      item.DiscountedPrice * float64(item.Quantity),
-			DiscountAmount: (item.SalePrice - item.DiscountedPrice) * float64(item.Quantity),
+			DiscountAmount: (item.Price - item.DiscountedPrice) * float64(item.Quantity),
 			OfferName:      item.OfferName,
 			Status:         "Active",
 			ReturnStatus:   "None",
@@ -447,6 +453,19 @@ func PlaceOrder(c *gin.Context) {
 
 	switch req.PaymentMethod {
 	case "COD":
+		if finalPrice >= 1000 {
+			tx.Rollback()
+			pkg.Log.Warn("COD not allowed for order above 1000",
+				zap.Float64("finalPrice", finalPrice),
+				zap.Uint("userID", userID))
+
+			// Return proper JSON error that frontend can handle
+			helper.ResponseWithErr(c, http.StatusBadRequest,
+				"Order above $1000 is not allowed for COD",
+				"Order above $1000 is not allowed for COD",
+				"/checkout")
+			return
+		}
 		for _, item := range validCartItems {
 			var variant adminModels.Variants
 			tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&variant, item.VariantsID)
@@ -518,71 +537,71 @@ func PlaceOrder(c *gin.Context) {
 		})
 
 	case "ONLINE":
-		 amountInPaise := int(math.Round(finalPrice * 100))
-    
-    razorpayOrder, err := services.CreateRazorpayOrder(amountInPaise)
-    if err != nil {
-        pkg.Log.Error("Failed to create Razorpay order", zap.Float64("amount", finalPrice), zap.Error(err))
-        tx.Rollback()
-        helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to create Razorpay order", "Something went wrong", "/checkout")
-        return
-    }
+		amountInPaise := int(math.Round(finalPrice * 100))
 
-    razorpayOrderID, ok := razorpayOrder["id"].(string)
-    if !ok {
-        pkg.Log.Error("Failed to extract Razorpay order ID", zap.Any("razorpayOrder", razorpayOrder))
-        tx.Rollback()
-        helper.ResponseWithErr(c, http.StatusInternalServerError, "Invalid Razorpay response", "Something went wrong", "/checkout")
-        return
-    }
+		razorpayOrder, err := services.CreateRazorpayOrder(amountInPaise)
+		if err != nil {
+			pkg.Log.Error("Failed to create Razorpay order", zap.Float64("amount", finalPrice), zap.Error(err))
+			tx.Rollback()
+			helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to create Razorpay order", "Something went wrong", "/checkout")
+			return
+		}
 
-    order.RazorpayOrderID = razorpayOrderID
-    if err := tx.Save(&order).Error; err != nil {
-        pkg.Log.Error("Failed to update order with Razorpay ID", zap.String("razorpayOrderID", razorpayOrderID), zap.Error(err))
-        tx.Rollback()
-        helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to process Razorpay", "Something went wrong", "/checkout")
-        return
-    }
+		razorpayOrderID, ok := razorpayOrder["id"].(string)
+		if !ok {
+			pkg.Log.Error("Failed to extract Razorpay order ID", zap.Any("razorpayOrder", razorpayOrder))
+			tx.Rollback()
+			helper.ResponseWithErr(c, http.StatusInternalServerError, "Invalid Razorpay response", "Something went wrong", "/checkout")
+			return
+		}
 
-    payment := adminModels.PaymentDetails{
-        OrderID:         order.ID,
-        UserID:          userID,
-        AddressID:       req.AddressID,
-        PaymentMethod:   "ONLINE",
-        Amount:          finalPrice, // Store actual amount in database
-        Status:          "Pending",
-        RazorpayOrderID: razorpayOrderID,
-        Attempts:        1,
-        CreatedAt:       time.Now(),
-    }
-    if err := tx.Create(&payment).Error; err != nil {
-        pkg.Log.Error("Failed to create payment record", zap.Uint("orderID", order.ID), zap.Error(err))
-        tx.Rollback()
-        helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to create payment record", "Something went wrong", "/checkout")
-        return
-    }
+		order.RazorpayOrderID = razorpayOrderID
+		if err := tx.Save(&order).Error; err != nil {
+			pkg.Log.Error("Failed to update order with Razorpay ID", zap.String("razorpayOrderID", razorpayOrderID), zap.Error(err))
+			tx.Rollback()
+			helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to process Razorpay", "Something went wrong", "/checkout")
+			return
+		}
 
-    tx.Commit()
-    pkg.Log.Info("Razorpay order initiated", zap.String("razorpayOrderID", razorpayOrderID), zap.Uint("userID", userID))
-    
-    c.JSON(http.StatusOK, gin.H{
-        "status":            "payment_required",
-        "key_id":            os.Getenv("RAZORPAY_KEY_ID"),
-        "razorpay_order_id": razorpayOrderID,
-        "amount":            amountInPaise, // Send paise to frontend for Razorpay
-        "currency":          "INR",
-        "order_id":          order.OrderIdUnique,
-        "prefill": gin.H{
-            "name":    user.UserName,
-            "email":   user.Email,
-            "contact": address.Phone,
-        },
-        "notes": gin.H{
-            "address":  address.City,
-            "user_id":  userID,
-            "order_id": order.ID,
-        },
-    })
+		payment := adminModels.PaymentDetails{
+			OrderID:         order.ID,
+			UserID:          userID,
+			AddressID:       req.AddressID,
+			PaymentMethod:   "ONLINE",
+			Amount:          finalPrice, // Store actual amount in database
+			Status:          "Pending",
+			RazorpayOrderID: razorpayOrderID,
+			Attempts:        1,
+			CreatedAt:       time.Now(),
+		}
+		if err := tx.Create(&payment).Error; err != nil {
+			pkg.Log.Error("Failed to create payment record", zap.Uint("orderID", order.ID), zap.Error(err))
+			tx.Rollback()
+			helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to create payment record", "Something went wrong", "/checkout")
+			return
+		}
+
+		tx.Commit()
+		pkg.Log.Info("Razorpay order initiated", zap.String("razorpayOrderID", razorpayOrderID), zap.Uint("userID", userID))
+
+		c.JSON(http.StatusOK, gin.H{
+			"status":            "payment_required",
+			"key_id":            os.Getenv("RAZORPAY_KEY_ID"),
+			"razorpay_order_id": razorpayOrderID,
+			"amount":            amountInPaise, // Send paise to frontend for Razorpay
+			"currency":          "INR",
+			"order_id":          order.OrderIdUnique,
+			"prefill": gin.H{
+				"name":    user.UserName,
+				"email":   user.Email,
+				"contact": address.Phone,
+			},
+			"notes": gin.H{
+				"address":  address.City,
+				"user_id":  userID,
+				"order_id": order.ID,
+			},
+		})
 	case "WALLET":
 		var wallet userModels.Wallet
 		if err := tx.First(&wallet, "user_id = ?", userID).Error; err != nil || wallet.Balance < finalPrice {

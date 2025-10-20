@@ -103,7 +103,7 @@ func GoogleCallback(c *gin.Context) {
 					Email:         googleUser.Email,
 					Password:      "", 
 					Phone:         "", 
-					Is_blocked:    false,
+					IsBlocked:    false,
 					ReferralToken: userReferralCode,
 				}
 
@@ -143,7 +143,7 @@ func GoogleCallback(c *gin.Context) {
 		log.Printf("Existing user found: %s with ID: %d", user.Email, user.ID)
 	}
 
-	if user.Is_blocked {
+	if user.IsBlocked {
 		c.Redirect(http.StatusFound, "/login?error=Your+account+has+been+blocked")
 		return
 	}

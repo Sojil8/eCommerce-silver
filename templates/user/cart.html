@@ -116,10 +116,14 @@
                     </div>
                     
                     <div class="flex items-center space-x-4 item-content">
-                        <img src="{{(index .Product.Images 0)}}" alt="{{.Product.ProductName}}"
-                            class="w-20 h-20 object-cover rounded-md">
+                        <a href="/product/details/{{.ProductID}}"><img src="{{(index .Product.Images 0)}}" alt="{{.Product.ProductName}}"
+                            class="w-20 h-20 object-cover rounded-md"></a>
                         <div class="flex-grow">
-                            <h3 class="text-lg font-semibold text-gray-900">{{.Product.ProductName}}</h3>
+                            <a href="/product/details/{{.ProductID}}">
+                                <h3 class="text-lg font-semibold text-gray-900 hover:text-indigo-600 transition">
+                                    {{.Product.ProductName}}
+                                </h3>
+                            </a>
                             <p class="text-sm text-gray-500">{{.Product.CategoryName}} - <span
                                     class="text-indigo-500">{{.Variants.Color}}</span></p>
                             {{if not .Product.InStock}}
@@ -378,7 +382,6 @@
                 confirmButtonText: '{{if gt .CartItemCount 0}}Proceed with Available Items{{else}}Got it{{end}}'
             }).then((result) => {
                 if (result.isConfirmed && {{.CartItemCount}} > 0) {
-                    // Proceed with in-stock items only
                     const cartData = {
                         cartItems: [
                             {{range .InStockCartItems}}
@@ -390,8 +393,8 @@
                                 quantity: {{.Quantity}},
                                 price: {{printf "%.2f" .Price}},
                                 discountedPrice: {{printf "%.2f" .DiscountedPrice}},
-                                originalPrice: {{printf "%.2f" .OriginalPrice}},
-                                discountPercentage: {{printf "%.0f" .DiscountPercentage}},
+                                originalPrice: {{printf "%.2f" .RegularPrice}},
+                                discountPercentage: {{printf "%.0f" .OfferDiscountPercentage}},
                                 offerName: "{{.OfferName}}",
                                 isOfferApplied: {{.IsOfferApplied}},
                                 image: "{{(index .Product.Images 0)}}"
@@ -423,7 +426,6 @@
             return;
             {{end}}
             
-            // Proceed with all items (no out-of-stock items)
             const cartData = {
                 cartItems: [
                     {{range .InStockCartItems}}

@@ -3,16 +3,17 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Shop - Your Store</title>
+  <title>Shop - Silver Shop</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
   <style>
+    body { font-family: 'Poppins', sans-serif; }
     .product-card:hover .product-image { transform: scale(1.05); }
     .out-of-stock-badge { transition: all 0.3s ease; }
     .product-card:hover .out-of-stock-badge { transform: translateY(-2px); }
     
-    /* Enhanced pricing display */
     .price-tag {
       position: relative;
       display: inline-block;
@@ -32,14 +33,103 @@
     .product-card:hover .discount-pill {
       transform: rotate(0deg) scale(1.05);
     }
+    
+    .wishlist-btn {
+      transition: all 0.3s ease;
+      border: none;
+      outline: none;
+      position: relative;
+      overflow: hidden;
+    }
+    .wishlist-btn:hover {
+      transform: scale(1.1);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    .wishlist-btn:disabled {
+      opacity: 0.7;
+      cursor: not-allowed;
+    }
+    
+    .heart-icon {
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      color: #6b7280;
+      filter: drop-shadow(0 1px 2px rgba(0,0,0,0.1));
+    }
+    .heart-icon.active {
+      color: #ef4444;
+      transform: scale(1.1);
+      filter: drop-shadow(0 2px 4px rgba(239,68,68,0.3));
+    }
+    .heart-icon:hover {
+      color: #f87171;
+    }
+    .heart-icon.active:hover {
+      color: #dc2626;
+    }
+    
+    .wishlist-btn.loading {
+      opacity: 0.6;
+      pointer-events: none;
+    }
+    .wishlist-btn.loading .heart-icon {
+      animation: heartbeat 1s infinite;
+    }
+    
+    @keyframes heartbeat {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.2); }
+      100% { transform: scale(1); }
+    }
+    
+    .wishlist-indicator {
+      position: absolute;
+      top: -2px;
+      right: -2px;
+      width: 8px;
+      height: 8px;
+      background: linear-gradient(135deg, #ef4444, #dc2626);
+      border-radius: 50%;
+      opacity: 0;
+      transform: scale(0);
+      transition: all 0.3s ease;
+      border: 2px solid white;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+    .wishlist-indicator.active {
+      opacity: 1;
+      transform: scale(1);
+    }
+
+    .filter-header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+
+    .pagination-btn {
+      transition: all 0.3s ease;
+    }
+    .pagination-btn:hover:not(:disabled) {
+      background: linear-gradient(135deg, #6366f1, #9333ea);
+      color: white;
+      transform: translateY(-1px);
+    }
+    .pagination-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .pagination-btn.active {
+      background: linear-gradient(135deg, #4f46e5, #7c3aed);
+      color: white;
+      font-weight: 600;
+    }
   </style>
 </head>
-<body class="bg-gray-50 flex flex-col min-h-screen">
+<body class="bg-gradient-to-b from-gray-50 to-gray-100 flex flex-col min-h-screen">
   {{template "navbar.html" .}}
 
-  <div class="container mx-auto p-6 flex-grow">
-    <h2 class="text-3xl font-bold text-gray-900 mb-4 tracking-tight">Shop Our Collection</h2>
+  <div class="container mx-auto px-4 sm:px-6 lg:px-8 py-12 flex-grow">
+    <h2 class="text-4xl font-semibold text-gray-800 mb-12 text-center tracking-wide">Shop Our Collection</h2>
 
+    <!-- Search Section -->
     <div class="bg-white p-4 rounded-lg shadow-md mb-6">
       <div class="relative">
         <input type="text" id="search" class="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 pl-10" placeholder="Search products..." value="{{.Query.Search}}">
@@ -50,85 +140,111 @@
 
     <div class="flex flex-col md:flex-row gap-6">
       <div class="w-full md:w-1/4">
-        <div class="bg-white p-4 rounded-lg shadow-md sticky top-4">
-          <h3 class="font-medium text-lg text-gray-900 mb-4 pb-2 border-b">Filters</h3>
-          
-          <div class="mb-6">
-            <h4 class="text-sm font-medium text-gray-700 mb-2">Sort By</h4>
-            <div class="space-y-2">
-              <label class="flex items-center">
-                <input type="radio" name="sort" value="" {{if eq .Query.Sort ""}}checked{{end}} class="h-4 w-4 text-indigo-600 focus:ring-indigo-500">
-                <span class="ml-2 text-sm text-gray-700">Default</span>
-              </label>
-              <label class="flex items-center">
-                <input type="radio" name="sort" value="price_low_to_high" {{if eq .Query.Sort "price_low_to_high"}}checked{{end}} class="h-4 w-4 text-indigo-600 focus:ring-indigo-500">
-                <span class="ml-2 text-sm text-gray-700">Price: Low to High</span>
-              </label>
-              <label class="flex items-center">
-                <input type="radio" name="sort" value="price_high_to_low" {{if eq .Query.Sort "price_high_to_low"}}checked{{end}} class="h-4 w-4 text-indigo-600 focus:ring-indigo-500">
-                <span class="ml-2 text-sm text-gray-700">Price: High to Low</span>
-              </label>
-              <label class="flex items-center">
-                <input type="radio" name="sort" value="a_to_z" {{if eq .Query.Sort "a_to_z"}}checked{{end}} class="h-4 w-4 text-indigo-600 focus:ring-indigo-500">
-                <span class="ml-2 text-sm text-gray-700">A to Z</span>
-              </label>
-              <label class="flex items-center">
-                <input type="radio" name="sort" value="z_to_a" {{if eq .Query.Sort "z_to_a"}}checked{{end}} class="h-4 w-4 text-indigo-600 focus:ring-indigo-500">
-                <span class="ml-2 text-sm text-gray-700">Z to A</span>
-              </label>
+        <div class="bg-white rounded-lg shadow-md overflow-hidden">
+          <!-- Filter Header with Apply and Clear Buttons -->
+          <div class="filter-header p-4 text-white">
+            <div class="flex justify-between items-center">
+              <h3 class="font-medium text-lg">Filters</h3>
+              <div class="flex space-x-2">
+                <button id="apply-filters" class="bg-white text-indigo-700 px-3 py-1 rounded text-sm font-medium hover:bg-gray-100 transition-colors">
+                  Apply
+                </button>
+                <button id="clear-filters" class="bg-red-500 text-white px-3 py-1 rounded text-sm font-medium hover:bg-red-600 transition-colors">
+                  Clear
+                </button>
+              </div>
             </div>
           </div>
 
-          <div class="mb-6">
-            <h4 class="text-sm font-medium text-gray-700 mb-2">Category</h4>
-            <div class="space-y-2">
-              <label class="flex items-center">
-                <input type="radio" name="category" value="" {{if eq .Query.Category ""}}checked{{end}} class="h-4 w-4 text-indigo-600 focus:ring-indigo-500">
-                <span class="ml-2 text-sm text-gray-700">All Categories</span>
-              </label>
-              {{range .Categories}}
+          <!-- Filter Content -->
+          <div class="p-4">
+            <div class="mb-6">
+              <h4 class="text-sm font-medium text-gray-700 mb-2">Sort By</h4>
+              <div class="space-y-2">
                 <label class="flex items-center">
-                  <input type="radio" name="category" value="{{.CategoryName}}" {{if eq $.Query.Category .CategoryName}}checked{{end}} class="h-4 w-4 text-indigo-600 focus:ring-indigo-500">
-                  <span class="ml-2 text-sm text-gray-700">{{.CategoryName}}</span>
+                  <input type="radio" name="sort" value="" {{if eq .Query.Sort ""}}checked{{end}} class="h-4 w-4 text-indigo-600 focus:ring-indigo-500">
+                  <span class="ml-2 text-sm text-gray-700">Default</span>
                 </label>
-              {{end}}
+                <label class="flex items-center">
+                  <input type="radio" name="sort" value="price_low_to_high" {{if eq .Query.Sort "price_low_to_high"}}checked{{end}} class="h-4 w-4 text-indigo-600 focus:ring-indigo-500">
+                  <span class="ml-2 text-sm text-gray-700">Price: Low to High</span>
+                </label>
+                <label class="flex items-center">
+                  <input type="radio" name="sort" value="price_high_to_low" {{if eq .Query.Sort "price_high_to_low"}}checked{{end}} class="h-4 w-4 text-indigo-600 focus:ring-indigo-500">
+                  <span class="ml-2 text-sm text-gray-700">Price: High to Low</span>
+                </label>
+                <label class="flex items-center">
+                  <input type="radio" name="sort" value="a_to_z" {{if eq .Query.Sort "a_to_z"}}checked{{end}} class="h-4 w-4 text-indigo-600 focus:ring-indigo-500">
+                  <span class="ml-2 text-sm text-gray-700">A to Z</span>
+                </label>
+                <label class="flex items-center">
+                  <input type="radio" name="sort" value="z_to_a" {{if eq .Query.Sort "z_to_a"}}checked{{end}} class="h-4 w-4 text-indigo-600 focus:ring-indigo-500">
+                  <span class="ml-2 text-sm text-gray-700">Z to A</span>
+                </label>
+              </div>
             </div>
-          </div>
 
-          <div class="mb-6">
-            <h4 class="text-sm font-medium text-gray-700 mb-2">Price Range</h4>
-            <div class="space-y-2">
-              <label class="flex items-center">
-                <input type="radio" name="price-range" value="" {{if and (eq .Query.PriceMin 0.0) (eq .Query.PriceMax 0.0)}}checked{{end}} class="h-4 w-4 text-indigo-600 focus:ring-indigo-500">
-                <span class="ml-2 text-sm text-gray-700">All Prices</span>
-              </label>
-              <label class="flex items-center">
-                <input type="radio" name="price-range" value="0-500" {{if and (eq .Query.PriceMin 0.0) (eq .Query.PriceMax 500.0)}}checked{{end}} class="h-4 w-4 text-indigo-600 focus:ring-indigo-500">
-                <span class="ml-2 text-sm text-gray-700">$0 - $500</span>
-              </label>
-              <label class="flex items-center">
-                <input type="radio" name="price-range" value="500-1000" {{if and (eq .Query.PriceMin 500.0) (eq .Query.PriceMax 1000.0)}}checked{{end}} class="h-4 w-4 text-indigo-600 focus:ring-indigo-500">
-                <span class="ml-2 text-sm text-gray-700">$500 - $1,000</span>
-              </label>
-              <label class="flex items-center">
-                <input type="radio" name="price-range" value="1000-2000" {{if and (eq .Query.PriceMin 1000.0) (eq .Query.PriceMax 2000.0)}}checked{{end}} class="h-4 w-4 text-indigo-600 focus:ring-indigo-500">
-                <span class="ml-2 text-sm text-gray-700">$1,000 - $2,000</span>
-              </label>
-              <label class="flex items-center">
-                <input type="radio" name="price-range" value="2000-5000" {{if and (eq .Query.PriceMin 2000.0) (eq .Query.PriceMax 5000.0)}}checked{{end}} class="h-4 w-4 text-indigo-600 focus:ring-indigo-500">
-                <span class="ml-2 text-sm text-gray-700">$2,000 - $5,000</span>
-              </label>
-              <label class="flex items-center">
-                <input type="radio" name="price-range" value="5000-" {{if and (eq .Query.PriceMin 5000.0) (eq .Query.PriceMax 0.0)}}checked{{end}} class="h-4 w-4 text-indigo-600 focus:ring-indigo-500">
-                <span class="ml-2 text-sm text-gray-700">$5,000+</span>
-              </label>
+            <div class="mb-6">
+              <h4 class="text-sm font-medium text-gray-700 mb-2">Category</h4>
+              <div class="space-y-2">
+                <label class="flex items-center">
+                  <input type="radio" name="category" value="" {{if eq .Query.Category ""}}checked{{end}} class="h-4 w-4 text-indigo-600 focus:ring-indigo-500">
+                  <span class="ml-2 text-sm text-gray-700">All Categories</span>
+                </label>
+                {{range .Categories}}
+                  <label class="flex items-center">
+                    <input type="radio" name="category" value="{{.CategoryName}}" {{if eq $.Query.Category .CategoryName}}checked{{end}} class="h-4 w-4 text-indigo-600 focus:ring-indigo-500">
+                    <span class="ml-2 text-sm text-gray-700">{{.CategoryName}}</span>
+                  </label>
+                {{end}}
+              </div>
             </div>
-          </div>
 
-          <div id="clear-filters-container" class="mt-4" style="display: none;">
-            <button id="clear-filters" class="w-full bg-gray-200 text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-300 transition-colors flex items-center justify-center">
-              <i class="fas fa-times-circle mr-2"></i>Clear All Filters
-            </button>
+            <div class="mb-6">
+              <h4 class="text-sm font-medium text-gray-700 mb-2">Brand</h4>
+              <div class="space-y-2">
+                <label class="flex items-center">
+                  <input type="radio" name="brand" value="" {{if eq .Query.Brand ""}}checked{{end}} class="h-4 w-4 text-indigo-600 focus:ring-indigo-500">
+                  <span class="ml-2 text-sm text-gray-700">All Brands</span>
+                </label>
+                {{range .Brands}}
+                  <label class="flex items-center">
+                    <input type="radio" name="brand" value="{{.}}" {{if eq $.Query.Brand .}}checked{{end}} class="h-4 w-4 text-indigo-600 focus:ring-indigo-500">
+                    <span class="ml-2 text-sm text-gray-700">{{.}}</span>
+                  </label>
+                {{end}}
+              </div>
+            </div>
+
+            <div class="mb-6">
+              <h4 class="text-sm font-medium text-gray-700 mb-2">Price Range</h4>
+              <div class="space-y-2">
+                <label class="flex items-center">
+                  <input type="radio" name="price-range" value="" {{if and (eq .Query.PriceMin 0.0) (eq .Query.PriceMax 0.0)}}checked{{end}} class="h-4 w-4 text-indigo-600 focus:ring-indigo-500">
+                  <span class="ml-2 text-sm text-gray-700">All Prices</span>
+                </label>
+                <label class="flex items-center">
+                  <input type="radio" name="price-range" value="0-500" {{if and (eq .Query.PriceMin 0.0) (eq .Query.PriceMax 500.0)}}checked{{end}} class="h-4 w-4 text-indigo-600 focus:ring-indigo-500">
+                  <span class="ml-2 text-sm text-gray-700">$0 - $500</span>
+                </label>
+                <label class="flex items-center">
+                  <input type="radio" name="price-range" value="500-1000" {{if and (eq .Query.PriceMin 500.0) (eq .Query.PriceMax 1000.0)}}checked{{end}} class="h-4 w-4 text-indigo-600 focus:ring-indigo-500">
+                  <span class="ml-2 text-sm text-gray-700">$500 - $1,000</span>
+                </label>
+                <label class="flex items-center">
+                  <input type="radio" name="price-range" value="1000-2000" {{if and (eq .Query.PriceMin 1000.0) (eq .Query.PriceMax 2000.0)}}checked{{end}} class="h-4 w-4 text-indigo-600 focus:ring-indigo-500">
+                  <span class="ml-2 text-sm text-gray-700">$1,000 - $2,000</span>
+                </label>
+                <label class="flex items-center">
+                  <input type="radio" name="price-range" value="2000-5000" {{if and (eq .Query.PriceMin 2000.0) (eq .Query.PriceMax 5000.0)}}checked{{end}} class="h-4 w-4 text-indigo-600 focus:ring-indigo-500">
+                  <span class="ml-2 text-sm text-gray-700">$2,000 - $5,000</span>
+                </label>
+                <label class="flex items-center">
+                  <input type="radio" name="price-range" value="5000-" {{if and (eq .Query.PriceMin 5000.0) (eq .Query.PriceMax 0.0)}}checked{{end}} class="h-4 w-4 text-indigo-600 focus:ring-indigo-500">
+                  <span class="ml-2 text-sm text-gray-700">$5,000+</span>
+                </label>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -137,7 +253,7 @@
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {{if .Products}}
             {{range .Products}}
-              <div class="product-card relative bg-white rounded-xl shadow-md overflow-hidden group transform transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
+              <div class="product-card relative bg-white rounded-xl shadow-md overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
                 <div class="relative">
                   {{if gt (len .Images) 0}}
                     <img src="{{index .Images 0}}" alt="{{.ProductName}}" class="product-image w-full h-56 object-cover transition-transform duration-500">
@@ -147,8 +263,18 @@
                   <div class="absolute inset-0 flex items-center justify-center bg-black bg-opacity-0 hover:bg-opacity-30 transition-all duration-300">
                     <a href="/product/details/{{.ID}}" class="bg-gradient-to-r from-yellow-400 to-yellow-500 text-gray-900 px-6 py-2 rounded-full font-medium opacity-0 hover:opacity-100 transition-opacity duration-300 transform hover:scale-105">View Product</a>
                   </div>
+                  
+                  <!-- Enhanced Wishlist Button -->
+                  <button onclick="toggleWishlist('{{.ID}}', this)" 
+                          data-product-id="{{.ID}}"
+                          class="wishlist-btn absolute top-3 right-3 bg-white/90 backdrop-blur-sm w-11 h-11 rounded-full shadow-lg flex items-center justify-center group"
+                          title="Add to Wishlist">
+                    <i class="fas fa-heart heart-icon text-lg"></i>
+                    <div class="wishlist-indicator"></div>
+                  </button>
+                  
                   {{if not (anyVariantInStock .Variants)}}
-                    <div class="out-of-stock-badge absolute top-3 right-3 bg-gradient-to-r from-red-500 to-red-600 text-white text-xs font-semibold px-3 py-1 rounded-full shadow-sm">Out of Stock</div>
+                    <div class="out-of-stock-badge absolute top-16 right-3 bg-gradient-to-r from-red-500 to-red-600 text-white text-xs font-semibold px-3 py-1 rounded-full shadow-sm">Out of Stock</div>
                   {{end}}
                   
                   {{if .IsOffer}}
@@ -159,15 +285,15 @@
                     </div>
                   {{end}}
                 </div>
-                <div class="p-4">
-                  <h3 class="text-lg font-semibold text-gray-900 truncate">{{.ProductName}}</h3>
-                  <p class="text-gray-500 text-sm">{{.CategoryName}}</p>
-                  <div class="flex justify-between items-center mt-2">
+                <div class="p-5">
+                  <h3 class="text-lg font-semibold text-gray-800 truncate">{{.ProductName}}</h3>
+                  <p class="text-sm text-gray-500">{{.Brand}} | {{.CategoryName}}</p>
+                  <div class="flex justify-between items-center mt-4">
                     <div class="price-tag">
                       {{if .IsOffer}}
                         <div class="flex flex-col">
                           <div class="flex items-center">
-                            <p class="text-red-600 font-bold text-lg">
+                            <p class="text-red-600 font-bold text-xl">
                               ${{printf "%.2f" .OfferPrice}}
                             </p>
                             <span class="line-through text-gray-400 text-sm ml-2">
@@ -177,222 +303,578 @@
                           <p class="text-xs text-green-600 font-medium">{{.OfferName}}</p>
                         </div>
                       {{else}}
-                        <p class="text-indigo-600 font-bold text-lg">
+                        <p class="text-indigo-600 font-bold text-xl">
                           ${{printf "%.2f" .OriginalPrice}}
                         </p>
                       {{end}}
                     </div>
-                    <div class="flex items-center space-x-4">
-                      <button class="text-gray-400 hover:text-red-500 transition-colors transform hover:scale-110" onclick="toggleWishlist('{{.ID}}')">
-                        <i class="fas fa-heart text-xl"></i>
-                      </button>
-                      <button class="text-indigo-600 hover:text-indigo-800 transition-colors transform hover:scale-110" onclick="addToCart('{{.ID}}')">
-                        <i class="fas fa-cart-plus text-xl"></i>
-                      </button>
-                    </div>
+                    <button onclick="addToCart('{{.ID}}')" class="text-indigo-600 hover:text-indigo-800 transition-colors duration-200 transform hover:scale-110">
+                      <i class="fas fa-cart-plus text-2xl"></i>
+                    </button>
                   </div>
                 </div>
               </div>
             {{end}}
           {{else}}
-            <p class="text-center text-gray-500 col-span-full text-lg">No products found</p>
+            <p class="text-center text-gray-500 col-span-full text-lg font-medium">No products found</p>
           {{end}}
         </div>
+
+        <!-- Pagination Section -->
+        {{if .Pagination.TotalItems}}
+          <div class="mt-8 flex flex-col items-center">
+            <div class="flex items-center space-x-2 mb-4">
+              <!-- Previous Button -->
+              <button 
+                onclick="goToPage({{.Pagination.CurrentPage}} - 1)" 
+                class="pagination-btn px-4 py-2 bg-white text-gray-700 rounded-lg shadow-md {{if not .Pagination.HasPrevious}}opacity-50 cursor-not-allowed{{end}}"
+                {{if not .Pagination.HasPrevious}}disabled{{end}}>
+                <i class="fas fa-chevron-left"></i> Previous
+              </button>
+
+              <!-- Page Numbers -->
+              {{range $i := until .Pagination.TotalPages}}
+                {{ $page := add $i 1 }}
+                <button 
+                  onclick="goToPage({{$page}})"
+                  class="pagination-btn px-4 py-2 rounded-lg shadow-md {{if eq $page $.Pagination.CurrentPage}}active{{else}}bg-white text-gray-700{{end}}"
+                >
+                  {{$page}}
+                </button>
+              {{end}}
+
+              <!-- Next Button -->
+              <button 
+                onclick="goToPage({{.Pagination.CurrentPage}} + 1)" 
+                class="pagination-btn px-4 py-2 bg-white text-gray-700 rounded-lg shadow-md {{if not .Pagination.HasNext}}opacity-50 cursor-not-allowed{{end}}"
+                {{if not .Pagination.HasNext}}disabled{{end}}>
+                Next <i class="fas fa-chevron-right"></i>
+              </button>
+            </div>
+            <!-- Item Count Information -->
+            <p class="text-sm text-gray-600">
+              Showing {{.Pagination.StartItem}} to {{.Pagination.EndItem}} of {{.Pagination.TotalItems}} products
+            </p>
+          </div>
+        {{end}}
       </div>
     </div>
   </div>
 
-  <footer class="bg-gray-900 text-white p-6 mt-auto">
-    <div class="container mx-auto flex flex-col md:flex-row justify-between items-center">
-      <p class="text-sm">© 2025 Your Company. All rights reserved.</p>
-      <div class="mt-4 md:mt-0 space-x-6">
-        <a href="#" class="text-gray-300 hover:text-white transition-colors duration-200">Privacy Policy</a>
-        <a href="#" class="text-gray-300 hover:text-white transition-colors duration-200">Terms of Service</a>
+  <footer class="bg-gradient-to-r from-indigo-800 to-purple-900 text-white py-8 mt-auto">
+    <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex flex-col md:flex-row justify-between items-center">
+        <p class="text-sm">© 2025 Silver Shop. All rights reserved.</p>
+        <div class="mt-4 md:mt-0 space-x-6">
+          <a href="#" class="text-gray-200 hover:text-yellow-300 transition-color duration-200">Privacy Policy</a>
+          <a href="#" class="text-gray-200 hover:text-yellow-300 transition-color duration-200">Terms of Service</a>
+        </div>
       </div>
     </div>
   </footer>
 
   <script>
-    document.addEventListener('DOMContentLoaded', function() {
-      const searchInput = document.getElementById('search');
-      const clearSearchBtn = document.getElementById('clear-search');
-      const clearFiltersBtn = document.getElementById('clear-filters');
-      const clearFiltersContainer = document.getElementById('clear-filters-container');
-      
-      // Get all radio inputs for filters
-      const sortRadios = document.querySelectorAll('input[name="sort"]');
-      const categoryRadios = document.querySelectorAll('input[name="category"]');
-      const priceRangeRadios = document.querySelectorAll('input[name="price-range"]');
-      
-      // Function to check if any filters are active
-      function checkForActiveFilters() {
-        const hasSearch = searchInput.value.trim() !== '';
-        const hasSort = Array.from(sortRadios).some(radio => radio.checked && radio.value !== '');
-        const hasCategory = Array.from(categoryRadios).some(radio => radio.checked && radio.value !== '');
-        const hasPriceRange = Array.from(priceRangeRadios).some(radio => radio.checked && radio.value !== '');
-        
-        // Show/hide clear filters button based on active filters
-        clearFiltersContainer.style.display = (hasSearch || hasSort || hasCategory || hasPriceRange) ? 'block' : 'none';
-        
-        return hasSearch || hasSort || hasCategory || hasPriceRange;
+    // Check if WishlistManager is already defined
+    if (typeof WishlistManager === 'undefined') {
+      class WishlistManager {
+        constructor() {
+          this.items = new Map();
+          this.isLoading = false;
+          this.retryAttempts = 3;
+          this.retryDelay = 1000;
+          
+          this.toggle = this.toggle.bind(this);
+          this.loadInitialState = this.loadInitialState.bind(this);
+        }
+
+        async loadInitialState() {
+          if (this.isLoading) return;
+          
+          try {
+            this.isLoading = true;
+            console.log('Loading initial wishlist state...');
+            
+            const response = await this.makeRequest('/wishlist', { method: 'GET' });
+            
+            if (response.ok) {
+              const data = await response.json();
+              console.log('Wishlist API response:', data);
+              
+              this.items.clear();
+              
+              let productIds = [];
+              
+              if (data.items && Array.isArray(data.items)) {
+                productIds = data.items.map(item => this.extractProductId(item));
+              } else if (data.products && Array.isArray(data.products)) {
+                productIds = data.products.map(item => this.extractProductId(item));
+              } else if (Array.isArray(data)) {
+                productIds = data.map(item => this.extractProductId(item));
+              } else if (data.wishlist && Array.isArray(data.wishlist)) {
+                productIds = data.wishlist.map(item => this.extractProductId(item));
+              }
+              
+              productIds.forEach(id => {
+                if (id) {
+                  this.items.set(id.toString(), true);
+                  this.updateProductUI(id.toString(), true);
+                }
+              });
+              
+              console.log(`Wishlist loaded: ${this.items.size} items`);
+              return true;
+              
+            } else {
+              console.warn('Failed to load wishlist:', response.status, response.statusText);
+              return false;
+            }
+            
+          } catch (error) {
+            console.error('Error loading wishlist:', error);
+            return false;
+          } finally {
+            this.isLoading = false;
+          }
+        }
+
+        extractProductId(item) {
+          if (typeof item === 'string' || typeof item === 'number') {
+            return item.toString();
+          }
+          if (typeof item === 'object' && item !== null) {
+            return (item.id || item.product_id || item.productId || item.ID)?.toString();
+          }
+          return null;
+        }
+
+        async makeRequest(url, options, attempt = 1) {
+          try {
+            const response = await fetch(url, {
+              credentials: 'include',
+              headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                ...options.headers
+              },
+              ...options
+            });
+            
+            return response;
+            
+          } catch (error) {
+            if (attempt < this.retryAttempts) {
+              console.log(`Request failed, retrying... (${attempt}/${this.retryAttempts})`);
+              await this.sleep(this.retryDelay * attempt);
+              return this.makeRequest(url, options, attempt + 1);
+            }
+            throw error;
+          }
+        }
+
+        sleep(ms) {
+          return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        async toggle(productId, buttonElement) {
+          if (!productId || !buttonElement) {
+            console.error('Invalid parameters for wishlist toggle');
+            return;
+          }
+
+          if (buttonElement.classList.contains('loading')) {
+            return;
+          }
+
+          const heartIcon = buttonElement.querySelector('.heart-icon');
+          const indicator = buttonElement.querySelector('.wishlist-indicator');
+          
+          if (!heartIcon) {
+            console.error('Heart icon not found');
+            return;
+          }
+
+          try {
+            this.setLoadingState(buttonElement, true);
+            
+            const isCurrentlyInWishlist = this.items.has(productId);
+            console.log(`Toggling wishlist for product ${productId} (currently: ${isCurrentlyInWishlist ? 'in' : 'not in'} wishlist)`);
+            
+            const response = await this.makeRequest(`/wishlist/add/${productId}`, {
+              method: 'POST'
+            });
+            
+            if (response.ok) {
+              const data = await response.json();
+              console.log('Wishlist toggle response:', data);
+              
+              let finalState;
+              let message;
+              
+              if (data.status === 'REMOVED' || data.action === 'removed') {
+                finalState = false;
+                message = 'Product removed from wishlist';
+              } else if (data.status === 'ADDED' || data.action === 'added') {
+                finalState = true;
+                message = 'Product added to wishlist';
+              } else {
+                finalState = !isCurrentlyInWishlist;
+                message = finalState ? 'Product added to wishlist' : 'Product removed from wishlist';
+              }
+              
+              if (finalState) {
+                this.items.set(productId, true);
+              } else {
+                this.items.delete(productId);
+              }
+              
+              this.updateProductUI(productId, finalState);
+              this.showNotification(finalState, message);
+              
+            } else {
+              const errorText = await response.text();
+              let errorMessage = 'Failed to update wishlist';
+              
+              try {
+                const errorData = JSON.parse(errorText);
+                errorMessage = errorData.error || errorData.message || errorMessage;
+              } catch (e) {
+                errorMessage = errorText || errorMessage;
+              }
+              
+              console.error('Wishlist API error:', response.status, errorMessage);
+              this.showErrorNotification(errorMessage);
+            }
+            
+          } catch (error) {
+            console.error('Wishlist toggle error:', error);
+            this.showErrorNotification('Network error. Please check your connection and try again.');
+            
+          } finally {
+            this.setLoadingState(buttonElement, false);
+          }
+        }
+
+        updateProductUI(productId, isInWishlist) {
+          const buttons = document.querySelectorAll(`[data-product-id="${productId}"]`);
+          
+          buttons.forEach(button => {
+            const heartIcon = button.querySelector('.heart-icon');
+            const indicator = button.querySelector('.wishlist-indicator');
+            
+            if (heartIcon) {
+              if (isInWishlist) {
+                heartIcon.classList.add('active');
+                button.title = 'Remove from Wishlist';
+              } else {
+                heartIcon.classList.remove('active');
+                button.title = 'Add to Wishlist';
+              }
+            }
+            
+            if (indicator) {
+              if (isInWishlist) {
+                indicator.classList.add('active');
+              } else {
+                indicator.classList.remove('active');
+              }
+            }
+          });
+        }
+
+        setLoadingState(buttonElement, isLoading) {
+          if (isLoading) {
+            buttonElement.classList.add('loading');
+            buttonElement.disabled = true;
+          } else {
+            buttonElement.classList.remove('loading');
+            buttonElement.disabled = false;
+          }
+        }
+
+        showNotification(isAdded, message) {
+          Swal.fire({
+            icon: isAdded ? 'success' : 'info',
+            title: isAdded ? 'Added to Wishlist!' : 'Removed from Wishlist',
+            text: message,
+            timer: 2000,
+            showConfirmButton: false,
+            toast: true,
+            position: 'top-end',
+            timerProgressBar: true
+          });
+        }
+
+        showErrorNotification(message) {
+          Swal.fire({
+            icon: 'error',
+            title: 'Wishlist Error',
+            text: message,
+            confirmButtonColor: '#ef4444'
+          });
+        }
+
+        isInWishlist(productId) {
+          return this.items.has(productId);
+        }
+
+        getCount() {
+          return this.items.size;
+        }
       }
 
-      // Initial check for active filters
-      checkForActiveFilters();
+      window.wishlistManager = new WishlistManager();
+    }
 
-      // Clear search input and apply
+    async function toggleWishlist(productId, buttonElement) {
+      return window.wishlistManager.toggle(productId, buttonElement);
+    }
+
+    async function addToCart(productId) {
+      try {
+        const payload = {
+          product_id: parseInt(productId, 10),
+          quantity: 1
+        };
+
+        console.log('Sending payload to /cart/add:', payload);
+
+        const response = await fetch('/cart/add', {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          body: JSON.stringify(payload),
+          credentials: 'include'
+        });
+
+        console.log('Response status:', response.status);
+        
+        let data;
+        try {
+          data = await response.json();
+          console.log('Response data:', data);
+        } catch (parseError) {
+          console.error('Failed to parse JSON response:', parseError);
+          const textResponse = await response.text();
+          console.error('Raw response:', textResponse);
+          throw new Error('Invalid JSON response from server');
+        }
+        
+        if (response.ok) {
+          Swal.fire({
+            icon: 'success',
+            title: 'Added to Cart!',
+            text: data.message || 'Product has been added to your cart.',
+            timer: 1500,
+            showConfirmButton: false,
+            toast: true,
+            position: 'top-end'
+          });
+        } else {
+          let errorMessage = data.error || 'Failed to add to cart';
+          
+          const errorMessages = {
+            'No variants available for this product': 'This product is not available in any variant.',
+            'Product is not available': 'This product is currently unavailable.',
+            'Not enough stock available': 'Not enough stock available.',
+            'Quantity exceeds maximum limit': 'Quantity exceeds the maximum allowed per product.',
+            'Product category is not available': 'This product category is not available.',
+            'Quantity limit exceeded': 'You have reached the maximum quantity for this product.'
+          };
+          
+          errorMessage = errorMessages[data.error] || errorMessage;
+
+          Swal.fire({
+            icon: 'error',
+            title: 'Cannot Add to Cart',
+            text: errorMessage
+          });
+        }
+      } catch (error) {
+        console.error('Add to cart error:', error);
+        Swal.fire({
+          icon: 'error',
+          title: 'Connection Error',
+          text: 'Network error. Please check your connection and try again.'
+        });
+      }
+    }
+
+    function goToPage(page) {
+      const totalPages = {{.Pagination.TotalPages}};
+      if (page < 1 || page > totalPages) return;
+
+      const searchInput = document.getElementById('search');
+      const selectedSort = document.querySelector('input[name="sort"]:checked').value;
+      const selectedCategory = document.querySelector('input[name="category"]:checked').value;
+      const selectedBrand = document.querySelector('input[name="brand"]:checked').value;
+      const selectedPriceRange = document.querySelector('input[name="price-range"]:checked').value;
+
+      const priceRange = selectedPriceRange.split('-');
+      let priceMin = 0.0;
+      let priceMax = 0.0;
+
+      if (selectedPriceRange !== '') {
+        if (selectedPriceRange === '5000-') {
+          priceMin = 5000.0;
+          priceMax = 0.0;
+        } else {
+          priceMin = parseFloat(priceRange[0]) || 0.0;
+          priceMax = parseFloat(priceRange[1]) || 0.0;
+        }
+      }
+
+      const query = {
+        search: searchInput.value.trim(),
+        sort: selectedSort,
+        category: selectedCategory,
+        brand: selectedBrand, // Added brand to query
+        price_min: priceMin,
+        price_max: priceMax,
+        page: page,
+        limit: {{.Pagination.ItemsPerPage}}
+      };
+
+      console.log('Navigating to page:', query);
+
+      const params = new URLSearchParams();
+      if (query.search) params.append('search', query.search);
+      if (query.sort) params.append('sort', query.sort);
+      if (query.category) params.append('category', query.category);
+      if (query.brand) params.append('brand', query.brand); // Added brand to URL parameters
+      if (query.price_min > 0) params.append('price_min', query.price_min.toString());
+      if (query.price_max > 0) params.append('price_max', query.price_max.toString());
+      params.append('page', query.page.toString());
+      params.append('limit', query.limit.toString());
+
+      const url = '/shop' + (params.toString() ? '?' + params.toString() : '');
+      
+      console.log('Fetching URL:', url);
+      window.location.href = url;
+    }
+
+    function initializeFilters() {
+      const searchInput = document.getElementById('search');
+      const clearSearchBtn = document.getElementById('clear-search');
+      const applyFiltersBtn = document.getElementById('apply-filters');
+      const clearFiltersBtn = document.getElementById('clear-filters');
+      
+      if (!searchInput || !applyFiltersBtn) {
+        console.log('Filter elements not found, retrying...');
+        setTimeout(initializeFilters, 100);
+        return;
+      }
+
       clearSearchBtn.addEventListener('click', function() {
         searchInput.value = '';
         applyFilters();
       });
 
-      // Search input event
-      searchInput.addEventListener('input', function() {
-        checkForActiveFilters();
-      });
-      
       searchInput.addEventListener('keyup', function(e) {
         if (e.key === 'Enter') {
           applyFilters();
         }
       });
 
-      // Add event listeners to all radio buttons
-      function addRadioListeners(radios) {
-        radios.forEach(radio => {
-          radio.addEventListener('change', function() {
-            checkForActiveFilters();
-            applyFilters();
-          });
-        });
-      }
-      
-      addRadioListeners(sortRadios);
-      addRadioListeners(categoryRadios);
-      addRadioListeners(priceRangeRadios);
+      applyFiltersBtn.addEventListener('click', applyFilters);
 
-      // Clear all filters
       clearFiltersBtn.addEventListener('click', function() {
-        // Reset search input
         searchInput.value = '';
         
-        // Reset all radio buttons to default options
-        document.querySelector('input[name="sort"][value=""]').checked = true;
-        document.querySelector('input[name="category"][value=""]').checked = true;
-        document.querySelector('input[name="price-range"][value=""]').checked = true;
+        const sortRadios = document.querySelectorAll('input[name="sort"]');
+        const categoryRadios = document.querySelectorAll('input[name="category"]');
+        const brandRadios = document.querySelectorAll('input[name="brand"]');
+        const priceRangeRadios = document.querySelectorAll('input[name="price-range"]');
         
-        // Update UI and apply filters
-        checkForActiveFilters();
+        sortRadios.forEach(radio => {
+          if (radio.value === "") radio.checked = true;
+        });
+        categoryRadios.forEach(radio => {
+          if (radio.value === "") radio.checked = true;
+        });
+        brandRadios.forEach(radio => {
+          if (radio.value === "") radio.checked = true;
+        });
+        priceRangeRadios.forEach(radio => {
+          if (radio.value === "") radio.checked = true;
+        });
+        
         applyFilters();
       });
 
       function applyFilters() {
-        // Get selected radio values
         const selectedSort = document.querySelector('input[name="sort"]:checked').value;
         const selectedCategory = document.querySelector('input[name="category"]:checked').value;
+        const selectedBrand = document.querySelector('input[name="brand"]:checked').value;
         const selectedPriceRange = document.querySelector('input[name="price-range"]:checked').value;
         
         const priceRange = selectedPriceRange.split('-');
-        let priceMin = 0;
-        let priceMax = 0;
-        if (priceRange[0] !== '') {
-          priceMin = parseFloat(priceRange[0]);
-          priceMax = priceRange[1] ? parseFloat(priceRange[1]) : 0;
+        let priceMin = 0.0;
+        let priceMax = 0.0;
+        
+        if (selectedPriceRange !== '') {
+          if (selectedPriceRange === '5000-') {
+            priceMin = 5000.0;
+            priceMax = 0.0;
+          } else {
+            priceMin = parseFloat(priceRange[0]) || 0.0;
+            priceMax = parseFloat(priceRange[1]) || 0.0;
+          }
         }
 
         const query = {
           search: searchInput.value.trim(),
           sort: selectedSort,
           category: selectedCategory,
+          brand: selectedBrand, // Added brand to query
           price_min: priceMin,
-          price_max: priceMax
+          price_max: priceMax,
+          page: 1,
+          limit: {{.Pagination.ItemsPerPage}}
         };
 
-        fetch('/shop', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(query),
-          credentials: 'include'
-        })
-        .then(response => {
-          if (!response.ok) throw new Error('Failed to fetch products');
-          return response.text(); // Get HTML response
-        })
-        .then(html => {
-          document.open();
-          document.write(html);
-          document.close();
-        })
-        .catch(error => {
-          Swal.fire('Error', 'Failed to load products', 'error');
-          console.error(error);
-        });
+        console.log('Applying filters:', query);
+
+        const params = new URLSearchParams();
+        if (query.search) params.append('search', query.search);
+        if (query.sort) params.append('sort', query.sort);
+        if (query.category) params.append('category', query.category);
+        if (query.brand) params.append('brand', query.brand); // Added brand to URL parameters
+        if (query.price_min > 0) params.append('price_min', query.price_min.toString());
+        if (query.price_max > 0) params.append('price_max', query.price_max.toString());
+        params.append('page', query.page.toString());
+        params.append('limit', query.limit.toString());
+
+        const url = '/shop' + (params.toString() ? '?' + params.toString() : '');
+        
+        console.log('Fetching URL:', url);
+        window.location.href = url;
       }
+    }
 
-      // Add to Cart
-      window.addToCart = async function(productId) {
-        try {
-          const response = await fetch(`/cart/add`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ product_id: productId, quantity: 1 }),
-            credentials: 'include'
-          });
-          const data = await response.json();
-          if (response.ok) {
-            Swal.fire({
-              icon: 'success',
-              title: 'Added to Cart!',
-              text: 'Product has been added to your cart.',
-              timer: 1500,
-              showConfirmButton: false
-            });
-          } else {
-            Swal.fire('Error', data.error || 'Failed to add to cart', 'error');
-          }
-        } catch (error) {
-          Swal.fire('Error', 'Something went wrong', 'error');
-          console.error(error);
-        }
-      };
-
-      // Toggle Wishlist
-      window.toggleWishlist = async function(productId) {
-        try {
-          const response = await fetch(`/wishlist/add/${productId}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include'
-          });
-          const data = await response.json();
-          
-          if (response.ok) {
-            if (data.status === 'REMOVED') {
-              Swal.fire({
-                icon: 'success',
-                title: 'Removed!',
-                text: 'Product removed from your wishlist.',
-                timer: 1500,
-                showConfirmButton: false
-              });
-            } else {
-              Swal.fire({
-                icon: 'success',
-                title: 'Added!',
-                text: 'Product added to your wishlist.',
-                timer: 1500,
-                showConfirmButton: false
-              });
-            }
-          } else {
-            Swal.fire('Error', data.error || 'Failed to update wishlist', 'error');
-          }
-        } catch (error) {
-          Swal.fire('Error', 'Something went wrong', 'error');
-          console.error(error);
-        }
-      };
+    document.addEventListener('DOMContentLoaded', function() {
+      console.log('Page loaded, initializing...');
+      
+      if (window.wishlistManager) {
+        window.wishlistManager.loadInitialState();
+      }
+      
+      initializeFilters();
     });
+
+    document.addEventListener('visibilitychange', function() {
+      if (!document.hidden && window.wishlistManager && !window.wishlistManager.isLoading) {
+        console.log('Tab became visible, refreshing wishlist state...');
+        window.wishlistManager.loadInitialState();
+      }
+    });
+
+    setInterval(() => {
+      if (!document.hidden && window.wishlistManager && !window.wishlistManager.isLoading) {
+        window.wishlistManager.loadInitialState();
+      }
+    }, 30000);
   </script>
 </body>
 </html>

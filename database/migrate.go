@@ -1,12 +1,21 @@
 package database
 
 import (
+	"log"
+
 	"github.com/Sojil8/eCommerce-silver/models/adminModels"
 	"github.com/Sojil8/eCommerce-silver/models/userModels"
+	"github.com/Sojil8/eCommerce-silver/pkg"
 )
 
 func MigrageHandler() {
-	DB.AutoMigrate(
+
+	if DB == nil{
+		log.Fatal("db nil")
+	}
+
+
+	err := DB.AutoMigrate(
 		&userModels.Users{},
 		&adminModels.Admin{},
 		&adminModels.Category{},
@@ -30,4 +39,9 @@ func MigrageHandler() {
 		&userModels.OrderBackUp{},
 		&userModels.Refral{},
 	)
+
+	if err != nil{
+		log.Fatal(err," migrate error ",err)
+	}
+	pkg.Log.Info("migration started")
 }

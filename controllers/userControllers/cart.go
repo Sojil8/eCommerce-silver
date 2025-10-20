@@ -178,7 +178,7 @@ type RequestCartItem struct {
 type CartInput struct {
 	WishlistID *uint `json:"wishlist_id"`
 	ProductID  *uint `json:"product_id"`
-	VariantID  uint  `json:"variant_id"`
+	VariantID  *uint `json:"variant_id"`
 	Quantity   uint  `json:"quantity"`
 }
 
@@ -193,6 +193,9 @@ func AddToCart(c *gin.Context) {
 		})
 		return
 	}
+
+	// Debug logging
+	log.Printf("AddToCart request: %+v", req)
 
 	err := database.DB.Transaction(func(tx *gorm.DB) error {
 		var productID uint
@@ -216,44 +219,79 @@ func AddToCart(c *gin.Context) {
 			return gin.Error{Meta: gin.H{"error": "Either product_id or wishlist_id is required"}}
 		}
 
+		// Load product with variants
 		var product adminModels.Product
-		if err := tx.Preload("Variants").Preload("Offers").First(&product, productID).Error; err != nil {
+		if err := tx.Preload("Variants", "deleted_at IS NULL").Preload("Offers").First(&product, productID).Error; err != nil {
+			log.Printf("Product not found: %v", err)
 			return gin.Error{Err: err, Meta: gin.H{"error": "Product not found"}}
 		}
 
+		log.Printf("Product loaded: ID=%d, Name=%s, VariantsCount=%d", product.ID, product.ProductName, len(product.Variants))
+
+		// Check category
 		var category adminModels.Category
 		if err := tx.Where("category_name = ?", product.CategoryName).First(&category).Error; err != nil || !category.Status {
 			return gin.Error{Err: err, Meta: gin.H{"error": "Product category is not available"}}
 		}
 
+		// Check if product is listed
 		if !product.IsListed {
 			return gin.Error{Meta: gin.H{"error": "Product is not available"}}
 		}
 
+		// Handle variant selection
 		var variant adminModels.Variants
-		if err := tx.Where("deleted_at IS NULL").First(&variant, req.VariantID).Error; err != nil || productID != variant.ProductID {
-			return gin.Error{Err: err, Meta: gin.H{"error": "Invalid or missing variant"}}
+		
+		if req.VariantID == nil || *req.VariantID == 0 {
+			// No variant specified, use first available variant
+			if len(product.Variants) == 0 {
+				// If no variants loaded via Preload, try to find any variants
+				var variants []adminModels.Variants
+				if err := tx.Where("product_id = ? AND deleted_at IS NULL", productID).Find(&variants).Error; err != nil {
+					log.Printf("Error finding variants: %v", err)
+					return gin.Error{Meta: gin.H{"error": "No variants available for this product"}}
+				}
+				if len(variants) == 0 {
+					return gin.Error{Meta: gin.H{"error": "No variants available for this product"}}
+				}
+				variant = variants[0]
+				log.Printf("Selected first variant from direct query: ID=%d", variant.ID)
+			} else {
+				variant = product.Variants[0]
+				log.Printf("Selected first variant from preload: ID=%d", variant.ID)
+			}
+		} else {
+			// Specific variant requested
+			if err := tx.Where("id = ? AND product_id = ? AND deleted_at IS NULL", *req.VariantID, productID).First(&variant).Error; err != nil {
+				log.Printf("Invalid variant: %v", err)
+				return gin.Error{Err: err, Meta: gin.H{"error": "Invalid or missing variant"}}
+			}
+			log.Printf("Selected specified variant: ID=%d", variant.ID)
 		}
 
+		// Check stock
 		if variant.Stock < req.Quantity {
-			return gin.Error{Meta: gin.H{"error": "Maximum quantity exceeded"}}
+			return gin.Error{Meta: gin.H{"error": "Not enough stock available"}}
 		}
 
 		if req.Quantity > MAX_QUANTITY_PER_PRODUCT {
 			return gin.Error{Meta: gin.H{"error": "Quantity exceeds maximum limit"}}
 		}
 
+		// Get or create cart
 		var cart userModels.Cart
 		if err := tx.Where("user_id = ?", userID).Preload("CartItems").
 			FirstOrCreate(&cart, userModels.Cart{UserID: userID.(uint)}).Error; err != nil {
 			return err
 		}
 
+		// Calculate pricing
 		variantExtraPrice := variant.ExtraPrice
 		offer := helper.GetBestOfferForProduct(&product, variantExtraPrice)
 
+		// Check if item already exists in cart
 		for i, item := range cart.CartItems {
-			if item.ProductID == productID && item.VariantsID == req.VariantID {
+			if item.ProductID == productID && item.VariantsID == variant.ID {
 				newQnty := item.Quantity + req.Quantity
 				if newQnty > MAX_QUANTITY_PER_PRODUCT || newQnty > variant.Stock {
 					return gin.Error{Meta: gin.H{"error": "Quantity limit exceeded"}}
@@ -262,10 +300,11 @@ func AddToCart(c *gin.Context) {
 				cart.CartItems[i].Quantity = newQnty
 				cart.CartItems[i].Price = product.Price + variantExtraPrice
 				cart.CartItems[i].DiscountedPrice = offer.DiscountedPrice
-				cart.CartItems[i].RegularPrice = product.Price
+				cart.CartItems[i].RegularPrice = product.Price + variantExtraPrice
 				cart.CartItems[i].OfferDiscountPercentage = offer.DiscountPercentage
 				cart.CartItems[i].OfferName = offer.OfferName
 				cart.CartItems[i].IsOfferApplied = offer.IsOfferApplied
+				cart.CartItems[i].SalePrice = offer.DiscountedPrice * float64(newQnty)
 
 				if err := tx.Save(&cart.CartItems[i]).Error; err != nil {
 					return err
@@ -274,21 +313,23 @@ func AddToCart(c *gin.Context) {
 			}
 		}
 
+		// Create new cart item
 		item := userModels.CartItem{
 			CartID:                  cart.ID,
 			ProductID:               productID,
-			VariantsID:              req.VariantID,
+			VariantsID:              variant.ID,
 			Quantity:                req.Quantity,
-			Price:                   product.Price,
+			Price:                   product.Price + variantExtraPrice,
 			DiscountedPrice:         offer.DiscountedPrice,
 			RegularPrice:            product.Price + variantExtraPrice,
 			OfferDiscountPercentage: offer.DiscountPercentage,
 			OfferName:               offer.OfferName,
 			IsOfferApplied:          offer.IsOfferApplied,
-			SalePrice:               (offer.DiscountedPrice) * float64(req.Quantity),
+			SalePrice:               offer.DiscountedPrice * float64(req.Quantity),
 		}
 
 		if err := tx.Create(&item).Error; err != nil {
+			log.Printf("Error creating cart item: %v", err)
 			return err
 		}
 
@@ -300,6 +341,7 @@ func AddToCart(c *gin.Context) {
 	})
 
 	if err != nil {
+		log.Printf("AddToCart transaction error: %v", err)
 		if ginErr, ok := err.(gin.Error); ok && ginErr.Meta != nil {
 			c.JSON(http.StatusBadRequest, ginErr.Meta)
 		} else {
@@ -313,7 +355,12 @@ func AddToCart(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch updated cart"})
 		return
 	}
-	c.JSON(http.StatusOK, cart)
+	
+	log.Printf("Successfully added to cart for user %v", userID)
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Product added to cart successfully",
+		"cart": cart,
+	})
 }
 
 func UpdateQuantity(c *gin.Context) {
@@ -481,4 +528,3 @@ func updateCartTotal(cart *userModels.Cart, tx *gorm.DB) error {
 	cart.TotalPrice = total
 	return tx.Save(cart).Error
 }
-
