@@ -575,7 +575,7 @@ func CancelOrderItem(c *gin.Context) {
 					WalletID:      wallet.ID,
 					Amount:        couponLoss,
 					LastBalance:   currentBalance,
-					Description:   fmt.Sprintf("Coupon loss deduction for cancelled item %d in order %s", cancelItem.Product.ProductName, order.OrderIdUnique),
+					Description:   fmt.Sprintf("Coupon loss deduction for cancelled item %v in order %s", cancelItem.Product.ProductName, order.OrderIdUnique),
 					Type:          "Debited",
 					Receipt:       "rcpt-" + uuid.New().String(),
 					OrderID:       order.OrderIdUnique,

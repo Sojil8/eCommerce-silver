@@ -160,9 +160,9 @@ func RemoveWishList(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Product removed from wishlist"})
 }
 
-type AddProductsToCart struct {
-	productID adminModels.Product
-}
+// type AddProductsToCart struct {
+// 	productID adminModels.Product
+// }
 
 func AddAllToCartFromWishlist(c *gin.Context) {
 	userID, exist := c.Get("id")
