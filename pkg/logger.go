@@ -12,3 +12,5 @@ func LoggerInit(){
 	}
 	defer Log.Sync()
 }	
+
+
