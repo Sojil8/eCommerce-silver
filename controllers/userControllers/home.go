@@ -1,17 +1,20 @@
 package controllers
 
 import (
-	"log"
 	"net/http"
 
 	"github.com/Sojil8/eCommerce-silver/database"
 	"github.com/Sojil8/eCommerce-silver/models/adminModels"
 	"github.com/Sojil8/eCommerce-silver/models/userModels"
+	"github.com/Sojil8/eCommerce-silver/pkg"
 	"github.com/Sojil8/eCommerce-silver/utils/helper"
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
 
 func GetUserProducts(c *gin.Context) {
+	pkg.Log.Info("Starting product retrieval process")
+
 	// Fetch all listed products with their categories and variants
 	db := database.DB.Model(&adminModels.Product{}).
 		Joins("JOIN categories ON categories.category_name = products.category_name").
@@ -20,12 +23,14 @@ func GetUserProducts(c *gin.Context) {
 
 	var products []adminModels.Product
 	if err := db.Find(&products).Error; err != nil {
+		pkg.Log.Error("Failed to fetch products",
+			zap.Error(err))
 		helper.ResponseWithErr(c, http.StatusInternalServerError, "error: failed to fetch products", "error: failed to fetch products", "")
 		return
 	}
 
-	if products == nil {
-		log.Println("products are not retrieving")
+	if len(products) == 0 {
+		pkg.Log.Warn("No products retrieved")
 	}
 
 	// Fetch 5 most recent products for New Arrivals
@@ -37,7 +42,8 @@ func GetUserProducts(c *gin.Context) {
 		Order("products.created_at DESC").
 		Limit(5).
 		Find(&newArrivals).Error; err != nil {
-		log.Println("error: failed to fetch new arrivals", err)
+		pkg.Log.Warn("Failed to fetch new arrivals",
+			zap.Error(err))
 		// Continue even if new arrivals fail, to avoid breaking the page
 		newArrivals = []adminModels.Product{}
 	}
@@ -72,6 +78,9 @@ func GetUserProducts(c *gin.Context) {
 		})
 	}
 
+	pkg.Log.Debug("Processed products",
+		zap.Int("product_count", len(productWithOffers)))
+
 	// Process new arrivals
 	var newArrivalsWithOffers []ProductWithOffer
 	for _, product := range newArrivals {
@@ -92,18 +101,24 @@ func GetUserProducts(c *gin.Context) {
 		})
 	}
 
+	pkg.Log.Debug("Processed new arrivals",
+		zap.Int("new_arrival_count", len(newArrivalsWithOffers)))
+
 	// Retrieve user data
 	user, exists := c.Get("user")
 	userName, nameExists := c.Get("user_name")
 	if !exists || !nameExists {
+		pkg.Log.Info("Rendering home page for guest user",
+			zap.Int("product_count", len(productWithOffers)),
+			zap.Int("new_arrival_count", len(newArrivalsWithOffers)))
 		c.HTML(http.StatusOK, "home.html", gin.H{
-			"status":            "success",
-			"Products":          productWithOffers,
-			"NewArrivals":       newArrivalsWithOffers, // Add new arrivals to template
-			"UserName":          "Guest",
-			"WishlistCount":     0,
-			"CartCount":         0,
-			"ProfileImage":      "",
+			"status":        "success",
+			"Products":      productWithOffers,
+			"NewArrivals":   newArrivalsWithOffers,
+			"UserName":      "Guest",
+			"WishlistCount": 0,
+			"CartCount":     0,
+			"ProfileImage":  "",
 		})
 		return
 	}
@@ -113,19 +128,33 @@ func GetUserProducts(c *gin.Context) {
 
 	var wishlistCount, cartCount int64
 	if err := database.DB.Model(&userModels.Wishlist{}).Where("user_id = ?", userData.ID).Count(&wishlistCount).Error; err != nil {
+		pkg.Log.Warn("Failed to fetch wishlist count",
+			zap.Uint("user_id", userData.ID),
+			zap.Error(err))
 		wishlistCount = 0
 	}
 	if err := database.DB.Model(&userModels.CartItem{}).Joins("JOIN carts ON carts.id = cart_items.cart_id").Where("carts.user_id = ?", userData.ID).Count(&cartCount).Error; err != nil {
+		pkg.Log.Warn("Failed to fetch cart count",
+			zap.Uint("user_id", userData.ID),
+			zap.Error(err))
 		cartCount = 0
 	}
 
+	pkg.Log.Info("Rendering home page for authenticated user",
+		zap.Uint("user_id", userData.ID),
+		zap.String("user_name", userNameStr),
+		zap.Int("product_count", len(productWithOffers)),
+		zap.Int("new_arrival_count", len(newArrivalsWithOffers)),
+		zap.Int64("wishlist_count", wishlistCount),
+		zap.Int64("cart_count", cartCount))
+
 	c.HTML(http.StatusOK, "home.html", gin.H{
-		"status":            "success",
-		"Products":          productWithOffers,
-		"NewArrivals":       newArrivalsWithOffers, // Add new arrivals to template
-		"UserName":          userNameStr,
-		"ProfileImage":      userData.ProfileImage,
-		"WishlistCount":     wishlistCount,
-		"CartCount":         cartCount,
+		"status":        "success",
+		"Products":      productWithOffers,
+		"NewArrivals":   newArrivalsWithOffers,
+		"UserName":      userNameStr,
+		"ProfileImage":  userData.ProfileImage,
+		"WishlistCount": wishlistCount,
+		"CartCount":     cartCount,
 	})
 }

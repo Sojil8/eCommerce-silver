@@ -1,15 +1,14 @@
 package config
 
 import (
-	"fmt"
-	"log"
-
+	"github.com/Sojil8/eCommerce-silver/pkg"
 	"github.com/joho/godotenv"
+	"go.uber.org/zap"
 )
 
 func LoadEnv() {
 	if err := godotenv.Load(".env"); err != nil {
-		log.Fatalf("Error loading .env file: %v", err)
+		pkg.Log.Fatal("Error loading .env file", zap.Error(err))
 	}
-	fmt.Println("----------------------Env file loaded--------------------------")
+	pkg.Log.Info("Environment file loaded successfully")
 }

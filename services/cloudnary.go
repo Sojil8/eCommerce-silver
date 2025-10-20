@@ -1,13 +1,18 @@
 package services
 
 import (
-	"log"
-
+	"github.com/Sojil8/eCommerce-silver/pkg"
 	"github.com/Sojil8/eCommerce-silver/utils/helper"
+	"go.uber.org/zap"
 )
 
-func Cloudnary() {
+func Cloudinary() {
+	pkg.Log.Info("Starting Cloudinary initialization")
+
 	if err := helper.InitCloudinary(); err != nil {
-		log.Fatal(err)
+		pkg.Log.Fatal("Failed to initialize Cloudinary",
+			zap.Error(err))
 	}
+
+	pkg.Log.Info("Cloudinary initialized successfully")
 }

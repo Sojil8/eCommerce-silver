@@ -2,25 +2,48 @@ package storage
 
 import (
 	"context"
-	"log"
+	"os"
 
+	"github.com/Sojil8/eCommerce-silver/pkg"
 	"github.com/redis/go-redis/v9"
+	"go.uber.org/zap"
 )
 
 var RedisClient *redis.Client
 var Ctx = context.Background()
 
 func InitRedis() {
+	pkg.Log.Debug("Initializing Redis client")
+
+	addr := os.Getenv("REDIS_ADDR")
+	if addr == "" {
+		addr = "localhost:6379"
+		pkg.Log.Warn("REDIS_ADDR not set, using default",
+			zap.String("addr", addr))
+	}
+
+	password := os.Getenv("REDIS_PASSWORD")
+	db := 0
+	protocol := 2
+
 	RedisClient = redis.NewClient(&redis.Options{
-		Addr:     "localhost:6379",
-		Password: "your-redis-password",
-		DB:       0,
-		Protocol: 2, 
+		Addr:     addr,
+		Password: password,
+		DB:       db,
+		Protocol: protocol,
 	})
 
-	ctx := context.Background()
-	_, err := RedisClient.Ping(ctx).Result()
+	_, err := RedisClient.Ping(Ctx).Result()
 	if err != nil {
-		log.Fatal("Failed to connect to Redis")
+		pkg.Log.Fatal("Failed to connect to Redis",
+			zap.String("addr", addr),
+			zap.Int("db", db),
+			zap.Int("protocol", protocol),
+			zap.Error(err))
 	}
+
+	pkg.Log.Info("Redis client initialized successfully",
+		zap.String("addr", addr),
+		zap.Int("db", db),
+		zap.Int("protocol", protocol))
 }

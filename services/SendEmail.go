@@ -5,11 +5,19 @@ import (
 	"os"
 	"time"
 
+	"github.com/Sojil8/eCommerce-silver/pkg"
+	"go.uber.org/zap"
 	"gopkg.in/gomail.v2"
 )
 
 func SendOTP(email, otp string) error {
+	pkg.Log.Debug("Preparing to send OTP email",
+		zap.String("email", email))
+
 	if email == "" || otp == "" {
+		pkg.Log.Error("Invalid input for sending OTP email",
+			zap.String("email", email),
+			zap.String("otp", otp))
 		return fmt.Errorf("email and OTP cannot be empty")
 	}
 
@@ -17,7 +25,6 @@ func SendOTP(email, otp string) error {
 	m.SetHeader("From", fmt.Sprintf("No Reply <%s>", os.Getenv("EMAIL_USER")))
 	m.SetHeader("To", email)
 	m.SetHeader("Subject", "🎉 Welcome! Complete Your Signup")
-
 	m.SetHeader("Message-ID", fmt.Sprintf("<%d@yourdomain.com>", time.Now().Unix()))
 
 	htmlBody := getSignupHTMLTemplate(otp)
@@ -27,11 +34,22 @@ func SendOTP(email, otp string) error {
 	m.AddAlternative("text/html", htmlBody)
 
 	d := gomail.NewDialer("smtp.gmail.com", 587, os.Getenv("EMAIL_USER"), os.Getenv("EMAIL_PASS"))
+	if d.Username == "" || d.Password == "" {
+		pkg.Log.Error("Missing SMTP credentials for sending OTP email",
+			zap.String("email", email),
+			zap.String("smtpUser", d.Username))
+		return fmt.Errorf("missing SMTP credentials")
+	}
 
 	if err := d.DialAndSend(m); err != nil {
+		pkg.Log.Error("Failed to send OTP email",
+			zap.String("email", email),
+			zap.Error(err))
 		return fmt.Errorf("failed to send signup OTP email to %s: %w", email, err)
 	}
 
+	pkg.Log.Info("OTP email sent successfully",
+		zap.String("email", email))
 	return nil
 }
 
@@ -143,7 +161,7 @@ func getSignupHTMLTemplate(otp string) string {
         </div>
         
         <div class="welcome-banner">
-            <h1>Welcome to SILVER Ecom	 🎉</h1>
+            <h1>Welcome to SILVER Ecom 🎉</h1>
             <p>You're just one step away from getting started</p>
         </div>
         
@@ -189,7 +207,7 @@ func getSignupHTMLTemplate(otp string) string {
 
 func getSignupPlainTextTemplate(otp string) string {
 	return fmt.Sprintf(`
-🎉 WELCOME TO YOUR APP! 🎉
+🎉 WELCOME TO SILVER Ecom! 🎉
 
 Hello and welcome!
 

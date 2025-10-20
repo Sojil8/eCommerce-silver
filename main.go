@@ -16,17 +16,17 @@ var router *gin.Engine
 
 func init() {
 	router = gin.Default()
+	pkg.LoggerInit()
 	router.Static("/static", "./static")
 	router.SetFuncMap(config.SetupTemplateFunctions())
 	router.LoadHTMLGlob("templates/**/*")
 	config.LoadEnv()
 	database.ConnectDb()
-	services.Cloudnary()
+	services.Cloudinary()
 	services.InitRazorPay()
 	services.InitGoogleOAuth()
 	middleware.SecretKeyCheck()
 	storage.InitRedis()
-	pkg.LoggerInit()
 	helper.StartCouponExpiryScheduler()
 
 }

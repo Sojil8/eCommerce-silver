@@ -9,22 +9,23 @@ import (
 	"github.com/Sojil8/eCommerce-silver/database"
 	"github.com/Sojil8/eCommerce-silver/models/adminModels"
 	"github.com/Sojil8/eCommerce-silver/models/userModels"
+	"github.com/Sojil8/eCommerce-silver/pkg"
 	"github.com/Sojil8/eCommerce-silver/utils/helper"
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
 type DashboardData struct {
-	TotalUsers      int64   `json:"total_users"`
-	TotalOrders     int64   `json:"total_orders"`
-	TotalRevenue    float64 `json:"total_revenue"`
-	TotalProducts   int64   `json:"total_products"`
-	ActiveCoupons   int64   `json:"active_coupons"`
-	PendingOrders   int64   `json:"pending_orders"`
-	CompletedOrders int64   `json:"completed_orders"`
-	CancelledOrders int64   `json:"cancelled_orders"`
-	// Remove AvgOrderValue and replace with:
-	TotalDiscount    float64                 `json:"total_discount"` // New field for overall discount
+	TotalUsers       int64                   `json:"total_users"`
+	TotalOrders      int64                   `json:"total_orders"`
+	TotalRevenue     float64                 `json:"total_revenue"`
+	TotalProducts    int64                   `json:"total_products"`
+	ActiveCoupons    int64                   `json:"active_coupons"`
+	PendingOrders    int64                   `json:"pending_orders"`
+	CompletedOrders  int64                   `json:"completed_orders"`
+	CancelledOrders  int64                   `json:"cancelled_orders"`
+	TotalDiscount    float64                 `json:"total_discount"`
 	TopProducts      []TopProduct            `json:"top_products"`
 	TopBrands        []TopBrand              `json:"top_brands"`
 	TopCategories    []TopCategory           `json:"top_categories"`
@@ -96,9 +97,12 @@ type SalesReportData struct {
 }
 
 func ShowDashboard(c *gin.Context) {
+	pkg.Log.Info("Handling request to show dashboard")
+
 	filter := c.DefaultQuery("filter", "weekly")
 	startDateStr := c.Query("start_date")
 	endDateStr := c.Query("end_date")
+	pkg.Log.Debug("Dashboard parameters", zap.String("filter", filter), zap.String("start_date", startDateStr), zap.String("end_date", endDateStr))
 
 	var dashboardData DashboardData
 	db := database.GetDB()
@@ -109,10 +113,18 @@ func ShowDashboard(c *gin.Context) {
 		var err1, err2 error
 		startDate, err1 = time.Parse("2006-01-02", startDateStr)
 		endDate, err2 = time.Parse("2006-01-02", endDateStr)
-		if err1 == nil && err2 == nil {
-			useCustomRange = true
-			endDate = endDate.AddDate(0, 0, 1)
+		if err1 != nil || err2 != nil {
+			pkg.Log.Error("Failed to parse custom date range",
+				zap.String("start_date", startDateStr),
+				zap.String("end_date", endDateStr),
+				zap.Error(err1),
+				zap.Error(err2))
+			helper.ResponseWithErr(c, http.StatusBadRequest, "Invalid date format", "Start and end dates must be in YYYY-MM-DD format", "")
+			return
 		}
+		useCustomRange = true
+		endDate = endDate.AddDate(0, 0, 1)
+		pkg.Log.Debug("Using custom date range", zap.Time("start_date", startDate), zap.Time("end_date", endDate))
 	} else {
 		useCustomRange = true
 		now := time.Now()
@@ -129,49 +141,71 @@ func ShowDashboard(c *gin.Context) {
 		default:
 			useCustomRange = false
 		}
+		pkg.Log.Debug("Using default date range for filter", zap.String("filter", filter), zap.Time("start_date", startDate), zap.Time("end_date", endDate))
 	}
 
 	query := db.Model(&userModels.Users{})
 	if useCustomRange {
 		query = query.Where("created_at >= ? AND created_at < ?", startDate, endDate)
 	}
-	query.Count(&dashboardData.TotalUsers)
+	if err := query.Count(&dashboardData.TotalUsers).Error; err != nil {
+		pkg.Log.Error("Failed to count total users", zap.Error(err))
+	}
+	pkg.Log.Debug("Total users counted", zap.Int64("total_users", dashboardData.TotalUsers))
 
 	query = db.Model(&userModels.Orders{})
 	if useCustomRange {
 		query = query.Where("created_at >= ? AND created_at < ?", startDate, endDate)
 	}
-	query.Count(&dashboardData.TotalOrders)
+	if err := query.Count(&dashboardData.TotalOrders).Error; err != nil {
+		pkg.Log.Error("Failed to count total orders", zap.Error(err))
+	}
+	pkg.Log.Debug("Total orders counted", zap.Int64("total_orders", dashboardData.TotalOrders))
 
 	query = db.Model(&adminModels.Product{})
 	if useCustomRange {
 		query = query.Where("created_at >= ? AND created_at < ?", startDate, endDate)
 	}
-	query.Count(&dashboardData.TotalProducts)
+	if err := query.Count(&dashboardData.TotalProducts).Error; err != nil {
+		pkg.Log.Error("Failed to count total products", zap.Error(err))
+	}
+	pkg.Log.Debug("Total products counted", zap.Int64("total_products", dashboardData.TotalProducts))
 
 	query = db.Model(&adminModels.Coupons{}).Where("is_active = ?", true)
 	if useCustomRange {
 		query = query.Where("created_at >= ? AND created_at < ?", startDate, endDate)
 	}
-	query.Count(&dashboardData.ActiveCoupons)
+	if err := query.Count(&dashboardData.ActiveCoupons).Error; err != nil {
+		pkg.Log.Error("Failed to count active coupons", zap.Error(err))
+	}
+	pkg.Log.Debug("Active coupons counted", zap.Int64("active_coupons", dashboardData.ActiveCoupons))
 
 	query = db.Model(&userModels.Orders{}).Where("status IN ?", []string{"Pending", "Confirmed", "Shipped", "Out for Delivery"})
 	if useCustomRange {
 		query = query.Where("created_at >= ? AND created_at < ?", startDate, endDate)
 	}
-	query.Count(&dashboardData.PendingOrders)
+	if err := query.Count(&dashboardData.PendingOrders).Error; err != nil {
+		pkg.Log.Error("Failed to count pending orders", zap.Error(err))
+	}
+	pkg.Log.Debug("Pending orders counted", zap.Int64("pending_orders", dashboardData.PendingOrders))
 
 	query = db.Model(&userModels.Orders{}).Where("status = ?", "Delivered")
 	if useCustomRange {
 		query = query.Where("created_at >= ? AND created_at < ?", startDate, endDate)
 	}
-	query.Count(&dashboardData.CompletedOrders)
+	if err := query.Count(&dashboardData.CompletedOrders).Error; err != nil {
+		pkg.Log.Error("Failed to count completed orders", zap.Error(err))
+	}
+	pkg.Log.Debug("Completed orders counted", zap.Int64("completed_orders", dashboardData.CompletedOrders))
 
 	query = db.Model(&userModels.Orders{}).Where("status IN ?", []string{"Return Rejected", "Cancelled", "Returned"})
 	if useCustomRange {
 		query = query.Where("created_at >= ? AND created_at < ?", startDate, endDate)
 	}
-	query.Count(&dashboardData.CancelledOrders)
+	if err := query.Count(&dashboardData.CancelledOrders).Error; err != nil {
+		pkg.Log.Error("Failed to count cancelled orders", zap.Error(err))
+	}
+	pkg.Log.Debug("Cancelled orders counted", zap.Int64("cancelled_orders", dashboardData.CancelledOrders))
 
 	var revenue struct {
 		Total float64
@@ -183,10 +217,14 @@ func ShowDashboard(c *gin.Context) {
 	if useCustomRange {
 		query = query.Where("created_at >= ? AND created_at < ?", startDate, endDate)
 	}
-	query.Select("COALESCE(SUM(total_price), 0.0) as total").Scan(&revenue)
+	if err := query.Select("COALESCE(SUM(total_price), 0.0) as total").Scan(&revenue).Error; err != nil {
+		pkg.Log.Error("Failed to calculate total revenue", zap.Error(err))
+	}
 	dashboardData.TotalRevenue = revenue.Total
+	pkg.Log.Debug("Total revenue calculated", zap.Float64("total_revenue", dashboardData.TotalRevenue))
 
 	dashboardData.TotalDiscount = calculateTotalDiscount(db, useCustomRange, startDate, endDate)
+	pkg.Log.Debug("Total discount calculated", zap.Float64("total_discount", dashboardData.TotalDiscount))
 
 	getTopProducts(db, &dashboardData, useCustomRange, startDate, endDate)
 	getTopBrands(db, &dashboardData, useCustomRange, startDate, endDate)
@@ -198,15 +236,44 @@ func ShowDashboard(c *gin.Context) {
 	getCouponUsage(db, &dashboardData, useCustomRange, startDate, endDate)
 	getMonthlyRevenue(db, &dashboardData, useCustomRange, startDate, endDate)
 
-	topProductsJSON, _ := json.Marshal(dashboardData.TopProducts)
-	topCategoriesJSON, _ := json.Marshal(dashboardData.TopCategories)
-	recentOrdersJSON, _ := json.Marshal(dashboardData.RecentOrders)
-	salesDataJSON, _ := json.Marshal(dashboardData.SalesData)
-	userActivityDataJSON, _ := json.Marshal(dashboardData.UserActivityData)
-	inventoryStatusJSON, _ := json.Marshal(dashboardData.InventoryStatus)
-	couponUsageJSON, _ := json.Marshal(dashboardData.CouponUsage)
-	monthlyRevenueJSON, _ := json.Marshal(dashboardData.MonthlyRevenue)
+	topProductsJSON, err := json.Marshal(dashboardData.TopProducts)
+	if err != nil {
+		pkg.Log.Error("Failed to marshal top products", zap.Error(err))
+	}
+	topCategoriesJSON, err := json.Marshal(dashboardData.TopCategories)
+	if err != nil {
+		pkg.Log.Error("Failed to marshal top categories", zap.Error(err))
+	}
+	recentOrdersJSON, err := json.Marshal(dashboardData.RecentOrders)
+	if err != nil {
+		pkg.Log.Error("Failed to marshal recent orders", zap.Error(err))
+	}
+	salesDataJSON, err := json.Marshal(dashboardData.SalesData)
+	if err != nil {
+		pkg.Log.Error("Failed to marshal sales data", zap.Error(err))
+	}
+	userActivityDataJSON, err := json.Marshal(dashboardData.UserActivityData)
+	if err != nil {
+		pkg.Log.Error("Failed to marshal user activity data", zap.Error(err))
+	}
+	inventoryStatusJSON, err := json.Marshal(dashboardData.InventoryStatus)
+	if err != nil {
+		pkg.Log.Error("Failed to marshal inventory status", zap.Error(err))
+	}
+	couponUsageJSON, err := json.Marshal(dashboardData.CouponUsage)
+	if err != nil {
+		pkg.Log.Error("Failed to marshal coupon usage", zap.Error(err))
+	}
+	monthlyRevenueJSON, err := json.Marshal(dashboardData.MonthlyRevenue)
+	if err != nil {
+		pkg.Log.Error("Failed to marshal monthly revenue", zap.Error(err))
+	}
 
+	pkg.Log.Info("Rendering dashboard.html",
+		zap.Int64("total_users", dashboardData.TotalUsers),
+		zap.Int64("total_orders", dashboardData.TotalOrders),
+		zap.Float64("total_revenue", dashboardData.TotalRevenue),
+		zap.Int("top_products_count", len(dashboardData.TopProducts)))
 	c.HTML(http.StatusOK, "dashboard.html", gin.H{
 		"title":                "Admin Dashboard",
 		"TotalUsers":           dashboardData.TotalUsers,
@@ -233,9 +300,12 @@ func ShowDashboard(c *gin.Context) {
 }
 
 func GetDashboardData(c *gin.Context) {
+	pkg.Log.Info("Handling request to get dashboard data")
+
 	filter := c.DefaultQuery("filter", "weekly")
 	startDateStr := c.Query("start_date")
 	endDateStr := c.Query("end_date")
+	pkg.Log.Debug("Dashboard data parameters", zap.String("filter", filter), zap.String("start_date", startDateStr), zap.String("end_date", endDateStr))
 
 	var dashboardData DashboardData
 	db := database.GetDB()
@@ -246,12 +316,19 @@ func GetDashboardData(c *gin.Context) {
 		var err1, err2 error
 		startDate, err1 = time.Parse("2006-01-02", startDateStr)
 		endDate, err2 = time.Parse("2006-01-02", endDateStr)
-		if err1 == nil && err2 == nil {
-			useCustomRange = true
-			endDate = endDate.AddDate(0, 0, 1)
+		if err1 != nil || err2 != nil {
+			pkg.Log.Error("Failed to parse custom date range",
+				zap.String("start_date", startDateStr),
+				zap.String("end_date", endDateStr),
+				zap.Error(err1),
+				zap.Error(err2))
+			helper.ResponseWithErr(c, http.StatusBadRequest, "Invalid date format", "Start and end dates must be in YYYY-MM-DD format", "")
+			return
 		}
+		useCustomRange = true
+		endDate = endDate.AddDate(0, 0, 1)
+		pkg.Log.Debug("Using custom date range", zap.Time("start_date", startDate), zap.Time("end_date", endDate))
 	} else {
-		// Added: Same default range logic as ShowDashboard
 		useCustomRange = true
 		now := time.Now()
 		endDate = now.AddDate(0, 0, 1)
@@ -267,49 +344,71 @@ func GetDashboardData(c *gin.Context) {
 		default:
 			useCustomRange = false
 		}
+		pkg.Log.Debug("Using default date range for filter", zap.String("filter", filter), zap.Time("start_date", startDate), zap.Time("end_date", endDate))
 	}
 
 	query := db.Model(&userModels.Users{})
 	if useCustomRange {
 		query = query.Where("created_at >= ? AND created_at < ?", startDate, endDate)
 	}
-	query.Count(&dashboardData.TotalUsers)
+	if err := query.Count(&dashboardData.TotalUsers).Error; err != nil {
+		pkg.Log.Error("Failed to count total users", zap.Error(err))
+	}
+	pkg.Log.Debug("Total users counted", zap.Int64("total_users", dashboardData.TotalUsers))
 
 	query = db.Model(&userModels.Orders{})
 	if useCustomRange {
 		query = query.Where("created_at >= ? AND created_at < ?", startDate, endDate)
 	}
-	query.Count(&dashboardData.TotalOrders)
+	if err := query.Count(&dashboardData.TotalOrders).Error; err != nil {
+		pkg.Log.Error("Failed to count total orders", zap.Error(err))
+	}
+	pkg.Log.Debug("Total orders counted", zap.Int64("total_orders", dashboardData.TotalOrders))
 
 	query = db.Model(&adminModels.Product{})
 	if useCustomRange {
 		query = query.Where("created_at >= ? AND created_at < ?", startDate, endDate)
 	}
-	query.Count(&dashboardData.TotalProducts)
+	if err := query.Count(&dashboardData.TotalProducts).Error; err != nil {
+		pkg.Log.Error("Failed to count total products", zap.Error(err))
+	}
+	pkg.Log.Debug("Total products counted", zap.Int64("total_products", dashboardData.TotalProducts))
 
 	query = db.Model(&adminModels.Coupons{}).Where("is_active = ?", true)
 	if useCustomRange {
 		query = query.Where("created_at >= ? AND created_at < ?", startDate, endDate)
 	}
-	query.Count(&dashboardData.ActiveCoupons)
+	if err := query.Count(&dashboardData.ActiveCoupons).Error; err != nil {
+		pkg.Log.Error("Failed to count active coupons", zap.Error(err))
+	}
+	pkg.Log.Debug("Active coupons counted", zap.Int64("active_coupons", dashboardData.ActiveCoupons))
 
 	query = db.Model(&userModels.Orders{}).Where("status IN ?", []string{"Pending", "Confirmed", "Shipped", "Out for Delivery"})
 	if useCustomRange {
 		query = query.Where("created_at >= ? AND created_at < ?", startDate, endDate)
 	}
-	query.Count(&dashboardData.PendingOrders)
+	if err := query.Count(&dashboardData.PendingOrders).Error; err != nil {
+		pkg.Log.Error("Failed to count pending orders", zap.Error(err))
+	}
+	pkg.Log.Debug("Pending orders counted", zap.Int64("pending_orders", dashboardData.PendingOrders))
 
 	query = db.Model(&userModels.Orders{}).Where("status = ?", "Delivered")
 	if useCustomRange {
 		query = query.Where("created_at >= ? AND created_at < ?", startDate, endDate)
 	}
-	query.Count(&dashboardData.CompletedOrders)
+	if err := query.Count(&dashboardData.CompletedOrders).Error; err != nil {
+		pkg.Log.Error("Failed to count completed orders", zap.Error(err))
+	}
+	pkg.Log.Debug("Completed orders counted", zap.Int64("completed_orders", dashboardData.CompletedOrders))
 
 	query = db.Model(&userModels.Orders{}).Where("status IN ?", []string{"Return Rejected", "Cancelled", "Returned"})
 	if useCustomRange {
 		query = query.Where("created_at >= ? AND created_at < ?", startDate, endDate)
 	}
-	query.Count(&dashboardData.CancelledOrders)
+	if err := query.Count(&dashboardData.CancelledOrders).Error; err != nil {
+		pkg.Log.Error("Failed to count cancelled orders", zap.Error(err))
+	}
+	pkg.Log.Debug("Cancelled orders counted", zap.Int64("cancelled_orders", dashboardData.CancelledOrders))
 
 	var revenue struct {
 		Total float64
@@ -321,9 +420,14 @@ func GetDashboardData(c *gin.Context) {
 	if useCustomRange {
 		query = query.Where("created_at >= ? AND created_at < ?", startDate, endDate)
 	}
-	query.Select("COALESCE(SUM(total_price), 0.0) as total").Scan(&revenue)
+	if err := query.Select("COALESCE(SUM(total_price), 0.0) as total").Scan(&revenue).Error; err != nil {
+		pkg.Log.Error("Failed to calculate total revenue", zap.Error(err))
+	}
 	dashboardData.TotalRevenue = revenue.Total
+	pkg.Log.Debug("Total revenue calculated", zap.Float64("total_revenue", dashboardData.TotalRevenue))
+
 	dashboardData.TotalDiscount = calculateTotalDiscount(db, useCustomRange, startDate, endDate)
+	pkg.Log.Debug("Total discount calculated", zap.Float64("total_discount", dashboardData.TotalDiscount))
 
 	getTopProducts(db, &dashboardData, useCustomRange, startDate, endDate)
 	getTopBrands(db, &dashboardData, useCustomRange, startDate, endDate)
@@ -335,6 +439,10 @@ func GetDashboardData(c *gin.Context) {
 	getCouponUsage(db, &dashboardData, useCustomRange, startDate, endDate)
 	getMonthlyRevenue(db, &dashboardData, useCustomRange, startDate, endDate)
 
+	pkg.Log.Info("Returning dashboard data",
+		zap.Int64("total_users", dashboardData.TotalUsers),
+		zap.Int64("total_orders", dashboardData.TotalOrders),
+		zap.Float64("total_revenue", dashboardData.TotalRevenue))
 	c.JSON(http.StatusOK, gin.H{
 		"status": "success",
 		"data":   dashboardData,
@@ -342,6 +450,7 @@ func GetDashboardData(c *gin.Context) {
 }
 
 func getTopProducts(db *gorm.DB, data *DashboardData, useCustomRange bool, startDate, endDate time.Time) {
+	pkg.Log.Debug("Fetching top products")
 	var topProducts []TopProduct
 	query := `
         SELECT 
@@ -363,87 +472,108 @@ func getTopProducts(db *gorm.DB, data *DashboardData, useCustomRange bool, start
 	if useCustomRange {
 		whereClause = "AND o.created_at >= ? AND o.created_at < ?"
 		query = fmt.Sprintf(query, whereClause)
-		db.Raw(query, startDate, endDate).Scan(&topProducts)
+		if err := db.Raw(query, startDate, endDate).Scan(&topProducts).Error; err != nil {
+			pkg.Log.Error("Failed to fetch top products", zap.Error(err))
+		}
 	} else {
 		query = fmt.Sprintf(query, "")
-		db.Raw(query).Scan(&topProducts)
+		if err := db.Raw(query).Scan(&topProducts).Error; err != nil {
+			pkg.Log.Error("Failed to fetch top products", zap.Error(err))
+		}
 	}
 	data.TopProducts = topProducts
+	pkg.Log.Debug("Top products retrieved", zap.Int("count", len(topProducts)))
 }
 
 func getTopBrands(db *gorm.DB, data *DashboardData, useCustomRange bool, startDate, endDate time.Time) {
+	pkg.Log.Debug("Fetching top brands")
 	var topBrands []TopBrand
 	query := `
-		SELECT 
-			COALESCE(NULLIF(p.brand, ''), 'Unknown Brand') AS brand_name,  -- Handle empty brands
-			COALESCE(SUM(oi.quantity), 0) as total_sold,
-			COALESCE(SUM(oi.item_total), 0) as revenue
-		FROM products p
-		LEFT JOIN order_items oi ON p.id = oi.product_id
-		LEFT JOIN orders o ON oi.order_id = o.id
-		WHERE (o.status NOT IN ('Cancelled', 'Returned', 'Return Rejected') OR o.status IS NULL)
-		AND p.brand IS NOT NULL AND p.brand != ''  -- Exclude empty brands
-		%s
-		GROUP BY p.brand
-		HAVING COALESCE(SUM(oi.quantity), 0) > 0  -- Only brands with sales
-		ORDER BY total_sold DESC
-		LIMIT 5
-	`
+        SELECT 
+            COALESCE(NULLIF(p.brand, ''), 'Unknown Brand') AS brand_name,
+            COALESCE(SUM(oi.quantity), 0) as total_sold,
+            COALESCE(SUM(oi.item_total), 0) as revenue
+        FROM products p
+        LEFT JOIN order_items oi ON p.id = oi.product_id
+        LEFT JOIN orders o ON oi.order_id = o.id
+        WHERE (o.status NOT IN ('Cancelled', 'Returned', 'Return Rejected') OR o.status IS NULL)
+        AND p.brand IS NOT NULL AND p.brand != ''
+        %s
+        GROUP BY p.brand
+        HAVING COALESCE(SUM(oi.quantity), 0) > 0
+        ORDER BY total_sold DESC
+        LIMIT 5
+    `
 	var whereClause string
 	if useCustomRange {
 		whereClause = "AND o.created_at >= ? AND o.created_at < ?"
 		query = fmt.Sprintf(query, whereClause)
-		db.Raw(query, startDate, endDate).Scan(&topBrands)
+		if err := db.Raw(query, startDate, endDate).Scan(&topBrands).Error; err != nil {
+			pkg.Log.Error("Failed to fetch top brands", zap.Error(err))
+		}
 	} else {
 		query = fmt.Sprintf(query, "")
-		db.Raw(query).Scan(&topBrands)
+		if err := db.Raw(query).Scan(&topBrands).Error; err != nil {
+			pkg.Log.Error("Failed to fetch top brands", zap.Error(err))
+		}
 	}
 	data.TopBrands = topBrands
 	if len(topBrands) == 0 {
-		// Fallback for no data
 		data.TopBrands = []TopBrand{{BrandName: "No Brands Sold", TotalSold: 0, Revenue: 0}}
 	}
+	pkg.Log.Debug("Top brands retrieved", zap.Int("count", len(topBrands)))
 }
 
 func getTopCategories(db *gorm.DB, data *DashboardData, useCustomRange bool, startDate, endDate time.Time) {
+	pkg.Log.Debug("Fetching top categories")
 	var topCategories []TopCategory
 	query := `
-		SELECT 
-			p.category_name,
-			COALESCE(SUM(oi.quantity), 0) as total_sold,
-			COALESCE(SUM(oi.item_total), 0) as revenue
-		FROM products p
-		LEFT JOIN order_items oi ON p.id = oi.product_id
-		LEFT JOIN orders o ON oi.order_id = o.id
-		WHERE (o.status NOT IN ('cancelled', 'refunded') OR o.status IS NULL)
-		%s
-		GROUP BY p.category_name
-		ORDER BY total_sold DESC
-		LIMIT 10
-	`
+        SELECT 
+            p.category_name,
+            COALESCE(SUM(oi.quantity), 0) as total_sold,
+            COALESCE(SUM(oi.item_total), 0) as revenue
+        FROM products p
+        LEFT JOIN order_items oi ON p.id = oi.product_id
+        LEFT JOIN orders o ON oi.order_id = o.id
+        WHERE (o.status NOT IN ('Cancelled', 'Returned', 'Return Rejected') OR o.status IS NULL)
+        %s
+        GROUP BY p.category_name
+        ORDER BY total_sold DESC
+        LIMIT 10
+    `
 	var whereClause string
 	if useCustomRange {
 		whereClause = "AND o.created_at >= ? AND o.created_at < ?"
 		query = fmt.Sprintf(query, whereClause)
-		db.Raw(query, startDate, endDate).Scan(&topCategories)
+		if err := db.Raw(query, startDate, endDate).Scan(&topCategories).Error; err != nil {
+			pkg.Log.Error("Failed to fetch top categories", zap.Error(err))
+		}
 	} else {
 		query = fmt.Sprintf(query, "")
-		db.Raw(query).Scan(&topCategories)
+		if err := db.Raw(query).Scan(&topCategories).Error; err != nil {
+			pkg.Log.Error("Failed to fetch top categories", zap.Error(err))
+		}
 	}
 	data.TopCategories = topCategories
+	pkg.Log.Debug("Top categories retrieved", zap.Int("count", len(topCategories)))
 }
 
 func getRecentOrders(db *gorm.DB, data *DashboardData, useCustomRange bool, startDate, endDate time.Time) {
+	pkg.Log.Debug("Fetching recent orders")
 	var recentOrders []userModels.Orders
 	query := db.Preload("User").Preload("OrderItems").Preload("OrderItems.Product").Order("created_at DESC").Limit(10)
 	if useCustomRange {
 		query = query.Where("created_at >= ? AND created_at < ?", startDate, endDate)
 	}
-	query.Find(&recentOrders)
+	if err := query.Find(&recentOrders).Error; err != nil {
+		pkg.Log.Error("Failed to fetch recent orders", zap.Error(err))
+	}
 	data.RecentOrders = recentOrders
+	pkg.Log.Debug("Recent orders retrieved", zap.Int("count", len(recentOrders)))
 }
 
 func getSalesData(db *gorm.DB, data *DashboardData, filter string, useCustomRange bool, startDate, endDate time.Time) {
+	pkg.Log.Debug("Fetching sales data", zap.String("filter", filter))
 	var salesData []SalesDataPoint
 	var groupBy string
 
@@ -462,7 +592,7 @@ func getSalesData(db *gorm.DB, data *DashboardData, filter string, useCustomRang
 
 	query := `
         SELECT 
-            %s as date_group,
+            %s as date,
             COALESCE(SUM(total_price), 0) as sales,
             COUNT(*) as orders
         FROM orders 
@@ -470,13 +600,15 @@ func getSalesData(db *gorm.DB, data *DashboardData, filter string, useCustomRang
         AND status NOT IN ('Cancelled', 'Returned', 'Return Rejected')
         %s
         GROUP BY %s
-        ORDER BY date_group ASC
+        ORDER BY date ASC
     `
 	var whereClause string
 	if useCustomRange {
 		whereClause = "AND created_at >= ? AND created_at < ?"
 		query = fmt.Sprintf(query, groupBy, whereClause, groupBy)
-		db.Raw(query, "Paid", "COD", "Delivered", startDate, endDate).Scan(&salesData)
+		if err := db.Raw(query, "Paid", "COD", "Delivered", startDate, endDate).Scan(&salesData).Error; err != nil {
+			pkg.Log.Error("Failed to fetch sales data", zap.String("filter", filter), zap.Error(err))
+		}
 	} else {
 		var interval string
 		switch filter {
@@ -493,7 +625,9 @@ func getSalesData(db *gorm.DB, data *DashboardData, filter string, useCustomRang
 		}
 		whereClause = "AND created_at >= NOW() - INTERVAL '" + interval + "'"
 		query = fmt.Sprintf(query, groupBy, whereClause, groupBy)
-		db.Raw(query, "Paid", "COD", "Delivered").Scan(&salesData)
+		if err := db.Raw(query, "Paid", "COD", "Delivered").Scan(&salesData).Error; err != nil {
+			pkg.Log.Error("Failed to fetch sales data", zap.String("filter", filter), zap.Error(err))
+		}
 	}
 
 	for i := range salesData {
@@ -508,35 +642,39 @@ func getSalesData(db *gorm.DB, data *DashboardData, filter string, useCustomRang
 			case "yearly":
 				salesData[i].Date = t.Format("2006")
 			}
+		} else {
+			pkg.Log.Warn("Failed to parse date in sales data", zap.String("date", salesData[i].Date), zap.Error(err))
 		}
 	}
 	data.SalesData = salesData
+	pkg.Log.Debug("Sales data retrieved", zap.Int("count", len(salesData)))
 }
 
 func getUserActivityData(db *gorm.DB, data *DashboardData, filter string, useCustomRange bool, startDate, endDate time.Time) {
-    var userActivity []UserActivityDataPoint
-    var interval string
-    var groupBy string
+	pkg.Log.Debug("Fetching user activity data", zap.String("filter", filter))
+	var userActivity []UserActivityDataPoint
+	var interval string
+	var groupBy string
 
-    switch filter {
-    case "daily":
-        interval = "7 DAY"
-        groupBy = "DATE(u.created_at)"
-    case "weekly":
-        interval = "4 WEEK"
-        groupBy = "DATE_TRUNC('week', u.created_at)"
-    case "monthly":
-        interval = "12 MONTH"
-        groupBy = "DATE_TRUNC('month', u.created_at)"
-    case "yearly":
-        interval = "1 YEAR"
-        groupBy = "DATE_TRUNC('year', u.created_at)"
-    default:
-        interval = "4 WEEK"
-        groupBy = "DATE_TRUNC('week', u.created_at)"
-    }
+	switch filter {
+	case "daily":
+		interval = "7 DAY"
+		groupBy = "DATE(u.created_at)"
+	case "weekly":
+		interval = "4 WEEK"
+		groupBy = "DATE_TRUNC('week', u.created_at)"
+	case "monthly":
+		interval = "12 MONTH"
+		groupBy = "DATE_TRUNC('month', u.created_at)"
+	case "yearly":
+		interval = "1 YEAR"
+		groupBy = "DATE_TRUNC('year', u.created_at)"
+	default:
+		interval = "4 WEEK"
+		groupBy = "DATE_TRUNC('week', u.created_at)"
+	}
 
-    query := `
+	query := `
         SELECT 
             dates.date as date,
             COUNT(u.id) as new_users,
@@ -556,66 +694,68 @@ func getUserActivityData(db *gorm.DB, data *DashboardData, filter string, useCus
         ORDER BY dates.date ASC
     `
 
-    var whereClause, startExpr, endExpr string
-    if useCustomRange {
-        startExpr = "?"
-        endExpr = "?"
-        whereClause = "AND u.created_at >= ? AND u.created_at < ?"
-        
-        // Fix the subquery condition
-        subQueryCondition := groupBy
-        if filter == "daily" {
-            subQueryCondition = "DATE(us.created_at)"
-        } else if filter == "weekly" {
-            subQueryCondition = "DATE_TRUNC('week', us.created_at)"
-        } else if filter == "monthly" {
-            subQueryCondition = "DATE_TRUNC('month', us.created_at)"
-        } else if filter == "yearly" {
-            subQueryCondition = "DATE_TRUNC('year', us.created_at)"
-        }
-        
-        query = fmt.Sprintf(query, subQueryCondition, groupBy, startExpr, endExpr, groupBy, whereClause)
-        db.Raw(query, startDate, endDate, startDate, endDate, startDate, endDate).Scan(&userActivity)
-    } else {
-        startExpr = "NOW() - INTERVAL '" + interval + "'"
-        endExpr = "NOW()"
-        
-        // Fix the subquery condition for default case
-        subQueryCondition := groupBy
-        switch filter {
-case "daily":
-            subQueryCondition = "DATE(us.created_at)"
-        case "weekly":
-            subQueryCondition = "DATE_TRUNC('week', us.created_at)"
-        case "monthly":
-            subQueryCondition = "DATE_TRUNC('month', us.created_at)"
-        case "yearly":
-            subQueryCondition = "DATE_TRUNC('year', us.created_at)"
-        }
-        
-        query = fmt.Sprintf(query, subQueryCondition, groupBy, startExpr, endExpr, groupBy, "")
-        db.Raw(query).Scan(&userActivity)
-    }
-    
-    // Format dates for display
-    for i := range userActivity {
-        if t, err := time.Parse(time.RFC3339, userActivity[i].Date); err == nil {
-            switch filter {
-            case "daily":
-                userActivity[i].Date = t.Format("Jan 02")
-            case "weekly":
-                userActivity[i].Date = t.Format("Jan 02")
-            case "monthly":
-                userActivity[i].Date = t.Format("Jan 2006")
-            case "yearly":
-                userActivity[i].Date = t.Format("2006")
-            }
-        }
-    }
-    data.UserActivityData = userActivity
+	var whereClause, startExpr, endExpr string
+	if useCustomRange {
+		startExpr = "?"
+		endExpr = "?"
+		whereClause = "AND u.created_at >= ? AND u.created_at < ?"
+		subQueryCondition := groupBy
+		switch filter {
+		case "daily":
+			subQueryCondition = "DATE(us.created_at)"
+		case "weekly":
+			subQueryCondition = "DATE_TRUNC('week', us.created_at)"
+		case "monthly":
+			subQueryCondition = "DATE_TRUNC('month', us.created_at)"
+		case "yearly":
+			subQueryCondition = "DATE_TRUNC('year', us.created_at)"
+		}
+		query = fmt.Sprintf(query, subQueryCondition, groupBy, startExpr, endExpr, groupBy, whereClause)
+		if err := db.Raw(query, startDate, endDate, startDate, endDate, startDate, endDate).Scan(&userActivity).Error; err != nil {
+			pkg.Log.Error("Failed to fetch user activity data", zap.String("filter", filter), zap.Error(err))
+		}
+	} else {
+		startExpr = "NOW() - INTERVAL '" + interval + "'"
+		endExpr = "NOW()"
+		subQueryCondition := groupBy
+		switch filter {
+		case "daily":
+			subQueryCondition = "DATE(us.created_at)"
+		case "weekly":
+			subQueryCondition = "DATE_TRUNC('week', us.created_at)"
+		case "monthly":
+			subQueryCondition = "DATE_TRUNC('month', us.created_at)"
+		case "yearly":
+			subQueryCondition = "DATE_TRUNC('year', us.created_at)"
+		}
+		query = fmt.Sprintf(query, subQueryCondition, groupBy, startExpr, endExpr, groupBy, "")
+		if err := db.Raw(query).Scan(&userActivity).Error; err != nil {
+			pkg.Log.Error("Failed to fetch user activity data", zap.String("filter", filter), zap.Error(err))
+		}
+	}
+
+	for i := range userActivity {
+		if t, err := time.Parse(time.RFC3339, userActivity[i].Date); err == nil {
+			switch filter {
+			case "daily":
+				userActivity[i].Date = t.Format("Jan 02")
+			case "weekly":
+				userActivity[i].Date = t.Format("Jan 02")
+			case "monthly":
+				userActivity[i].Date = t.Format("Jan 2006")
+			case "yearly":
+				userActivity[i].Date = t.Format("2006")
+			}
+		} else {
+			pkg.Log.Warn("Failed to parse date in user activity data", zap.String("date", userActivity[i].Date), zap.Error(err))
+		}
+	}
+	data.UserActivityData = userActivity
+	pkg.Log.Debug("User activity data retrieved", zap.Int("count", len(userActivity)))
 }
+
 func getInventoryStatus(db *gorm.DB, data *DashboardData, useCustomRange bool, startDate, endDate time.Time) {
-	// Always fetch current inventory status, no date filtering
+	pkg.Log.Debug("Fetching inventory status")
 	var inventory []InventoryStatusItem
 	query := `
         SELECT 
@@ -633,12 +773,15 @@ func getInventoryStatus(db *gorm.DB, data *DashboardData, useCustomRange bool, s
         ORDER BY stock ASC
         LIMIT 20
     `
-	db.Raw(query).Scan(&inventory)
+	if err := db.Raw(query).Scan(&inventory).Error; err != nil {
+		pkg.Log.Error("Failed to fetch inventory status", zap.Error(err))
+	}
 	data.InventoryStatus = inventory
+	pkg.Log.Debug("Inventory status retrieved", zap.Int("count", len(inventory)))
 }
 
 func getCouponUsage(db *gorm.DB, data *DashboardData, useCustomRange bool, startDate, endDate time.Time) {
-	// Always fetch all-time usage for active coupons, no date filtering
+	pkg.Log.Debug("Fetching coupon usage")
 	var couponUsage []CouponUsageItem
 	query := `
         SELECT 
@@ -652,10 +795,15 @@ func getCouponUsage(db *gorm.DB, data *DashboardData, useCustomRange bool, start
         ORDER BY c.used_count DESC
         LIMIT 10
     `
-	db.Raw(query).Scan(&couponUsage)
+	if err := db.Raw(query).Scan(&couponUsage).Error; err != nil {
+		pkg.Log.Error("Failed to fetch coupon usage", zap.Error(err))
+	}
 	data.CouponUsage = couponUsage
+	pkg.Log.Debug("Coupon usage retrieved", zap.Int("count", len(couponUsage)))
 }
+
 func getMonthlyRevenue(db *gorm.DB, data *DashboardData, useCustomRange bool, startDate, endDate time.Time) {
+	pkg.Log.Debug("Fetching monthly revenue")
 	var monthlyRevenue []MonthlyRevenuePoint
 	query := `
         SELECT 
@@ -672,16 +820,22 @@ func getMonthlyRevenue(db *gorm.DB, data *DashboardData, useCustomRange bool, st
 	if useCustomRange {
 		whereClause = "AND created_at >= ? AND created_at < ?"
 		query = fmt.Sprintf(query, whereClause)
-		db.Raw(query, "Paid", "COD", "Delivered", startDate, endDate).Scan(&monthlyRevenue)
+		if err := db.Raw(query, "Paid", "COD", "Delivered", startDate, endDate).Scan(&monthlyRevenue).Error; err != nil {
+			pkg.Log.Error("Failed to fetch monthly revenue", zap.Error(err))
+		}
 	} else {
 		startDate := time.Now().AddDate(0, -12, 0)
 		query = fmt.Sprintf(query, "AND created_at >= ?")
-		db.Raw(query, "Paid", "COD", "Delivered", startDate).Scan(&monthlyRevenue)
+		if err := db.Raw(query, "Paid", "COD", "Delivered", startDate).Scan(&monthlyRevenue).Error; err != nil {
+			pkg.Log.Error("Failed to fetch monthly revenue", zap.Error(err))
+		}
 	}
 	data.MonthlyRevenue = monthlyRevenue
+	pkg.Log.Debug("Monthly revenue retrieved", zap.Int("count", len(monthlyRevenue)))
 }
 
 func LogAdminAction(c *gin.Context) {
+	pkg.Log.Info("Handling admin action log request")
 	var actionLog struct {
 		Action      string `json:"action" binding:"required"`
 		Description string `json:"description"`
@@ -689,9 +843,14 @@ func LogAdminAction(c *gin.Context) {
 		EntityID    uint   `json:"entity_id"`
 	}
 	if err := c.ShouldBindJSON(&actionLog); err != nil {
-		helper.ResponseWithErr(c, http.StatusBadRequest, "binding data", "Failed to bind data", "")
+		pkg.Log.Error("Failed to bind JSON data for action log", zap.Error(err))
+		helper.ResponseWithErr(c, http.StatusBadRequest, "Invalid request", "Failed to bind data", "")
 		return
 	}
+	pkg.Log.Info("Admin action logged",
+		zap.String("action", actionLog.Action),
+		zap.String("entity_type", actionLog.EntityType),
+		zap.Uint("entity_id", actionLog.EntityID))
 	c.JSON(http.StatusOK, gin.H{
 		"status":  "success",
 		"message": "Action logged successfully",
@@ -699,43 +858,46 @@ func LogAdminAction(c *gin.Context) {
 }
 
 func calculateTotalDiscount(db *gorm.DB, useCustomRange bool, startDate, endDate time.Time) float64 {
-	var totalDiscount struct {
-		CouponDiscount float64
-		OfferDiscount  float64
+	pkg.Log.Debug("Calculating total discount")
+	
+	// Use separate variables for each query
+	var couponDiscount struct {
+		Total float64
+	}
+	var offerDiscount struct {
+		Total float64
 	}
 
-	// Calculate coupon discount
+	// Calculate coupon discount from Orders table
 	couponQuery := db.Model(&userModels.Orders{}).
 		Where("(payment_status = ? OR (payment_method = ? AND status = ?))",
 			"Paid", "COD", "Delivered").
 		Where("status NOT IN ?", []string{"Cancelled", "Returned", "Return Rejected"})
-
 	if useCustomRange {
 		couponQuery = couponQuery.Where("created_at >= ? AND created_at < ?", startDate, endDate)
 	}
-
-	// Fixed: Use the exact struct field name in the alias
-	if err := couponQuery.Select("COALESCE(SUM(coupon_discount), 0.0) as coupon_discount").Scan(&totalDiscount).Error; err != nil {
-		// Log error or handle it
-		return 0
+	if err := couponQuery.Select("COALESCE(SUM(coupon_discount), 0.0) as total").Scan(&couponDiscount).Error; err != nil {
+		pkg.Log.Error("Failed to calculate coupon discount", zap.Error(err))
 	}
 
-	// Calculate offer discount (from order_items)
+	// Calculate offer discount from OrderItem table
 	offerQuery := db.Model(&userModels.OrderItem{}).
 		Joins("JOIN orders ON order_items.order_id = orders.id").
 		Where("(orders.payment_status = ? OR (orders.payment_method = ? AND orders.status = ?))",
 			"Paid", "COD", "Delivered").
-		Where("orders.status NOT IN ?", []string{"Cancelled", "Returned", "Return Rejected"})
-
+		Where("orders.status NOT IN ?", []string{"Cancelled", "Returned", "Return Rejected"}).
+		Where("order_items.status IS NULL OR order_items.status != 'Cancelled'")
 	if useCustomRange {
 		offerQuery = offerQuery.Where("orders.created_at >= ? AND orders.created_at < ?", startDate, endDate)
 	}
-
-	// Fixed: Use the exact struct field name in the alias
-	if err := offerQuery.Select("COALESCE(SUM(order_items.discount_amount), 0.0) as offer_discount").Scan(&totalDiscount).Error; err != nil {
-		// Log error or handle it
-		return 0
+	if err := offerQuery.Select("COALESCE(SUM(order_items.discount_amount), 0.0) as total").Scan(&offerDiscount).Error; err != nil {
+		pkg.Log.Error("Failed to calculate offer discount", zap.Error(err))
 	}
 
-	return totalDiscount.CouponDiscount + totalDiscount.OfferDiscount
+	total := couponDiscount.Total + offerDiscount.Total
+	pkg.Log.Debug("Total discount calculated",
+		zap.Float64("coupon_discount", couponDiscount.Total),
+		zap.Float64("offer_discount", offerDiscount.Total),
+		zap.Float64("total", total))
+	return total
 }

@@ -1,11 +1,12 @@
 package helper
 
 import (
-	"log"
 	"time"
 
 	"github.com/Sojil8/eCommerce-silver/database"
 	"github.com/Sojil8/eCommerce-silver/models/adminModels"
+	"github.com/Sojil8/eCommerce-silver/pkg"
+	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
@@ -19,6 +20,10 @@ type OfferDetails struct {
 }
 
 func GetBestOfferForProduct(product *adminModels.Product, variantExtraPrice float64) OfferDetails {
+	pkg.Log.Debug("Calculating best offer for product",
+		zap.Uint("productID", product.ID),
+		zap.Float64("variantExtraPrice", variantExtraPrice))
+
 	var productOffer adminModels.ProductOffer
 	var categoryOffer adminModels.CategoryOffer
 	var result OfferDetails
@@ -30,29 +35,43 @@ func GetBestOfferForProduct(product *adminModels.Product, variantExtraPrice floa
 
 	currentTime := time.Now()
 
+	// Check for product-specific offer
 	err := database.DB.Where("product_id = ? AND is_active = ? AND start_date <= ? AND end_date >= ?",
 		product.ID, true, currentTime, currentTime).First(&productOffer).Error
 	productDiscount := 0.0
 	switch err {
 	case nil:
 		productDiscount = productOffer.Discount
-		log.Printf("Found product offer for product_id=%d: %s, discount=%.2f%%", product.ID, productOffer.OfferName, productDiscount)
+		pkg.Log.Info("Found product offer",
+			zap.Uint("productID", product.ID),
+			zap.String("offerName", productOffer.OfferName),
+			zap.Float64("discount", productDiscount))
 	case gorm.ErrRecordNotFound:
-		log.Printf("No active product offer found for product_id=%d", product.ID)
+		pkg.Log.Debug("No active product offer found",
+			zap.Uint("productID", product.ID))
 	default:
-		log.Printf("Error fetching product offer for product_id=%d: %v", product.ID, err)
+		pkg.Log.Error("Error fetching product offer",
+			zap.Uint("productID", product.ID),
+			zap.Error(err))
 	}
 
+	// Check for category offer
 	var category adminModels.Category
 	err = database.DB.Where("category_name = ?", product.CategoryName).First(&category).Error
 	switch err {
 	case nil:
-		log.Printf("Found category for product_id=%d: category_name=%s, category_id=%d", product.ID, product.CategoryName, category.ID)
+		pkg.Log.Debug("Found category",
+			zap.Uint("productID", product.ID),
+			zap.String("categoryName", product.CategoryName),
+			zap.Uint("categoryID", category.ID))
 		err = database.DB.Where("category_id = ? AND is_active = ? AND start_date <= ? AND end_date >= ?",
 			category.ID, true, currentTime, currentTime).First(&categoryOffer).Error
 		switch err {
 		case nil:
-			log.Printf("Found category offer for category_id=%d: %s, discount=%.2f%%", category.ID, categoryOffer.OfferName, categoryOffer.Discount)
+			pkg.Log.Info("Found category offer",
+				zap.Uint("categoryID", category.ID),
+				zap.String("offerName", categoryOffer.OfferName),
+				zap.Float64("discount", categoryOffer.Discount))
 			if categoryOffer.Discount > productDiscount {
 				result.DiscountPercentage = categoryOffer.Discount
 				result.OfferName = categoryOffer.OfferName
@@ -65,7 +84,8 @@ func GetBestOfferForProduct(product *adminModels.Product, variantExtraPrice floa
 				result.EndTime = productOffer.EndDate
 			}
 		case gorm.ErrRecordNotFound:
-			log.Printf("No active category offer found for category_id=%d", category.ID)
+			pkg.Log.Debug("No active category offer found",
+				zap.Uint("categoryID", category.ID))
 			if productDiscount > 0 {
 				result.DiscountPercentage = productOffer.Discount
 				result.OfferName = productOffer.OfferName
@@ -73,10 +93,13 @@ func GetBestOfferForProduct(product *adminModels.Product, variantExtraPrice floa
 				result.EndTime = productOffer.EndDate
 			}
 		default:
-			log.Printf("Error fetching category offer for category_id=%d: %v", category.ID, err)
+			pkg.Log.Error("Error fetching category offer",
+				zap.Uint("categoryID", category.ID),
+				zap.Error(err))
 		}
 	case gorm.ErrRecordNotFound:
-		log.Printf("Category not found for category_name=%s", product.CategoryName)
+		pkg.Log.Warn("Category not found",
+			zap.String("categoryName", product.CategoryName))
 		if productDiscount > 0 {
 			result.DiscountPercentage = productOffer.Discount
 			result.OfferName = productOffer.OfferName
@@ -84,14 +107,24 @@ func GetBestOfferForProduct(product *adminModels.Product, variantExtraPrice floa
 			result.EndTime = productOffer.EndDate
 		}
 	default:
-		log.Printf("Error fetching category for category_name=%s: %v", product.CategoryName, err)
+		pkg.Log.Error("Error fetching category",
+			zap.String("categoryName", product.CategoryName),
+			zap.Error(err))
 	}
 
 	if result.IsOfferApplied {
 		result.DiscountedPrice = totalPrice * (1 - result.DiscountPercentage/100)
-		result.OriginalPrice = totalPrice
-		log.Printf("Applied offer for product_id=%d: %s, original_price=%.2f, discounted_price=%.2f, discount=%.2f%%",
-			product.ID, result.OfferName, result.OriginalPrice, result.DiscountedPrice, result.DiscountPercentage)
+		pkg.Log.Info("Applied best offer for product",
+			zap.Uint("productID", product.ID),
+			zap.String("offerName", result.OfferName),
+			zap.Float64("originalPrice", result.OriginalPrice),
+			zap.Float64("discountedPrice", result.DiscountedPrice),
+			zap.Float64("discountPercentage", result.DiscountPercentage),
+			zap.Time("endTime", result.EndTime))
+	} else {
+		pkg.Log.Debug("No offer applied for product",
+			zap.Uint("productID", product.ID),
+			zap.Float64("originalPrice", result.OriginalPrice))
 	}
 
 	return result

@@ -21,7 +21,6 @@ import (
 )
 
 func ListOrder(c *gin.Context) {
-	// Parse query parameters with defaults
 	page, err := strconv.Atoi(c.DefaultQuery("page", "1"))
 	if err != nil || page < 1 {
 		page = 1
@@ -34,7 +33,6 @@ func ListOrder(c *gin.Context) {
 	filterStatus := strings.TrimSpace(c.Query("status"))
 	sort := c.DefaultQuery("sort", "order_date desc")
 
-	// Validate sort parameter to prevent SQL injection
 	allowedSorts := map[string]bool{
 		"order_date desc":  true,
 		"order_date asc":   true,
@@ -48,7 +46,6 @@ func ListOrder(c *gin.Context) {
 
 	offset := (page - 1) * limit
 
-	// Build query
 	query := database.DB.Preload("OrderItems.Product").Preload("OrderItems.Variants").Preload("User")
 	if search != "" {
 		query = query.Joins("JOIN users ON users.id = orders.user_id").
@@ -57,10 +54,7 @@ func ListOrder(c *gin.Context) {
 	if filterStatus != "" {
 		query = query.Where("orders.status = ?", filterStatus)
 	}
-	// Remove the exclusion of "Failed" if you want to include all statuses, or explicitly include "Returned"
-	// query = query.Where("orders.status <> ?", "Failed") // Removed to allow all statuses
 
-	// Count total orders
 	var total int64
 	if err := query.Model(&userModels.Orders{}).Count(&total).Error; err != nil {
 		pkg.Log.Error("Failed to count orders", zap.Error(err))
@@ -68,13 +62,11 @@ func ListOrder(c *gin.Context) {
 		return
 	}
 
-	// Calculate total pages
 	totalPages := int((total + int64(limit) - 1) / int64(limit))
 	if totalPages < 1 {
 		totalPages = 1
 	}
 
-	// Fetch orders
 	var orders []userModels.Orders
 	if err := query.Order(sort).Limit(limit).Offset(offset).Find(&orders).Error; err != nil {
 		pkg.Log.Error("Failed to fetch orders", zap.Error(err))
@@ -82,7 +74,6 @@ func ListOrder(c *gin.Context) {
 		return
 	}
 
-	// Render template
 	c.HTML(http.StatusOK, "adminOrder.html", gin.H{
 		"Orders":     orders,
 		"Page":       page,
@@ -129,7 +120,6 @@ func UpdateOrderStatus(c *gin.Context) {
 			return fmt.Errorf("order not found: %v", err)
 		}
 
-		// Prevent changing status of final states
 		if order.Status == "Cancelled" || order.Status == "Returned" {
 			return gin.Error{Meta: gin.H{"error": "Cannot change status of Cancelled or Returned orders"}}
 		}
@@ -137,17 +127,14 @@ func UpdateOrderStatus(c *gin.Context) {
 			return gin.Error{Meta: gin.H{"error": "Delivered orders can only transition to Return Requested"}}
 		}
 
-		// Prevent direct transition to Cancelled or Returned
 		if req.Status == "Cancelled" || req.Status == "Returned" {
 			return gin.Error{Meta: gin.H{"error": "Cannot directly set status to Cancelled or Returned"}}
 		}
 
-		// Update PaymentStatus for COD orders when status changes to Delivered
 		if req.Status == "Delivered" && order.PaymentMethod == "COD" {
 			order.PaymentStatus = "Paid"
 		}
 
-		// Restock items if cancelling
 		if req.Status == "Cancelled" {
 			for _, item := range order.OrderItems {
 				if err := incrementStock(tx, item.VariantsID, item.Quantity); err != nil {
@@ -192,11 +179,9 @@ func ViewOrdetailsAdmin(c *gin.Context) {
 
 	var address adminModels.ShippingAddress
 	if err := database.DB.Where("order_id = ?", orderID).First(&address).Error; err != nil {
-		// Handle case where address might not exist
 		address = adminModels.ShippingAddress{}
 	}
 
-	// Calculate current totals for active items
 	var currentSubtotal float64
 	var currentOfferDiscount float64
 	var allItemsCancelled bool = true
@@ -204,19 +189,16 @@ func ViewOrdetailsAdmin(c *gin.Context) {
 	for _, item := range order.OrderItems {
 		if item.Status != "Cancelled" {
 			allItemsCancelled = false
-			// itemTotal := (item.Product.Price + item.Variants.ExtraPrice - item.DiscountAmount) * float64(item.Quantity)
 			currentSubtotal += (item.Product.Price + item.Variants.ExtraPrice) * float64(item.Quantity)
 			currentOfferDiscount += item.DiscountAmount * float64(item.Quantity)
 		}
 	}
 
-	// Calculate current total
 	currentTotal := currentSubtotal - currentOfferDiscount - order.CouponDiscount + order.ShippingCost
 	if allItemsCancelled {
-		currentTotal = 0 // No active items, total is 0
+		currentTotal = 0 
 	}
 
-	// Update order in database if necessary
 	if !allItemsCancelled && order.Status != "Cancelled" {
 		order.Subtotal = currentSubtotal
 		order.OfferDiscount = currentOfferDiscount
@@ -332,7 +314,6 @@ func VerifyReturnRequest(c *gin.Context) {
 				}
 			}
 
-			// Update order PaymentStatus
 			returnReq.Order.PaymentStatus = "RefundedToWallet"
 			returnReq.Order.Status = "Returned"
 			for _, item := range returnReq.Order.OrderItems {
@@ -359,7 +340,7 @@ func VerifyReturnRequest(c *gin.Context) {
 				}
 			}
 			returnReq.Order.Status = "Return Rejected"
-			returnReq.Order.PaymentStatus = "Paid" // Assuming the payment remains successful if return is rejected
+			returnReq.Order.PaymentStatus = "Paid" 
 		}
 
 		if err := tx.Save(&returnReq.Order).Error; err != nil {

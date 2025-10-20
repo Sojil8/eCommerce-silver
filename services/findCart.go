@@ -13,15 +13,29 @@ import (
 )
 
 func FetchCartByUserID(userID uint) (*userModels.Cart, error) {
+	pkg.Log.Debug("Fetching cart for user",
+		zap.Uint("userID", userID))
+
 	var cart userModels.Cart
 	if err := database.DB.Preload("CartItems").Preload("CartItems.Product").Preload("CartItems.Variants").First(&cart, "user_id = ?", userID).Error; err != nil {
-		pkg.Log.Error("Failed to fetch cart", zap.Uint("userID", userID), zap.Error(err))
+		pkg.Log.Error("Failed to fetch cart",
+			zap.Uint("userID", userID),
+			zap.Error(err))
 		return nil, err
 	}
+
+	pkg.Log.Info("Cart fetched successfully",
+		zap.Uint("userID", userID),
+		zap.Uint("cartID", cart.ID),
+		zap.Int("itemCount", len(cart.CartItems)))
 	return &cart, nil
 }
 
 func ValidateCartItems(cart *userModels.Cart, tx *gorm.DB) (totalPrice, originalTotalPrice, offerDiscount float64, validCartItems []userModels.CartItem, err error) {
+	pkg.Log.Debug("Validating cart items",
+		zap.Uint("cartID", cart.ID),
+		zap.Int("itemCount", len(cart.CartItems)))
+
 	totalPrice = 0.0
 	originalTotalPrice = 0.0
 	offerDiscount = 0.0
@@ -35,6 +49,12 @@ func ValidateCartItems(cart *userModels.Cart, tx *gorm.DB) (totalPrice, original
 		hasVariantStock := false
 		if err := tx.Where("id = ? AND deleted_at IS NULL", item.VariantsID).First(&variant).Error; err == nil {
 			hasVariantStock = variant.Stock >= item.Quantity
+		} else {
+			pkg.Log.Warn("Failed to fetch variant for cart item",
+				zap.Uint("cartID", cart.ID),
+				zap.Uint("productID", item.ProductID),
+				zap.Uint("variantID", item.VariantsID),
+				zap.Error(err))
 		}
 
 		if isInStock && hasVariantStock && tx.Where("category_name = ? AND status = ?", item.Product.CategoryName, true).First(&category).Error == nil {
@@ -51,8 +71,16 @@ func ValidateCartItems(cart *userModels.Cart, tx *gorm.DB) (totalPrice, original
 			itemOfferDiscount := (offerDetails.OriginalPrice - offerDetails.DiscountedPrice) * float64(item.Quantity)
 			offerDiscount += itemOfferDiscount
 			validCartItems = append(validCartItems, item)
+			pkg.Log.Debug("Valid cart item processed",
+				zap.Uint("cartID", cart.ID),
+				zap.Uint("productID", item.ProductID),
+				zap.Uint("variantID", item.VariantsID),
+				zap.Float64("salePrice", item.SalePrice),
+				zap.Float64("itemOfferDiscount", itemOfferDiscount),
+				zap.String("offerName", item.OfferName))
 		} else {
 			pkg.Log.Warn("Skipping invalid cart item",
+				zap.Uint("cartID", cart.ID),
 				zap.Uint("productID", item.ProductID),
 				zap.Uint("variantID", item.VariantsID),
 				zap.Bool("productListed", item.Product.IsListed),
@@ -63,27 +91,48 @@ func ValidateCartItems(cart *userModels.Cart, tx *gorm.DB) (totalPrice, original
 	}
 
 	if len(validCartItems) == 0 {
+		pkg.Log.Warn("No valid items in cart with sufficient stock",
+			zap.Uint("cartID", cart.ID))
 		return 0, 0, 0, nil, fmt.Errorf("no valid items in cart with sufficient stock")
 	}
 
+	pkg.Log.Info("Cart items validated successfully",
+		zap.Uint("cartID", cart.ID),
+		zap.Int("validItemCount", len(validCartItems)),
+		zap.Float64("totalPrice", totalPrice),
+		zap.Float64("originalTotalPrice", originalTotalPrice),
+		zap.Float64("offerDiscount", offerDiscount))
 	return totalPrice, originalTotalPrice, offerDiscount, validCartItems, nil
 }
 
-
-
 func ClearCart(userID uint, tx *gorm.DB) error {
+	pkg.Log.Debug("Clearing cart for user",
+		zap.Uint("userID", userID))
+
 	var cart userModels.Cart
 	if err := tx.First(&cart, "user_id = ?", userID).Error; err != nil {
-		pkg.Log.Error("Cart not found for clearing", zap.Uint("userID", userID), zap.Error(err))
+		pkg.Log.Error("Cart not found for clearing",
+			zap.Uint("userID", userID),
+			zap.Error(err))
 		return err
 	}
+
 	if err := tx.Where("cart_id = ?", cart.ID).Delete(&userModels.CartItem{}).Error; err != nil {
-		pkg.Log.Error("Failed to delete cart items", zap.Uint("cartID", cart.ID), zap.Error(err))
+		pkg.Log.Error("Failed to delete cart items",
+			zap.Uint("cartID", cart.ID),
+			zap.Error(err))
 		return err
 	}
+
 	if err := tx.Delete(&cart).Error; err != nil {
-		pkg.Log.Error("Failed to delete cart", zap.Uint("cartID", cart.ID), zap.Error(err))
+		pkg.Log.Error("Failed to delete cart",
+			zap.Uint("cartID", cart.ID),
+			zap.Error(err))
 		return err
 	}
+
+	pkg.Log.Info("Cart cleared successfully",
+		zap.Uint("userID", userID),
+		zap.Uint("cartID", cart.ID))
 	return nil
 }

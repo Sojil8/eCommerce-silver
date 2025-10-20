@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/Sojil8/eCommerce-silver/database"
+	"github.com/Sojil8/eCommerce-silver/pkg"
+	"github.com/Sojil8/eCommerce-silver/utils/helper"
 	"github.com/gin-gonic/gin"
 	"github.com/johnfercher/maroto/v2"
 	"github.com/johnfercher/maroto/v2/pkg/components/row"
@@ -16,6 +18,7 @@ import (
 	"github.com/johnfercher/maroto/v2/pkg/consts/fontstyle"
 	"github.com/johnfercher/maroto/v2/pkg/props"
 	"github.com/xuri/excelize/v2"
+	"go.uber.org/zap"
 )
 
 type OrderDetail struct {
@@ -58,21 +61,45 @@ type SalesSummary struct {
 }
 
 func ExportSalesReport(c *gin.Context) {
+	pkg.Log.Info("Handling request to export sales report")
+
 	format := c.DefaultQuery("format", "excel")
 	filter := c.DefaultQuery("filter", "monthly")
-	// preview := c.DefaultQuery("preview", "false")
 	startDateStr := c.Query("start_date")
 	endDateStr := c.Query("end_date")
+	pkg.Log.Debug("Received query parameters",
+		zap.String("format", format),
+		zap.String("filter", filter),
+		zap.String("start_date", startDateStr),
+		zap.String("end_date", endDateStr))
 
 	db := database.GetDB()
-	
+
 	// Determine date range
 	var startDate, endDate time.Time
 	var reportPeriod string
-	
+
 	if startDateStr != "" && endDateStr != "" {
-		startDate, _ = time.Parse("2006-01-02", startDateStr)
-		endDate, _ = time.Parse("2006-01-02", endDateStr)
+		var err error
+		startDate, err = time.Parse("2006-01-02", startDateStr)
+		if err != nil {
+			pkg.Log.Warn("Invalid start date format", zap.String("start_date", startDateStr), zap.Error(err))
+			helper.ResponseWithErr(c, http.StatusBadRequest, "Invalid start date format", err.Error(), "")
+			return
+		}
+		endDate, err = time.Parse("2006-01-02", endDateStr)
+		if err != nil {
+			pkg.Log.Warn("Invalid end date format", zap.String("end_date", endDateStr), zap.Error(err))
+			helper.ResponseWithErr(c, http.StatusBadRequest, "Invalid end date format", err.Error(), "")
+			return
+		}
+		if endDate.Before(startDate) {
+			pkg.Log.Warn("End date before start date",
+				zap.Time("start_date", startDate),
+				zap.Time("end_date", endDate))
+			helper.ResponseWithErr(c, http.StatusBadRequest, "End date must be after start date", "Invalid date range", "")
+			return
+		}
 		reportPeriod = fmt.Sprintf("%s to %s (custom)", startDateStr, endDateStr)
 	} else {
 		switch filter {
@@ -93,25 +120,35 @@ func ExportSalesReport(c *gin.Context) {
 			endDate = time.Now()
 			reportPeriod = startDate.Format("2006-01-02") + " to " + endDate.Format("2006-01-02") + " (yearly)"
 		default:
+			pkg.Log.Warn("Invalid filter, defaulting to monthly", zap.String("filter", filter))
 			startDate = time.Now().AddDate(0, -1, 0)
 			endDate = time.Now()
 			reportPeriod = startDate.Format("2006-01-02") + " to " + endDate.Format("2006-01-02") + " (monthly)"
 		}
 	}
+	pkg.Log.Debug("Determined date range",
+		zap.Time("start_date", startDate),
+		zap.Time("end_date", endDate),
+		zap.String("report_period", reportPeriod))
 
 	// Get comprehensive summary data with all order status counts
 	var summary SalesSummary
-	
+
 	// Get total orders count
-	db.Raw(`
+	if err := db.Raw(`
 		SELECT COUNT(*) as total_orders 
 		FROM orders 
 		WHERE created_at >= ? AND created_at <= ? 
 		AND status NOT IN ('cancelled', 'refunded')
-	`, startDate, endDate).Scan(&summary.TotalOrders)
+	`, startDate, endDate).Scan(&summary.TotalOrders).Error; err != nil {
+		pkg.Log.Error("Failed to count total orders", zap.Error(err))
+		helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to count orders", err.Error(), "")
+		return
+	}
+	pkg.Log.Debug("Total orders counted", zap.Int64("total_orders", summary.TotalOrders))
 
 	// Get revenue and discount data
-	db.Raw(`
+	if err := db.Raw(`
 		SELECT 
 			COALESCE(SUM(total_price), 0) as total_revenue,
 			COALESCE(SUM(total_discount), 0) as total_discount,
@@ -121,10 +158,19 @@ func ExportSalesReport(c *gin.Context) {
 		WHERE created_at >= ? AND created_at <= ? 
 		AND status NOT IN ('cancelled', 'refunded')
 		AND (payment_status = 'Paid' OR (payment_method = 'COD' AND status = 'Delivered'))
-	`, startDate, endDate).Scan(&summary)
+	`, startDate, endDate).Scan(&summary).Error; err != nil {
+		pkg.Log.Error("Failed to fetch revenue and discount data", zap.Error(err))
+		helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to fetch revenue data", err.Error(), "")
+		return
+	}
+	pkg.Log.Debug("Revenue and discount data retrieved",
+		zap.Float64("total_revenue", summary.TotalRevenue),
+		zap.Float64("total_discount", summary.TotalDiscount),
+		zap.Float64("coupon_discount", summary.CouponDiscount),
+		zap.Float64("offer_discount", summary.OfferDiscount))
 
 	// Get order status counts
-	db.Raw(`
+	if err := db.Raw(`
 		SELECT 
 			COUNT(CASE WHEN status = 'Delivered' THEN 1 END) as delivered_orders,
 			COUNT(CASE WHEN status IN ('Pending', 'Confirmed', 'Shipped', 'Out for Delivery') THEN 1 END) as pending_orders,
@@ -133,17 +179,27 @@ func ExportSalesReport(c *gin.Context) {
 		FROM orders 
 		WHERE created_at >= ? AND created_at <= ? 
 		AND status NOT IN ('cancelled', 'refunded')
-	`, startDate, endDate).Scan(&summary)
+	`, startDate, endDate).Scan(&summary).Error; err != nil {
+		pkg.Log.Error("Failed to fetch order status counts", zap.Error(err))
+		helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to fetch order status counts", err.Error(), "")
+		return
+	}
+	pkg.Log.Debug("Order status counts retrieved",
+		zap.Int64("delivered_orders", summary.DeliveredOrders),
+		zap.Int64("pending_orders", summary.PendingOrders),
+		zap.Int64("cancelled_orders", summary.CancelledOrders),
+		zap.Int64("completed_orders", summary.CompletedOrders))
 
 	// Calculate average order value
 	avgOrderValue := 0.0
 	if summary.DeliveredOrders > 0 {
 		avgOrderValue = summary.TotalRevenue / float64(summary.DeliveredOrders)
 	}
+	pkg.Log.Debug("Calculated average order value", zap.Float64("avg_order_value", avgOrderValue))
 
 	// Get order details
 	var orderDetails []OrderDetail
-	db.Raw(`
+	if err := db.Raw(`
 		SELECT 
 			o.order_id_unique as order_id,
 			u.user_name as customer,
@@ -156,11 +212,16 @@ func ExportSalesReport(c *gin.Context) {
 		WHERE o.created_at >= ? AND o.created_at <= ? 
 			AND o.status NOT IN ('cancelled', 'refunded')
 		ORDER BY o.created_at DESC
-	`, startDate, endDate).Scan(&orderDetails)
+	`, startDate, endDate).Scan(&orderDetails).Error; err != nil {
+		pkg.Log.Error("Failed to fetch order details", zap.Error(err))
+		helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to fetch order details", err.Error(), "")
+		return
+	}
+	pkg.Log.Debug("Order details retrieved", zap.Int("order_count", len(orderDetails)))
 
 	// Get top selling products
 	var topProducts []ProductSales
-	db.Raw(`
+	if err := db.Raw(`
 		SELECT 
 			p.product_name,
 			SUM(oi.quantity) as units_sold,
@@ -173,11 +234,16 @@ func ExportSalesReport(c *gin.Context) {
 		GROUP BY p.product_name
 		ORDER BY units_sold DESC, revenue DESC
 		LIMIT 10
-	`, startDate, endDate).Scan(&topProducts)
+	`, startDate, endDate).Scan(&topProducts).Error; err != nil {
+		pkg.Log.Error("Failed to fetch top products", zap.Error(err))
+		helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to fetch top products", err.Error(), "")
+		return
+	}
+	pkg.Log.Debug("Top products retrieved", zap.Int("product_count", len(topProducts)))
 
 	// Get top selling categories
 	var topCategories []CategorySales
-	db.Raw(`
+	if err := db.Raw(`
 		SELECT 
 			c.category_name,
 			SUM(oi.quantity) as units_sold,
@@ -191,11 +257,16 @@ func ExportSalesReport(c *gin.Context) {
 		GROUP BY c.category_name
 		ORDER BY units_sold DESC, revenue DESC
 		LIMIT 10
-	`, startDate, endDate).Scan(&topCategories)
+	`, startDate, endDate).Scan(&topCategories).Error; err != nil {
+		pkg.Log.Error("Failed to fetch top categories", zap.Error(err))
+		helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to fetch top categories", err.Error(), "")
+		return
+	}
+	pkg.Log.Debug("Top categories retrieved", zap.Int("category_count", len(topCategories)))
 
-	// Get top selling brands - FIXED QUERY
+	// Get top selling brands
 	var topBrands []BrandSales
-	db.Raw(`
+	if err := db.Raw(`
 		SELECT 
 			COALESCE(NULLIF(p.brand, ''), 'Unknown Brand') AS brand_name,
 			SUM(oi.quantity) as units_sold,
@@ -211,56 +282,79 @@ func ExportSalesReport(c *gin.Context) {
 		HAVING SUM(oi.quantity) > 0
 		ORDER BY units_sold DESC, revenue DESC
 		LIMIT 10
-	`, startDate, endDate).Scan(&topBrands)
-
-	// If no brands found, add a placeholder
+	`, startDate, endDate).Scan(&topBrands).Error; err != nil {
+		pkg.Log.Error("Failed to fetch top brands", zap.Error(err))
+		helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to fetch top brands", err.Error(), "")
+		return
+	}
 	if len(topBrands) == 0 {
+		pkg.Log.Debug("No brands found, adding placeholder")
 		topBrands = []BrandSales{
 			{BrandName: "No Brands Sold", UnitsSold: 0, Revenue: 0},
 		}
 	}
+	pkg.Log.Debug("Top brands retrieved", zap.Int("brand_count", len(topBrands)))
 
 	switch format {
 	case "excel":
+		pkg.Log.Info("Generating Excel report")
 		f := excelize.NewFile()
-		
+
 		// Set document properties
-		f.SetDocProps(&excelize.DocProperties{
+		if err := f.SetDocProps(&excelize.DocProperties{
 			Title:       "Silver Sales Report",
 			Subject:     "Sales Report",
 			Creator:     "Silver E-commerce",
 			Description: "Sales report generated by Silver E-commerce System",
-		})
+		}); err != nil {
+			pkg.Log.Error("Failed to set Excel document properties", zap.Error(err))
+			helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to set document properties", err.Error(), "")
+			return
+		}
 
 		// Main Report Sheet
 		f.SetSheetName("Sheet1", "Sales Report")
-		
+
 		// Title
 		f.SetCellValue("Sales Report", "A1", "Silver Sales Report")
 		f.MergeCell("Sales Report", "A1", "H1")
-		styleTitle, _ := f.NewStyle(&excelize.Style{
-			Font: &excelize.Font{Bold: true, Size: 18, Color: "1F4E78"},
+		styleTitle, err := f.NewStyle(&excelize.Style{
+			Font:      &excelize.Font{Bold: true, Size: 18, Color: "1F4E78"},
 			Alignment: &excelize.Alignment{Horizontal: "center"},
 		})
+		if err != nil {
+			pkg.Log.Error("Failed to create title style", zap.Error(err))
+			helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to create Excel style", err.Error(), "")
+			return
+		}
 		f.SetCellStyle("Sales Report", "A1", "H1", styleTitle)
 
 		// Report Period
 		f.SetCellValue("Sales Report", "A2", "Report Period: "+reportPeriod)
 		f.MergeCell("Sales Report", "A2", "H2")
-		stylePeriod, _ := f.NewStyle(&excelize.Style{
-			Font: &excelize.Font{Size: 12, Color: "2F5496"},
+		stylePeriod, err := f.NewStyle(&excelize.Style{
+			Font:      &excelize.Font{Size: 12, Color: "2F5496"},
 			Alignment: &excelize.Alignment{Horizontal: "center"},
 		})
+		if err != nil {
+			pkg.Log.Error("Failed to create period style", zap.Error(err))
+			helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to create Excel style", err.Error(), "")
+			return
+		}
 		f.SetCellStyle("Sales Report", "A2", "H2", stylePeriod)
 
 		// Summary Section
 		f.SetCellValue("Sales Report", "A4", "Summary")
-		styleSummaryTitle, _ := f.NewStyle(&excelize.Style{
+		styleSummaryTitle, err := f.NewStyle(&excelize.Style{
 			Font: &excelize.Font{Bold: true, Size: 14, Color: "1F4E78"},
 		})
+		if err != nil {
+			pkg.Log.Error("Failed to create summary title style", zap.Error(err))
+			helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to create Excel style", err.Error(), "")
+			return
+		}
 		f.SetCellStyle("Sales Report", "A4", "A4", styleSummaryTitle)
 
-		// Enhanced summary data with all order status counts and discount breakdown
 		summaryData := [][]interface{}{
 			{"Total Revenue", fmt.Sprintf("$%.2f", summary.TotalRevenue)},
 			{"Total Orders", summary.TotalOrders},
@@ -275,25 +369,29 @@ func ExportSalesReport(c *gin.Context) {
 			f.SetCellValue("Sales Report", fmt.Sprintf("A%d", i+5), data[0])
 			f.SetCellValue("Sales Report", fmt.Sprintf("B%d", i+5), data[1])
 		}
+		pkg.Log.Debug("Excel summary section populated", zap.Int("summary_rows", len(summaryData)))
 
 		// Order Details Section
 		orderStartRow := len(summaryData) + 8
 		f.SetCellValue("Sales Report", fmt.Sprintf("A%d", orderStartRow), "Order Details")
 		f.SetCellStyle("Sales Report", fmt.Sprintf("A%d", orderStartRow), fmt.Sprintf("A%d", orderStartRow), styleSummaryTitle)
 
-		// Order Details Headers
 		orderHeaders := []string{"Order ID", "Customer", "Date", "Amount", "Discount", "Status"}
 		for i, header := range orderHeaders {
 			f.SetCellValue("Sales Report", fmt.Sprintf("%c%d", 'A'+i, orderStartRow+1), header)
 		}
-		styleHeader, _ := f.NewStyle(&excelize.Style{
-			Font: &excelize.Font{Bold: true, Color: "FFFFFF"},
-			Fill: excelize.Fill{Type: "pattern", Color: []string{"2F5496"}, Pattern: 1},
+		styleHeader, err := f.NewStyle(&excelize.Style{
+			Font:      &excelize.Font{Bold: true, Color: "FFFFFF"},
+			Fill:      excelize.Fill{Type: "pattern", Color: []string{"2F5496"}, Pattern: 1},
 			Alignment: &excelize.Alignment{Horizontal: "center"},
 		})
+		if err != nil {
+			pkg.Log.Error("Failed to create header style", zap.Error(err))
+			helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to create Excel style", err.Error(), "")
+			return
+		}
 		f.SetCellStyle("Sales Report", fmt.Sprintf("A%d", orderStartRow+1), fmt.Sprintf("F%d", orderStartRow+1), styleHeader)
 
-		// Order Details Data
 		for i, order := range orderDetails {
 			row := orderStartRow + 2 + i
 			f.SetCellValue("Sales Report", fmt.Sprintf("A%d", row), order.OrderID)
@@ -303,6 +401,7 @@ func ExportSalesReport(c *gin.Context) {
 			f.SetCellValue("Sales Report", fmt.Sprintf("E%d", row), fmt.Sprintf("$%.2f", order.Discount))
 			f.SetCellValue("Sales Report", fmt.Sprintf("F%d", row), order.Status)
 		}
+		pkg.Log.Debug("Excel order details section populated", zap.Int("order_rows", len(orderDetails)))
 
 		// Top Selling Products Section
 		productsStartRow := orderStartRow + len(orderDetails) + 4
@@ -321,6 +420,7 @@ func ExportSalesReport(c *gin.Context) {
 			f.SetCellValue("Sales Report", fmt.Sprintf("B%d", row), product.UnitsSold)
 			f.SetCellValue("Sales Report", fmt.Sprintf("C%d", row), fmt.Sprintf("$%.2f", product.Revenue))
 		}
+		pkg.Log.Debug("Excel top products section populated", zap.Int("product_rows", len(topProducts)))
 
 		// Top Selling Categories Section
 		categoriesStartRow := productsStartRow + len(topProducts) + 4
@@ -339,6 +439,7 @@ func ExportSalesReport(c *gin.Context) {
 			f.SetCellValue("Sales Report", fmt.Sprintf("B%d", row), category.UnitsSold)
 			f.SetCellValue("Sales Report", fmt.Sprintf("C%d", row), fmt.Sprintf("$%.2f", category.Revenue))
 		}
+		pkg.Log.Debug("Excel top categories section populated", zap.Int("category_rows", len(topCategories)))
 
 		// Top Selling Brands Section
 		brandsStartRow := categoriesStartRow + len(topCategories) + 4
@@ -357,20 +458,25 @@ func ExportSalesReport(c *gin.Context) {
 			f.SetCellValue("Sales Report", fmt.Sprintf("B%d", row), brand.UnitsSold)
 			f.SetCellValue("Sales Report", fmt.Sprintf("C%d", row), fmt.Sprintf("$%.2f", brand.Revenue))
 		}
+		pkg.Log.Debug("Excel top brands section populated", zap.Int("brand_rows", len(topBrands)))
 
 		// Auto-size columns
 		f.SetColWidth("Sales Report", "A", "H", 15)
 		f.SetColWidth("Sales Report", "A", "A", 25) // Make first column wider for titles
+		pkg.Log.Debug("Excel column widths set")
 
 		c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 		c.Header("Content-Disposition", "attachment; filename=silver_sales_report_"+time.Now().Format("20060102")+".xlsx")
-		
+
 		if err := f.Write(c.Writer); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": "Failed to generate Excel file"})
+			pkg.Log.Error("Failed to generate Excel file", zap.Error(err))
+			helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to generate Excel file", err.Error(), "")
 			return
 		}
+		pkg.Log.Info("Excel report generated successfully", zap.String("filename", "silver_sales_report_"+time.Now().Format("20060102")+".xlsx"))
 
 	case "pdf":
+		pkg.Log.Info("Generating PDF report")
 		cfg := config.NewBuilder().Build()
 		m := maroto.New(cfg)
 
@@ -390,7 +496,7 @@ func ExportSalesReport(c *gin.Context) {
 			}),
 		)
 
-		// Enhanced Summary Section with all order status counts
+		// Summary Section
 		m.AddRows(
 			text.NewRow(12, "Summary", props.Text{
 				Size:  12,
@@ -417,6 +523,7 @@ func ExportSalesReport(c *gin.Context) {
 				),
 			)
 		}
+		pkg.Log.Debug("PDF summary section populated", zap.Int("summary_rows", len(summaryRows)))
 
 		// Order Details Section
 		m.AddRows(
@@ -446,6 +553,7 @@ func ExportSalesReport(c *gin.Context) {
 				),
 			)
 		}
+		pkg.Log.Debug("PDF order details section populated", zap.Int("order_rows", len(orderDetails)))
 
 		// Top Products Section
 		m.AddRows(
@@ -471,6 +579,7 @@ func ExportSalesReport(c *gin.Context) {
 				),
 			)
 		}
+		pkg.Log.Debug("PDF top products section populated", zap.Int("product_rows", len(topProducts)))
 
 		// Top Categories Section
 		m.AddRows(
@@ -496,6 +605,7 @@ func ExportSalesReport(c *gin.Context) {
 				),
 			)
 		}
+		pkg.Log.Debug("PDF top categories section populated", zap.Int("category_rows", len(topCategories)))
 
 		// Top Brands Section
 		m.AddRows(
@@ -521,41 +631,43 @@ func ExportSalesReport(c *gin.Context) {
 				),
 			)
 		}
+		pkg.Log.Debug("PDF top brands section populated", zap.Int("brand_rows", len(topBrands)))
 
-		   pdf, err := m.Generate()
-    if err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": "Failed to generate PDF"})
-        return
-    }
+		pdf, err := m.Generate()
+		if err != nil {
+			pkg.Log.Error("Failed to generate PDF", zap.Error(err))
+			helper.ResponseWithErr(c, http.StatusInternalServerError, "Failed to generate PDF", err.Error(), "")
+			return
+		}
 
-    c.Header("Content-Type", "application/pdf")
-    // Always use inline for preview - user can manually download from browser
-    c.Header("Content-Disposition", "inline; filename=silver_sales_report_"+time.Now().Format("20060102")+".pdf")
-    c.Data(http.StatusOK, "application/pdf", pdf.GetBytes())
+		c.Header("Content-Type", "application/pdf")
+		c.Header("Content-Disposition", "attachment; filename=silver_sales_report_"+time.Now().Format("20060102")+".pdf")
 		c.Data(http.StatusOK, "application/pdf", pdf.GetBytes())
+		pkg.Log.Info("PDF report generated successfully", zap.String("filename", "silver_sales_report_"+time.Now().Format("20060102")+".pdf"))
 
 	default:
+		pkg.Log.Info("Generating JSON report")
 		c.JSON(http.StatusOK, gin.H{
 			"status": "success",
 			"report": gin.H{
 				"period": reportPeriod,
 				"summary": gin.H{
-					"total_revenue":        summary.TotalRevenue,
-					"total_orders":         summary.TotalOrders,
-					"delivered_orders":     summary.DeliveredOrders,
-					"completed_orders":     summary.CompletedOrders,
-					"pending_orders":       summary.PendingOrders,
-					"cancelled_orders":     summary.CancelledOrders,
-					"average_order_value":  avgOrderValue,
-					"total_discount":       summary.TotalDiscount,
-					"coupon_discount":      summary.CouponDiscount,
-					"offer_discount":       summary.OfferDiscount,
-					"total_amount":         summary.TotalRevenue,
+					"total_revenue":       summary.TotalRevenue,
+					"total_orders":        summary.TotalOrders,
+					"delivered_orders":    summary.DeliveredOrders,
+					"completed_orders":    summary.CompletedOrders,
+					"pending_orders":      summary.PendingOrders,
+					"cancelled_orders":    summary.CancelledOrders,
+					"average_order_value": avgOrderValue,
+					"total_discount":      summary.TotalDiscount,
+					"coupon_discount":     summary.CouponDiscount,
+					"offer_discount":      summary.OfferDiscount,
+					"total_amount":        summary.TotalRevenue,
 				},
-				"order_details":    orderDetails,
-				"top_products":     topProducts,
-				"top_categories":   topCategories,
-				"top_brands":       topBrands,
+				"order_details":  orderDetails,
+				"top_products":   topProducts,
+				"top_categories": topCategories,
+				"top_brands":     topBrands,
 			},
 		})
 	}

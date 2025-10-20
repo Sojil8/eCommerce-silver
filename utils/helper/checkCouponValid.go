@@ -1,43 +1,58 @@
 package helper
 
 import (
-	"log"
 	"time"
 
 	"github.com/Sojil8/eCommerce-silver/database"
 	"github.com/Sojil8/eCommerce-silver/models/adminModels"
+	"github.com/Sojil8/eCommerce-silver/pkg"
 	"github.com/robfig/cron/v3"
+	"go.uber.org/zap"
 )
 
-// UpdateExpiredCoupons checks all coupons and sets IsActive to false for expired ones
 func UpdateExpiredCoupons() {
+	pkg.Log.Debug("Starting coupon expiry check")
+
 	var coupons []adminModels.Coupons
 	if err := database.DB.Where("is_active = ? AND expiry_date < ?", true, time.Now()).Find(&coupons).Error; err != nil {
-		log.Printf("Error fetching coupons: %v", err)
+		pkg.Log.Error("Failed to fetch expired coupons",
+			zap.Error(err))
+		return
+	}
+
+	if len(coupons) == 0 {
+		pkg.Log.Info("No expired coupons found")
 		return
 	}
 
 	for _, coupon := range coupons {
 		coupon.IsActive = false
 		if err := database.DB.Save(&coupon).Error; err != nil {
-			log.Printf("Error updating coupon %s: %v", coupon.CouponCode, err)
+			pkg.Log.Error("Failed to deactivate coupon",
+				zap.String("couponCode", coupon.CouponCode),
+				zap.Error(err))
 		} else {
-			log.Printf("Coupon %s deactivated due to expiry", coupon.CouponCode)
+			pkg.Log.Info("Coupon deactivated due to expiry",
+				zap.String("couponCode", coupon.CouponCode),
+				zap.Time("expiryDate", coupon.ExpiryDate))
 		}
 	}
+
+	pkg.Log.Info("Coupon expiry check completed",
+		zap.Int("couponsProcessed", len(coupons)))
 }
 
-// StartCouponExpiryScheduler initializes the cron job for checking expired coupons
 func StartCouponExpiryScheduler() {
-	c := cron.New()
+	pkg.Log.Debug("Initializing coupon expiry scheduler")
 
-	// Schedule the task to run every day at midnight
+	c := cron.New()
 	_, err := c.AddFunc("0 0 * * *", UpdateExpiredCoupons)
 	if err != nil {
-		log.Fatalf("Error scheduling coupon expiry task: %v", err)
+		pkg.Log.Fatal("Failed to schedule coupon expiry task",
+			zap.Error(err))
 	}
 
-	// Start the scheduler
 	c.Start()
-	log.Println("Coupon expiry scheduler started")
+	pkg.Log.Info("Coupon expiry scheduler started",
+		zap.String("schedule", "0 0 * * *"))
 }
