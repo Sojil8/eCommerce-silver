@@ -29,7 +29,7 @@ func InitGoogleOAuth() {
 	GoogleOauthConfig = &oauth2.Config{
 		ClientID:     os.Getenv("GOOGLE_CLIENT_ID"),
 		ClientSecret: os.Getenv("GOOGLE_CLIENT_SECRET"),
-		RedirectURL:  "http://localhost:8888/auth/google/callback",
+		RedirectURL:  "http://silver.zapto.org/auth/google/callback",
 		Scopes: []string{
 			"https://www.googleapis.com/auth/userinfo.email",
 			"https://www.googleapis.com/auth/userinfo.profile",
