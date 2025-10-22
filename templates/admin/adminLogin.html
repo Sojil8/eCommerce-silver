@@ -49,114 +49,98 @@
     </div>
 
     <script>
-        // Base URL for the backend
-        const BASE_URL = 'http://localhost:8888';
+    // Function to get cookie by name
+    function getCookie(name) {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop().split(';').shift();
+        return null;
+    }
 
-        // Function to get cookie by name
-        function getCookie(name) {
-            const value = `; ${document.cookie}`;
-            const parts = value.split(`; ${name}=`);
-            if (parts.length === 2) return parts.pop().split(';').shift();
-            return null;
-        }
-
-        // Check if already logged in
-        async function checkAuth() {
-            const token = getCookie('jwtTokensAdmin');
-            if (token) {
-                try {
-                    // Check if token is valid by accessing a protected endpoint
-                    const response = await fetch(`${BASE_URL}/admin/dashboard`, {
-                        method: 'GET',
-                        credentials: 'include'
-                    });
-
-                    if (response.ok) {
-                        // Already authenticated, redirect to dashboard
-                        window.location.replace(`${BASE_URL}/admin/dashboard`);
-                    }
-                } catch (error) {
-                    console.error('Auth check error:', error);
-                    // If there's an error, clear the invalid token
-                    document.cookie = 'jwtTokensAdmin=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-                }
-            }
-        }
-
-        // Handle form submission - SINGLE handler
-        document.getElementById('adminLoginForm').addEventListener('submit', async function(event) {
-            event.preventDefault();
-
-            const email = document.getElementById('email').value;
-            const password = document.getElementById('password').value;
-            const errorElement = document.getElementById('error');
-            const submitButton = event.target.querySelector('button[type="submit"]');
-
-            errorElement.style.display = 'none';
-            
-            // Disable button to prevent multiple submissions
-            submitButton.disabled = true;
-            submitButton.textContent = 'Logging in...';
-
-            const data = { email, password };
-            
+    // Check if already logged in
+    async function checkAuth() {
+        const token = getCookie('jwtTokensAdmin');
+        if (token) {
             try {
-                const response = await fetch(`${BASE_URL}/admin/login`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    credentials: 'include',
-                    body: JSON.stringify(data)
+                const response = await fetch('/admin/dashboard', {
+                    method: 'GET',
+                    credentials: 'include'
                 });
-                
-                if (response.redirected) {
-                    // If server redirects, follow it
-                    window.location.replace(response.url);
-                    return;
+
+                if (response.ok) {
+                    window.location.replace('/admin/dashboard');
                 }
-                
-                const result = await response.json();
-                
-                if (!response.ok) {
-                    errorElement.textContent = result.message || 'Login failed';
-                    errorElement.style.display = 'block';
-                    return;
-                }
-                
-                // Login successful - use replace() to prevent back navigation
-                console.log("Login successful:", result);
-                window.location.replace(`${BASE_URL}/admin/dashboard`);
-                
             } catch (error) {
-                errorElement.textContent = 'An error occurred. Please try again.';
+                console.error('Auth check error:', error);
+                document.cookie = 'jwtTokensAdmin=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+            }
+        }
+    }
+
+    // Handle form submission
+    document.getElementById('adminLoginForm').addEventListener('submit', async function(event) {
+        event.preventDefault();
+
+        const email = document.getElementById('email').value;
+        const password = document.getElementById('password').value;
+        const errorElement = document.getElementById('error');
+        const submitButton = event.target.querySelector('button[type="submit"]');
+
+        errorElement.style.display = 'none';
+        submitButton.disabled = true;
+        submitButton.textContent = 'Logging in...';
+
+        const data = { email, password };
+
+        try {
+            const response = await fetch('/admin/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                credentials: 'include',
+                body: JSON.stringify(data)
+            });
+
+            if (response.redirected) {
+                window.location.replace(response.url);
+                return;
+            }
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                errorElement.textContent = result.message || 'Login failed';
                 errorElement.style.display = 'block';
-                console.error('Login error:', error);
-            } finally {
-                // Re-enable button
-                submitButton.disabled = false;
-                submitButton.textContent = 'Login';
+                return;
             }
-        });
 
-        // Prevent back navigation to cached login page
-        window.addEventListener('pageshow', function(event) {
-            if (event.persisted) {
-                // Page was loaded from cache, reload to ensure fresh state
-                window.location.reload();
-            }
-        });
+            // Login successful
+            console.log("Login successful:", result);
+            window.location.replace('/admin/dashboard');
 
-        // Initialize on load
-        window.addEventListener('load', function() {
-            checkAuth();
-            
-            // Clear any existing history state
-            if (window.history.replaceState) {
-                window.history.replaceState(null, null, window.location.href);
-            }
-        });
-    </script>
+        } catch (error) {
+            errorElement.textContent = 'An error occurred. Please try again.';
+            errorElement.style.display = 'block';
+            console.error('Login error:', error);
+        } finally {
+            submitButton.disabled = false;
+            submitButton.textContent = 'Login';
+        }
+    });
+
+    // Prevent back navigation to cached login page
+    window.addEventListener('pageshow', function(event) {
+        if (event.persisted) window.location.reload();
+    });
+
+    // Initialize
+    window.addEventListener('load', function() {
+        checkAuth();
+        if (window.history.replaceState) window.history.replaceState(null, null, window.location.href);
+    });
+</script>
+
     <style>
         .animate-blob {
             animation: blob 10s infinite;
