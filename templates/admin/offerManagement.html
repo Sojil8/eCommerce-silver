@@ -350,54 +350,83 @@
         document.addEventListener('DOMContentLoaded', updateSelection);
 
         // Add offer function
-        async function addOffer() {
-            // Validate form before submitting
-            if (!validateForm()) {
-                Swal.fire('Validation Error', 'Please fix the validation errors before submitting', 'error');
-                return;
-            }
-            
-            const offerType = document.querySelector('input[name="offer_type"]:checked').value;
-            const itemId = document.getElementById('item_select').value;
-            const offerName = document.getElementById('offer_name').value.trim();
-            const discount = document.getElementById('discount').value;
-            const startDate = document.getElementById('start_date').value;
-            const endDate = document.getElementById('end_date').value;
-            const isActive = document.getElementById('is_active').checked;
+        
+async function addOffer() {
+    // Validate form before submitting
+    if (!validateForm()) {
+        Swal.fire('Validation Error', 'Please fix the validation errors before submitting', 'error');
+        return;
+    }
+    
+    const offerType = document.querySelector('input[name="offer_type"]:checked').value;
+    const itemId = document.getElementById('item_select').value;
+    const offerName = document.getElementById('offer_name').value.trim();
+    const discount = document.getElementById('discount').value;
+    const startDate = document.getElementById('start_date').value;
+    const endDate = document.getElementById('end_date').value;
+    const isActive = document.getElementById('is_active').checked;
 
-            if (!itemId) {
-                Swal.fire('Error', 'Please select a product or category', 'error');
-                return;
-            }
-            if (!offerName) {
-                Swal.fire('Error', 'Please enter an offer name', 'error');
-                return;
-            }
+    if (!itemId) {
+        Swal.fire('Error', 'Please select a product or category', 'error');
+        return;
+    }
+    if (!offerName) {
+        Swal.fire('Error', 'Please enter an offer name', 'error');
+        return;
+    }
+    if (!discount) {
+        Swal.fire('Error', 'Please enter a discount value', 'error');
+        return;
+    }
+    if (!startDate || !endDate) {
+        Swal.fire('Error', 'Please select both start and end dates', 'error');
+        return;
+    }
 
-            const endpoint = offerType === 'product' ? `/admin/product_offers/${itemId}` : `/admin/category_offers/${itemId}`;
-            const response = await fetch(endpoint, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    OfferName: offerName,
-                    Discount: parseFloat(discount),
-                    StartDate: new Date(startDate).toISOString(),
-                    EndDate: new Date(endDate).toISOString(),
-                    IsActive: isActive
-                }),
-                credentials: 'include'
-            });
+    // Create date objects and format them properly for backend
+    const startDateObj = new Date(startDate);
+    const endDateObj = new Date(endDate);
+    
+    // Set time to noon to avoid timezone issues
+    startDateObj.setHours(12, 0, 0, 0);
+    endDateObj.setHours(12, 0, 0, 0);
+    
+    if (isNaN(startDateObj.getTime()) || isNaN(endDateObj.getTime())) {
+        Swal.fire('Error', 'Invalid date format', 'error');
+        return;
+    }
 
-            const result = await response.json();
-            if (response.ok) {
-                Swal.fire('Success', result.message || 'Offer added successfully', 'success').then(() => {
-                    hideAddOfferModal();
-                    location.reload();
-                });
-            } else {
-                Swal.fire('Error', result.error || 'Failed to add offer', 'error');
-            }
-        }
+    const endpoint = offerType === 'product' ? `/admin/product_offers/${itemId}` : `/admin/category_offers/${itemId}`;
+    
+    const payload = {
+        offer_name: offerName,
+        discount: parseFloat(discount),
+        start_date: startDateObj.toISOString(),
+        end_date: endDateObj.toISOString(),
+        is_active: isActive
+    };
+
+    console.log('Sending payload:', payload); // Debug log
+
+    const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload),
+        credentials: 'include'
+    });
+
+    const result = await response.json();
+    if (response.ok) {
+        Swal.fire('Success', result.message || 'Offer added successfully', 'success').then(() => {
+            hideAddOfferModal();
+            location.reload();
+        });
+    } else {
+        Swal.fire('Error', result.error || 'Failed to add offer', 'error');
+    }
+}
 
         // Show edit offer modal
         async function showEditOfferModal(type, id) {
@@ -460,50 +489,77 @@
 
         // Update offer function
         async function updateOffer() {
-            // Validate form before submitting
-            if (!validateForm('edit')) {
-                Swal.fire('Validation Error', 'Please fix the validation errors before submitting', 'error');
-                return;
-            }
-            
-            const id = document.getElementById('edit_offer_id').value;
-            const type = document.getElementById('edit_offer_type').value;
-            const offerName = document.getElementById('edit_offer_name').value.trim();
-            const discount = document.getElementById('edit_discount').value;
-            const startDate = document.getElementById('edit_start_date').value;
-            const endDate = document.getElementById('edit_end_date').value;
-            const isActive = document.getElementById('edit_is_active').checked;
+    // Validate form before submitting
+    if (!validateForm('edit')) {
+        Swal.fire('Validation Error', 'Please fix the validation errors before submitting', 'error');
+        return;
+    }
+    
+    const id = document.getElementById('edit_offer_id').value;
+    const type = document.getElementById('edit_offer_type').value;
+    const offerName = document.getElementById('edit_offer_name').value.trim();
+    const discount = document.getElementById('edit_discount').value;
+    const startDate = document.getElementById('edit_start_date').value;
+    const endDate = document.getElementById('edit_end_date').value;
+    const isActive = document.getElementById('edit_is_active').checked;
 
-            if (!offerName) {
-                Swal.fire('Error', 'Please enter an offer name', 'error');
-                return;
-            }
+    if (!offerName) {
+        Swal.fire('Error', 'Please enter an offer name', 'error');
+        return;
+    }
+    if (!discount) {
+        Swal.fire('Error', 'Please enter a discount value', 'error');
+        return;
+    }
+    if (!startDate || !endDate) {
+        Swal.fire('Error', 'Please select both start and end dates', 'error');
+        return;
+    }
 
-            const endpoint = type === 'product' ? `/admin/product_offers/${id}` : `/admin/category_offers/${id}`;
-            const response = await fetch(endpoint, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    OfferName: offerName,
-                    Discount: parseFloat(discount),
-                    StartDate: new Date(startDate).toISOString(),
-                    EndDate: new Date(endDate).toISOString(),
-                    IsActive: isActive
-                }),
-                credentials: 'include'
-            });
+    // Create date objects and format them properly for backend
+    const startDateObj = new Date(startDate);
+    const endDateObj = new Date(endDate);
+    
+    // Set time to noon to avoid timezone issues
+    startDateObj.setHours(12, 0, 0, 0);
+    endDateObj.setHours(12, 0, 0, 0);
+    
+    if (isNaN(startDateObj.getTime()) || isNaN(endDateObj.getTime())) {
+        Swal.fire('Error', 'Invalid date format', 'error');
+        return;
+    }
 
-            const result = await response.json();
-            if (response.ok) {
-                Swal.fire('Success', result.message || 'Offer updated successfully', 'success').then(() => {
-                    hideEditOfferModal();
-                    location.reload();
-                });
-            } else {
-                Swal.fire('Error', result.error || 'Failed to update offer', 'error');
-            }
-        }
+    const endpoint = type === 'product' ? `/admin/product_offers/${id}` : `/admin/category_offers/${id}`;
+    
+    const payload = {
+        offer_name: offerName,
+        discount: parseFloat(discount),
+        start_date: startDateObj.toISOString(),
+        end_date: endDateObj.toISOString(),
+        is_active: isActive
+    };
 
+    console.log('Sending update payload:', payload); // Debug log
+
+    const response = await fetch(endpoint, {
+        method: 'PUT',
+        headers: { 
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload),
+        credentials: 'include'
+    });
+
+    const result = await response.json();
+    if (response.ok) {
+        Swal.fire('Success', result.message || 'Offer updated successfully', 'success').then(() => {
+            hideEditOfferModal();
+            location.reload();
+        });
+    } else {
+        Swal.fire('Error', result.error || 'Failed to update offer', 'error');
+    }
+}
         // Delete product offer
         async function deleteProductOffer(id) {
             const result = await Swal.fire({

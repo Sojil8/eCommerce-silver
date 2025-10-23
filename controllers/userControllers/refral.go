@@ -43,7 +43,7 @@ func ShowRefralPage(c *gin.Context) {
 		zap.Uint("user_id", userIDUint),
 		zap.String("referral_token", user.ReferralToken))
 
-	const baseUrl = "http://localhost:8888"
+	const baseUrl = "http://silver.zapto.org"
 	refralLink := fmt.Sprintf("%s/signup?ref=%s", baseUrl, user.ReferralToken)
 	pkg.Log.Debug("Generated referral link",
 		zap.Uint("user_id", userIDUint),
