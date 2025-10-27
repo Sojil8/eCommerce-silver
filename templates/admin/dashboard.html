@@ -55,7 +55,7 @@
             font-size: 1.25rem;
         }
         
-        /* Updated Sidebar Styles */
+        /* Sidebar Styles */
         .sidebar {
             background: linear-gradient(180deg, #1f2937 0%, #111827 100%);
             transition: transform 0.3s ease;
@@ -89,7 +89,22 @@
             margin-right: 0.75rem;
         }
         
-        /* Updated Topbar Styles */
+        .sidebar-backdrop {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 49;
+        }
+        
+        .sidebar.active + .sidebar-backdrop {
+            display: block;
+        }
+        
+        /* Topbar Styles */
         .topbar {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             backdrop-filter: blur(8px);
@@ -235,67 +250,223 @@
             margin-bottom: 1rem;
         }
         
+        /* Responsive Table Styles */
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        @media (max-width: 768px) {
+            .data-table {
+                display: block;
+            }
+            .data-table thead {
+                display: none;
+            }
+            .data-table tbody, .data-table tr, .data-table td {
+                display: block;
+                width: 100%;
+            }
+            .data-table tr {
+                margin-bottom: 1rem;
+                border: 1px solid #e2e8f0;
+                border-radius: 8px;
+                padding: 0.5rem;
+                background: white;
+            }
+            .data-table td {
+                padding: 0.5rem;
+                position: relative;
+                border-bottom: none;
+            }
+            .data-table td:before {
+                content: attr(data-label);
+                font-weight: 600;
+                color: #374151;
+                display: block;
+                margin-bottom: 0.25rem;
+            }
+            .data-table td:not(:last-child) {
+                border-bottom: 1px solid #e2e8f0;
+            }
+            /* Hide less critical column on mobile */
+            .data-table td[data-label="Used"] {
+                display: none;
+            }
+        }
+        
+        /* Responsive Adjustments */
+        @media (min-width: 769px) {
+            .main-content {
+                margin-left: 16rem;
+            }
+        }
+        
         @media (max-width: 768px) {
             .sidebar {
                 transform: translateX(-100%);
                 position: fixed;
-                z-index: 50;
+                top: 0;
+                left: 0;
                 height: 100vh;
+                width: 240px;
+                z-index: 50;
             }
             .sidebar.active {
                 transform: translateX(0);
             }
             .main-content {
                 margin-left: 0 !important;
+                padding: 1rem;
+            }
+            .filter-section .flex {
+                flex-direction: column;
+                gap: 1rem;
+            }
+            .filter-btn, input[type="date"] {
+                width: 100%;
+                padding: 0.5rem;
+                font-size: 0.75rem;
+            }
+            .stat-card {
+                padding: 1rem;
+            }
+            .stat-icon {
+                width: 36px;
+                height: 36px;
+                font-size: 1rem;
+            }
+            .chart-container {
+                height: 200px;
+            }
+            .section-title {
+                font-size: 1rem;
+            }
+            .data-table th, .data-table td {
+                font-size: 0.75rem;
+            }
+        }
+        
+        @media (max-width: 576px) {
+            .sidebar {
+                width: 200px;
+            }
+            .sidebar a {
+                padding: 0.375rem;
+                font-size: 0.6875rem;
+            }
+            .sidebar a i {
+                margin-right: 0.5rem;
+            }
+            .topbar {
+                padding-left: 8px;
+                padding-right: 8px;
+            }
+            .topbar h1 {
+                font-size: 1rem;
+            }
+            .fa-chart-pie {
+                font-size: 1rem;
+            }
+            #toggle-sidebar {
+                padding: 0.375rem;
+            }
+            .data-table td {
+                padding: 0.4rem;
+                font-size: 0.6875rem;
+            }
+            .btn {
+                padding: 0.5rem 1rem;
+                font-size: 0.75rem;
+            }
+            .stat-card p.text-2xl {
+                font-size: 1.25rem;
+            }
+            .stat-card p.text-sm {
+                font-size: 0.75rem;
             }
         }
     </style>
 </head>
 <body>
-    <!-- Sidebar -->
-    <aside class="sidebar fixed left-0 top-0 h-full w-64 p-4 flex flex-col">
-        <div class="flex items-center justify-center mb-6 pt-4">
-           <br>
-           <br>
-        </div>
-        <nav class="space-y-1 flex-grow">
-            {{template "adminSideBar.html"}}
-        </nav>
-    </aside>
-
     <!-- Top Bar -->
     <nav class="topbar fixed top-0 left-0 right-0 z-40 shadow-lg">
         <div class="max-w-full mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between items-center h-16">                  
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center">
+                    <button id="toggle-sidebar" class="md:hidden text-white mr-3 focus:outline-none bg-blue-700 p-2 rounded-lg">
+                        <i class="fas fa-bars text-base"></i>
+                    </button>
                     <div class="flex items-center">
                         <i class="fas fa-chart-pie text-white text-xl mr-3"></i>
                         <h1 class="text-white text-xl font-semibold">Dashboard Overview</h1>
                     </div>
+                </div>
                 <div class="flex items-center space-x-3">
                     <div class="hidden md:flex items-center space-x-2 bg-blue-500/20 px-3 py-1 rounded-lg">
                         <i class="fas fa-calendar text-blue-200"></i>
                         <span class="text-white text-sm" id="current-date"></span>
                     </div>
-                    
                     <button onclick="exportData('pdf')" class="btn btn-secondary">
                         <i class="fas fa-file-pdf"></i>
                         <span class="hidden sm:inline">Export PDF</span>
                     </button>
-
-                <button onclick="logoutAdmin()" class="btn btn-danger">
-                    <i class="fas fa-sign-out-alt"></i>
-                    <span class="hidden sm:inline">Logout</span>
-                </button>
+                    <button onclick="logoutAdmin()" class="btn btn-danger">
+                        <i class="fas fa-sign-out-alt"></i>
+                        <span class="hidden sm:inline">Logout</span>
+                    </button>
                 </div>
             </div>
         </div>
     </nav>
 
+    <!-- Sidebar -->
+    <aside class="sidebar fixed left-0 top-0 h-full w-64 p-4 flex flex-col z-50 md:translate-x-0">
+        <div class="sidebar-header mb-6 pt-4">
+            <h2 class="text-2xl font-bold text-center text-white">Admin Panel</h2>
+        </div>
+        <nav class="space-y-1 flex-grow">
+            <a href="/admin/dashboard" class="sidebar-link" data-page="dashboard">
+                <i class="fas fa-chart-line"></i>
+                <span>Dashboard</span>
+            </a>
+            <a href="/admin/user-management" class="sidebar-link" data-page="user-management">
+                <i class="fas fa-users"></i>
+                <span>Customers</span>
+            </a>
+            <a href="/admin/category" class="sidebar-link" data-page="category">
+                <i class="fas fa-tags"></i>
+                <span>Category</span>
+            </a>
+            <a href="/admin/products" class="sidebar-link" data-page="products">
+                <i class="fas fa-box"></i>
+                <span>Products</span>
+            </a>
+            <a href="/admin/orders" class="sidebar-link" data-page="orders">
+                <i class="fas fa-shopping-cart"></i>
+                <span>Orders</span>
+            </a>
+            <a href="/admin/returns" class="sidebar-link" data-page="returns">
+                <i class="fas fa-undo"></i>
+                <span>Return</span>
+            </a>
+            <a href="/admin/offers" class="sidebar-link" data-page="offers">
+                <i class="fas fa-percent"></i>
+                <span>Offers</span>
+            </a>
+            <a href="/admin/coupons" class="sidebar-link" data-page="coupons">
+                <i class="fas fa-ticket-alt"></i>
+                <span>Coupons</span>
+            </a>
+        </nav>
+    </aside>
+    <div class="sidebar-backdrop"></div>
+
     <!-- Main Content -->
-    <main class="main-content ml-0 md:ml-64 pt-16 pb-8">
+    <main class="main-content pt-16 pb-8">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <!-- Filter Section -->
-            <section class="mb-8">
+            <section class="mb-8 filter-section">
                 <div class="card p-6">
                     <h3 class="section-title">Filter Reports</h3>
                     <div class="flex flex-col lg:flex-row gap-4">
@@ -361,17 +532,17 @@
                     </div>
                 </div>
                 <div class="stat-card">
-    <div class="flex items-start justify-between">
-        <div>
-            <p class="text-sm font-medium text-slate-500 mb-1">Total Discount</p>
-            <p class="text-2xl font-bold text-slate-900" id="total-discount">-</p>
-            <p class="text-xs text-slate-400">Offer + Coupon</p>
-        </div>
-        <div class="stat-icon" style="background: #f0fdf4; color: #10b981;">
-            <i class="fas fa-tags"></i>
-        </div>
-    </div>
-</div>
+                    <div class="flex items-start justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-slate-500 mb-1">Total Discount</p>
+                            <p class="text-2xl font-bold text-slate-900" id="total-discount">-</p>
+                            <p class="text-xs text-slate-400">Offer + Coupon</p>
+                        </div>
+                        <div class="stat-icon" style="background: #f0fdf4; color: #10b981;">
+                            <i class="fas fa-tags"></i>
+                        </div>
+                    </div>
+                </div>
             </section>
 
             <!-- Order Status Cards -->
@@ -439,562 +610,588 @@
             <section class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
                 <div class="card p-6">
                     <h3 class="section-title">Inventory Status</h3>
-                    <div class="overflow-x-auto">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Product</th>
-                                    <th>Stock</th>
-                                    <th>Status</th>
-                                </tr>
-                            </thead>
-                            <tbody id="inventory-table">
-                                <tr><td colspan="3" class="text-center text-slate-500">Loading...</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Product</th>
+                                <th>Stock</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="inventory-table">
+                            <tr><td colspan="3" class="text-center text-slate-500">Loading...</td></tr>
+                        </tbody>
+                    </table>
                 </div>
                 <div class="card p-6">
                     <h3 class="section-title">Recent Orders</h3>
-                    <div class="overflow-x-auto">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Order ID</th>
-                                    <th>Customer</th>
-                                    <th>Amount</th>
-                                    <th>Status</th>
-                                </tr>
-                            </thead>
-                            <tbody id="recent-orders-table">
-                                <tr><td colspan="4" class="text-center text-slate-500">Loading...</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Order ID</th>
+                                <th>Customer</th>
+                                <th>Amount</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="recent-orders-table">
+                            <tr><td colspan="4" class="text-center text-slate-500">Loading...</td></tr>
+                        </tbody>
+                    </table>
                 </div>
                 <div class="card p-6">
                     <h3 class="section-title">Active Coupons</h3>
-                    <div class="overflow-x-auto">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Code</th>
-                                    <th>Used</th>
-                                    <th>Discount</th>
-                                </tr>
-                            </thead>
-                            <tbody id="coupon-usage-table">
-                                <tr><td colspan="3" class="text-center text-slate-500">Loading...</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Code</th>
+                                <th>Used</th>
+                                <th>Discount</th>
+                            </tr>
+                        </thead>
+                        <tbody id="coupon-usage-table">
+                            <tr><td colspan="3" class="text-center text-slate-500">Loading...</td></tr>
+                        </tbody>
+                    </table>
                 </div>
             </section>
         </div>
     </main>
 
-<script>
-    // Set current date
-    document.getElementById('current-date').textContent = new Date().toLocaleDateString('en-US', { 
-        weekday: 'long', 
-        year: 'numeric', 
-        month: 'long', 
-        day: 'numeric' 
-    });
+    <script>
+        // Set current date
+        document.getElementById('current-date').textContent = new Date().toLocaleDateString('en-US', { 
+            weekday: 'long', 
+            year: 'numeric', 
+            month: 'long', 
+            day: 'numeric' 
+        });
 
-    const API_BASE = '/admin';
-    const CHART_DEFAULTS = {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: { 
-            legend: { display: false },
-            tooltip: {
-                backgroundColor: 'rgba(15, 23, 42, 0.9)',
-                padding: 12,
-                titleFont: { size: 13, weight: '600' },
-                bodyFont: { size: 12 },
-                borderColor: 'rgba(148, 163, 184, 0.1)',
-                borderWidth: 1,
-                displayColors: false
+        // Sidebar functionality
+        function setupSidebar() {
+            const toggleSidebar = document.getElementById('toggle-sidebar');
+            const sidebar = document.querySelector('.sidebar');
+            const backdrop = document.querySelector('.sidebar-backdrop');
+
+            if (toggleSidebar && sidebar && backdrop) {
+                toggleSidebar.addEventListener('click', () => {
+                    sidebar.classList.toggle('active');
+                });
+
+                backdrop.addEventListener('click', () => {
+                    sidebar.classList.remove('active');
+                });
+
+                document.querySelectorAll('.sidebar-link').forEach(link => {
+                    link.addEventListener('click', () => {
+                        if (window.innerWidth <= 768) {
+                            sidebar.classList.remove('active');
+                        }
+                    });
+                });
             }
         }
-    };
 
-    let charts = {
-        sales: null,
-        revenue: null,
-        topProducts: null,
-        topCategories: null,
-        topBrands: null
-    };
-    let state = {
-        filter: '{{.Filter}}',
-        startDate: '{{.StartDate}}',
-        endDate: '{{.EndDate}}'
-    };
+        function setActiveSidebarItem() {
+            const currentPath = window.location.pathname.toLowerCase();
+            const sidebarLinks = document.querySelectorAll('.sidebar-link');
+            
+            sidebarLinks.forEach(link => {
+                link.classList.remove('active');
+                const linkHref = link.getAttribute('href').toLowerCase();
+                const dataPage = link.getAttribute('data-page').toLowerCase();
+                
+                if (currentPath === linkHref ||
+                    currentPath.includes(dataPage) ||
+                    (currentPath === '/admin' && dataPage === 'dashboard') ||
+                    (currentPath === '/admin/' && dataPage === 'dashboard')) {
+                    link.classList.add('active');
+                }
+            });
+        }
 
-    function filterData(filter) {
-        state.filter = filter;
-        updateFilterButtons();
-        if (filter === 'custom') {
-            const { value: startDate } = document.getElementById('start-date');
-            const { value: endDate } = document.getElementById('end-date');
-            if (!startDate || !endDate) {
-                alert('Please select both start and end dates.');
-                return;
+        const API_BASE = '/admin';
+        const CHART_DEFAULTS = {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { 
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                    padding: 12,
+                    titleFont: { size: 13, weight: '600' },
+                    bodyFont: { size: 12 },
+                    borderColor: 'rgba(148, 163, 184, 0.1)',
+                    borderWidth: 1,
+                    displayColors: false
+                }
             }
-            state.startDate = startDate;
-            state.endDate = endDate;
-        } else if (filter === 'yearly') {
-            const end = new Date();
-            const start = new Date(end.getFullYear(), 0, 1);
-            state.startDate = start.toISOString().split('T')[0];
-            state.endDate = end.toISOString().split('T')[0];
-            document.getElementById('start-date').value = state.startDate;
-            document.getElementById('end-date').value = state.endDate;
-        } else {
-            state.startDate = '';
-            state.endDate = '';
-            document.getElementById('start-date').value = '';
-            document.getElementById('end-date').value = '';
-        }
-        loadDashboardData();
-    }
-
-    function initDashboard() {
-        console.log('Initializing dashboard with filter:', state.filter);
-        loadDashboardData();
-        updateFilterButtons();
-        if (state.startDate && state.endDate) {
-            document.getElementById('start-date').value = state.startDate;
-            document.getElementById('end-date').value = state.endDate;
-        }
-    }
-
-    async function loadDashboardData() {
-        let url = `${API_BASE}/dashboard/data?filter=${state.filter}`;
-        if (state.startDate && state.endDate) {
-            url += `&start_date=${encodeURIComponent(state.startDate)}&end_date=${encodeURIComponent(state.endDate)}`;
-        }
-        console.log('Fetching dashboard data from:', url);
-        
-        try {
-            const response = await fetch(url);
-            const result = await response.json();
-            console.log('Dashboard data received:', result);
-            if (result.status === 'success') {
-                updateDashboard(result.data);
-            } else {
-                throw new Error(result.message || 'Unknown error');
-            }
-        } catch (error) {
-            console.error('Error loading dashboard data:', error);
-            showErrorState(error.message);
-        }
-    }
-
-    function setupEventListeners() {
-        const toggleSidebar = document.getElementById('toggle-sidebar');
-        if (toggleSidebar) {
-            toggleSidebar.addEventListener('click', () =>
-                document.querySelector('.sidebar').classList.toggle('active')
-            );
-        }
-    }
-
-    function showErrorState(message) {
-        const existingErrors = document.querySelectorAll('.error-message');
-        existingErrors.forEach(error => error.remove());
-        
-        const errorDiv = document.createElement('div');
-        errorDiv.className = 'error-message card p-4 mb-6';
-        errorDiv.style.background = '#fef2f2';
-        errorDiv.style.border = '1px solid #fecaca';
-        errorDiv.innerHTML = `
-            <div class="flex items-center justify-between">
-                <div class="flex items-center gap-3">
-                    <i class="fas fa-exclamation-circle text-red-600"></i>
-                    <span class="text-sm text-red-800"><strong>Error:</strong> ${message || 'Failed to load data.'}</span>
-                </div>
-                <button onclick="loadDashboardData()" class="btn btn-primary" style="padding: 0.5rem 1rem;">Retry</button>
-            </div>
-        `;
-        document.querySelector('.main-content > div').prepend(errorDiv);
-        setTimeout(() => errorDiv.remove(), 5000);
-    }
-
-    function updateDashboard(data = {}) {
-        const safeData = {
-            total_users: data.total_users || 0,
-            total_orders: data.total_orders || 0,
-            total_revenue: data.total_revenue || 0,
-            total_products: data.total_products || 0,
-            total_discount: data.total_discount || 0,
-            pending_orders: data.pending_orders || 0,
-            completed_orders: data.completed_orders || 0,
-            cancelled_orders: data.cancelled_orders || 0,
-            avg_order_value: data.avg_order_value || 0,
-            top_products: Array.isArray(data.top_products) ? data.top_products : [],
-            top_categories: Array.isArray(data.top_categories) ? data.top_categories : [],
-            top_brands: Array.isArray(data.top_brands) ? data.top_brands : [],
-            recent_orders: Array.isArray(data.recent_orders) ? data.recent_orders : [],
-            sales_data: Array.isArray(data.sales_data) ? data.sales_data : [],
-            inventory_status: Array.isArray(data.inventory_status) ? data.inventory_status : [],
-            coupon_usage: Array.isArray(data.coupon_usage) ? data.coupon_usage : [],
-            monthly_revenue: Array.isArray(data.monthly_revenue) ? data.monthly_revenue : []
         };
 
-        updateStats(safeData);
-        updateCharts(safeData);
-        updateTables(safeData);
-    }
+        let charts = {
+            sales: null,
+            revenue: null,
+            topProducts: null,
+            topCategories: null,
+            topBrands: null
+        };
+        let state = {
+            filter: '{{.Filter}}',
+            startDate: '{{.StartDate}}',
+            endDate: '{{.EndDate}}'
+        };
 
-    function updateStats(data) {
-        const formatNumber = (num) => num.toLocaleString();
-        const formatCurrency = (num) => `$${num.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
-        
-        document.getElementById('total-users').textContent = formatNumber(data.total_users);
-        document.getElementById('total-orders').textContent = formatNumber(data.total_orders);
-        document.getElementById('total-revenue').textContent = formatCurrency(data.total_revenue);
-        document.getElementById('total-products').textContent = formatNumber(data.total_products);
-        document.getElementById('pending-orders').textContent = formatNumber(data.pending_orders);
-        document.getElementById('completed-orders').textContent = formatNumber(data.completed_orders);
-        document.getElementById('cancelled-orders').textContent = formatNumber(data.cancelled_orders);
-       document.getElementById('total-discount').textContent = formatCurrency(data.total_discount || 0);
-    }
-    function updateCharts(data) {
-        updateTopProductsChart(data.top_products);
-        updateTopCategoriesChart(data.top_categories);
-        updateTopBrandsChart(data.top_brands);
-        updateSalesChart(data.sales_data);
-        updateRevenueChart(data.monthly_revenue);
-    }
-
-    function updateTables(data) {
-        updateInventoryTable(data.inventory_status);
-        updateRecentOrdersTable(data.recent_orders);
-        updateCouponUsageTable(data.coupon_usage);
-    }
-
-    function createChart(ctx, type, data, options) {
-        if (!ctx) return;
-        
-        if (charts[ctx.id] && typeof charts[ctx.id].destroy === 'function') {
-            charts[ctx.id].destroy();
-        }
-        
-        if (!data.labels || !data.labels.length || !data.datasets || !data.datasets.length) {
-            const context = ctx.getContext('2d');
-            context.clearRect(0, 0, ctx.width, ctx.height);
-            context.font = '14px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto';
-            context.textAlign = 'center';
-            context.fillStyle = '#94a3b8';
-            context.fillText('No data available', ctx.width / 2, ctx.height / 2);
-            return;
-        }
-        
-        try {
-            charts[ctx.id] = new Chart(ctx, { type, data, options });
-        } catch (error) {
-            console.error('Error creating chart:', error);
-        }
-    }
-
-    function updateTopProductsChart(products = []) {
-        const ctx = document.getElementById('topProductsChart');
-        if (!ctx) return;
-        
-        createChart(ctx, 'bar', {
-            labels: products.map(p => p?.product_name || 'Unknown').slice(0, 10),
-            datasets: [{
-                data: products.map(p => p?.total_sold || 0).slice(0, 10),
-                backgroundColor: '#3b82f6',
-                borderRadius: 6,
-                barThickness: 24
-            }]
-        }, {
-            ...CHART_DEFAULTS,
-            scales: {
-                y: { 
-                    beginAtZero: true, 
-                    border: { display: false },
-                    grid: { color: '#f1f5f9' },
-                    ticks: { color: '#64748b', font: { size: 11 } }
-                },
-                x: { 
-                    border: { display: false },
-                    grid: { display: false },
-                    ticks: { color: '#64748b', font: { size: 11 }, maxRotation: 45, minRotation: 45 }
+        function filterData(filter) {
+            state.filter = filter;
+            updateFilterButtons();
+            if (filter === 'custom') {
+                const { value: startDate } = document.getElementById('start-date');
+                const { value: endDate } = document.getElementById('end-date');
+                if (!startDate || !endDate) {
+                    alert('Please select both start and end dates.');
+                    return;
                 }
-            }
-        });
-    }
-
-    function updateTopCategoriesChart(categories = []) {
-        const ctx = document.getElementById('topCategoriesChart');
-        if (!ctx) return;
-        
-        createChart(ctx, 'bar', {
-            labels: categories.map(c => c?.category_name || 'Unknown').slice(0, 10),
-            datasets: [{
-                data: categories.map(c => c?.total_sold || 0).slice(0, 10),
-                backgroundColor: '#22c55e',
-                borderRadius: 6,
-                barThickness: 24
-            }]
-        }, {
-            ...CHART_DEFAULTS,
-            scales: {
-                y: { 
-                    beginAtZero: true,
-                    border: { display: false },
-                    grid: { color: '#f1f5f9' },
-                    ticks: { color: '#64748b', font: { size: 11 } }
-                },
-                x: { 
-                    border: { display: false },
-                    grid: { display: false },
-                    ticks: { color: '#64748b', font: { size: 11 }, maxRotation: 45, minRotation: 45 }
-                }
-            }
-        });
-    }
-
-    function updateTopBrandsChart(brands = []) {
-        const ctx = document.getElementById('topBrandsChart');
-        if (!ctx) return;
-        
-        createChart(ctx, 'bar', {
-            labels: brands.map(b => b?.brand_name || 'Unknown').slice(0, 5),
-            datasets: [{
-                data: brands.map(b => b?.total_sold || 0).slice(0, 5),
-                backgroundColor: '#a855f7',
-                borderRadius: 6,
-                barThickness: 24
-            }]
-        }, {
-            ...CHART_DEFAULTS,
-            scales: {
-                y: { 
-                    beginAtZero: true,
-                    border: { display: false },
-                    grid: { color: '#f1f5f9' },
-                    ticks: { color: '#64748b', font: { size: 11 } }
-                },
-                x: { 
-                    border: { display: false },
-                    grid: { display: false },
-                    ticks: { color: '#64748b', font: { size: 11 }, maxRotation: 45, minRotation: 45 }
-                }
-            }
-        });
-    }
-
-    function updateSalesChart(salesData = []) {
-        const ctx = document.getElementById('salesChart');
-        if (!ctx) return;
-        
-        createChart(ctx, 'line', {
-            labels: salesData.map((item, i) => item?.date?.trim() || `Period ${i + 1}`),
-            datasets: [
-                {
-                    label: 'Sales',
-                    data: salesData.map(item => item?.sales || 0),
-                    borderColor: '#3b82f6',
-                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                    tension: 0.4,
-                    fill: true,
-                    borderWidth: 2,
-                    pointRadius: 4,
-                    pointHoverRadius: 6,
-                    pointBackgroundColor: '#3b82f6',
-                    yAxisID: 'y'
-                },
-                {
-                    label: 'Orders',
-                    data: salesData.map(item => item?.orders || 0),
-                    borderColor: '#22c55e',
-                    backgroundColor: 'rgba(34, 197, 94, 0.1)',
-                    tension: 0.4,
-                    fill: true,
-                    borderWidth: 2,
-                    pointRadius: 4,
-                    pointHoverRadius: 6,
-                    pointBackgroundColor: '#22c55e',
-                    yAxisID: 'y1'
-                }
-            ]
-        }, {
-            ...CHART_DEFAULTS,
-            scales: {
-                y: { 
-                    beginAtZero: true, 
-                    position: 'left',
-                    border: { display: false },
-                    grid: { color: '#f1f5f9' },
-                    ticks: { color: '#64748b', font: { size: 11 } }
-                },
-                y1: { 
-                    beginAtZero: true, 
-                    position: 'right',
-                    border: { display: false },
-                    grid: { drawOnChartArea: false },
-                    ticks: { color: '#64748b', font: { size: 11 } }
-                },
-                x: {
-                    border: { display: false },
-                    grid: { display: false },
-                    ticks: { color: '#64748b', font: { size: 11 } }
-                }
-            },
-            plugins: {
-                ...CHART_DEFAULTS.plugins,
-                legend: { 
-                    display: true, 
-                    position: 'top',
-                    align: 'end',
-                    labels: {
-                        usePointStyle: true,
-                        pointStyle: 'circle',
-                        padding: 15,
-                        font: { size: 12 },
-                        color: '#64748b'
-                    }
-                }
-            }
-        });
-    }
-
-    function updateRevenueChart(revenueData = []) {
-        const ctx = document.getElementById('revenueChart');
-        if (!ctx) return;
-        
-        createChart(ctx, 'bar', {
-            labels: revenueData.map(item => item?.month || 'Unknown'),
-            datasets: [{
-                data: revenueData.map(item => item?.revenue || 0),
-                backgroundColor: '#f59e0b',
-                borderRadius: 6,
-                barThickness: 32
-            }]
-        }, {
-            ...CHART_DEFAULTS,
-            scales: { 
-                y: { 
-                    beginAtZero: true,
-                    border: { display: false },
-                    grid: { color: '#f1f5f9' },
-                    ticks: { color: '#64748b', font: { size: 11 } }
-                },
-                x: {
-                    border: { display: false },
-                    grid: { display: false },
-                    ticks: { color: '#64748b', font: { size: 11 } }
-                }
-            }
-        });
-    }
-
-    function updateInventoryTable(inventory = []) {
-        const tbody = document.getElementById('inventory-table');
-        
-        tbody.innerHTML = inventory.length ? inventory.map(item => `
-            <tr>
-                <td class="text-slate-900">${item?.product_name || 'Unknown'}</td>
-                <td class="text-slate-900">${item?.stock || 0}</td>
-                <td class="font-medium ${item?.status === 'Out of Stock' ? 'text-red-600' : item?.status === 'Low Stock' ? 'text-orange-500' : 'text-green-600'}">${item?.status || 'Unknown'}</td>
-            </tr>
-        `).join('') : '<tr><td colspan="3" class="text-center text-slate-500">No inventory data</td></tr>';
-    }
-
-    function updateRecentOrdersTable(orders = []) {
-        const tbody = document.getElementById('recent-orders-table');
-        
-        tbody.innerHTML = orders.length ? orders.map(order => {
-            const statusClass = order?.status === 'Delivered' ? 'text-green-600' : 
-                              order?.status === 'Pending' ? 'text-orange-500' : 
-                              order?.status === 'Cancelled' ? 'text-red-600' : 'text-blue-600';
-            return `
-                <tr>
-                    <td class="text-slate-900 font-medium">#${order?.order_id || 'N/A'}</td>
-                    <td class="text-slate-900">${order?.user?.user_name || order?.user?.name || 'Guest'}</td>
-                    <td class="text-slate-900 font-medium">${(order?.total_price || 0).toFixed(2)}</td>
-                    <td class="font-medium ${statusClass} capitalize">${order?.status || 'Pending'}</td>
-                </tr>
-            `;
-        }).join('') : '<tr><td colspan="4" class="text-center text-slate-500">No recent orders</td></tr>';
-    }
-
-    function updateCouponUsageTable(coupons = []) {
-        const tbody = document.getElementById('coupon-usage-table');
-        
-        tbody.innerHTML = coupons.length ? coupons.map(coupon => `
-            <tr>
-                <td class="text-slate-900 font-medium">${coupon?.coupon_code || 'N/A'}</td>
-                <td class="text-slate-900">${coupon?.used_count || 0}</td>
-                <td class="text-slate-900 font-medium">${(coupon?.total_discount || 0).toFixed(2)}</td>
-            </tr>
-        `).join('') : '<tr><td colspan="3" class="text-center text-slate-500">No coupon data</td></tr>';
-    }
-
-    function updateFilterButtons() {
-        document.querySelectorAll('.filter-btn').forEach(btn => {
-            if (btn.id === `${state.filter}-btn`) {
-                btn.classList.add('active');
+                state.startDate = startDate;
+                state.endDate = endDate;
+            } else if (filter === 'yearly') {
+                const end = new Date();
+                const start = new Date(end.getFullYear(), 0, 1);
+                state.startDate = start.toISOString().split('T')[0];
+                state.endDate = end.toISOString().split('T')[0];
+                document.getElementById('start-date').value = state.startDate;
+                document.getElementById('end-date').value = state.endDate;
             } else {
-                btn.classList.remove('active');
+                state.startDate = '';
+                state.endDate = '';
+                document.getElementById('start-date').value = '';
+                document.getElementById('end-date').value = '';
             }
-        });
-    }
+            loadDashboardData();
+        }
 
-    async function exportData(format) {
-        try {
-            let url = `${API_BASE}/dashboard/export?format=${format}&filter=${state.filter}`;
-            if (state.filter === 'custom' || state.filter === 'yearly') {
+        function initDashboard() {
+            console.log('Initializing dashboard with filter:', state.filter);
+            loadDashboardData();
+            updateFilterButtons();
+            if (state.startDate && state.endDate) {
+                document.getElementById('start-date').value = state.startDate;
+                document.getElementById('end-date').value = state.endDate;
+            }
+            setupSidebar();
+            setActiveSidebarItem();
+        }
+
+        async function loadDashboardData() {
+            let url = `${API_BASE}/dashboard/data?filter=${state.filter}`;
+            if (state.startDate && state.endDate) {
                 url += `&start_date=${encodeURIComponent(state.startDate)}&end_date=${encodeURIComponent(state.endDate)}`;
             }
-            const response = await fetch(url);
-            if (!response.ok) throw new Error(`Failed to export ${format.toUpperCase()}`);
-            const blob = await response.blob();
-            const link = document.createElement('a');
-            link.href = window.URL.createObjectURL(blob);
-            link.download = `sales_report_${state.filter}_${new Date().toISOString().split('T')[0]}.${format}`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            window.URL.revokeObjectURL(link.href);
-        } catch (error) {
-            console.error(`Error exporting ${format}:`, error);
-            showErrorState(`Error exporting ${format.toUpperCase()}. Please try again.`);
+            console.log('Fetching dashboard data from:', url);
+            
+            try {
+                const response = await fetch(url);
+                const result = await response.json();
+                console.log('Dashboard data received:', result);
+                if (result.status === 'success') {
+                    updateDashboard(result.data);
+                } else {
+                    throw new Error(result.message || 'Unknown error');
+                }
+            } catch (error) {
+                console.error('Error loading dashboard data:', error);
+                showErrorState(error.message);
+            }
         }
-    }
 
-    async function logoutAdmin() {
-        try {
-            const response = await fetch(`${API_BASE}/logout`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
+        function showErrorState(message) {
+            const existingErrors = document.querySelectorAll('.error-message');
+            existingErrors.forEach(error => error.remove());
+            
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error-message card p-4 mb-6';
+            errorDiv.style.background = '#fef2f2';
+            errorDiv.style.border = '1px solid #fecaca';
+            errorDiv.innerHTML = `
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <i class="fas fa-exclamation-circle text-red-600"></i>
+                        <span class="text-sm text-red-800"><strong>Error:</strong> ${message || 'Failed to load data.'}</span>
+                    </div>
+                    <button onclick="loadDashboardData()" class="btn btn-primary" style="padding: 0.5rem 1rem;">Retry</button>
+                </div>
+            `;
+            document.querySelector('.main-content > div').prepend(errorDiv);
+            setTimeout(() => errorDiv.remove(), 5000);
+        }
+
+        function updateDashboard(data = {}) {
+            const safeData = {
+                total_users: data.total_users || 0,
+                total_orders: data.total_orders || 0,
+                total_revenue: data.total_revenue || 0,
+                total_products: data.total_products || 0,
+                total_discount: data.total_discount || 0,
+                pending_orders: data.pending_orders || 0,
+                completed_orders: data.completed_orders || 0,
+                cancelled_orders: data.cancelled_orders || 0,
+                avg_order_value: data.avg_order_value || 0,
+                top_products: Array.isArray(data.top_products) ? data.top_products : [],
+                top_categories: Array.isArray(data.top_categories) ? data.top_categories : [],
+                top_brands: Array.isArray(data.top_brands) ? data.top_brands : [],
+                recent_orders: Array.isArray(data.recent_orders) ? data.recent_orders : [],
+                sales_data: Array.isArray(data.sales_data) ? data.sales_data : [],
+                inventory_status: Array.isArray(data.inventory_status) ? data.inventory_status : [],
+                coupon_usage: Array.isArray(data.coupon_usage) ? data.coupon_usage : [],
+                monthly_revenue: Array.isArray(data.monthly_revenue) ? data.monthly_revenue : []
+            };
+
+            updateStats(safeData);
+            updateCharts(safeData);
+            updateTables(safeData);
+        }
+
+        function updateStats(data) {
+            const formatNumber = (num) => num.toLocaleString();
+            const formatCurrency = (num) => `$${num.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+            
+            document.getElementById('total-users').textContent = formatNumber(data.total_users);
+            document.getElementById('total-orders').textContent = formatNumber(data.total_orders);
+            document.getElementById('total-revenue').textContent = formatCurrency(data.total_revenue);
+            document.getElementById('total-products').textContent = formatNumber(data.total_products);
+            document.getElementById('pending-orders').textContent = formatNumber(data.pending_orders);
+            document.getElementById('completed-orders').textContent = formatNumber(data.completed_orders);
+            document.getElementById('cancelled-orders').textContent = formatNumber(data.cancelled_orders);
+            document.getElementById('total-discount').textContent = formatCurrency(data.total_discount || 0);
+        }
+
+        function updateCharts(data) {
+            updateTopProductsChart(data.top_products);
+            updateTopCategoriesChart(data.top_categories);
+            updateTopBrandsChart(data.top_brands);
+            updateSalesChart(data.sales_data);
+            updateRevenueChart(data.monthly_revenue);
+        }
+
+        function updateTables(data) {
+            updateInventoryTable(data.inventory_status);
+            updateRecentOrdersTable(data.recent_orders);
+            updateCouponUsageTable(data.coupon_usage);
+        }
+
+        function createChart(ctx, type, data, options) {
+            if (!ctx) return;
+            
+            if (charts[ctx.id] && typeof charts[ctx.id].destroy === 'function') {
+                charts[ctx.id].destroy();
+            }
+            
+            if (!data.labels || !data.labels.length || !data.datasets || !data.datasets.length) {
+                const context = ctx.getContext('2d');
+                context.clearRect(0, 0, ctx.width, ctx.height);
+                context.font = '14px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto';
+                context.textAlign = 'center';
+                context.fillStyle = '#94a3b8';
+                context.fillText('No data available', ctx.width / 2, ctx.height / 2);
+                return;
+            }
+            
+            try {
+                charts[ctx.id] = new Chart(ctx, { type, data, options });
+            } catch (error) {
+                console.error('Error creating chart:', error);
+            }
+        }
+
+        function updateTopProductsChart(products = []) {
+            const ctx = document.getElementById('topProductsChart');
+            if (!ctx) return;
+            
+            createChart(ctx, 'bar', {
+                labels: products.map(p => p?.product_name || 'Unknown').slice(0, 10),
+                datasets: [{
+                    data: products.map(p => p?.total_sold || 0).slice(0, 10),
+                    backgroundColor: '#3b82f6',
+                    borderRadius: 6,
+                    barThickness: 24
+                }]
+            }, {
+                ...CHART_DEFAULTS,
+                scales: {
+                    y: { 
+                        beginAtZero: true, 
+                        border: { display: false },
+                        grid: { color: '#f1f5f9' },
+                        ticks: { color: '#64748b', font: { size: 11 } }
+                    },
+                    x: { 
+                        border: { display: false },
+                        grid: { display: false },
+                        ticks: { color: '#64748b', font: { size: 11 }, maxRotation: 45, minRotation: 45 }
+                    }
+                }
             });
-            if (response.ok) {
-                window.location.href = `${API_BASE}/login`;
-            } else {
-                throw new Error('Logout failed');
-            }
-        } catch (error) {
-            console.error('Error logging out:', error);
-            showErrorState('Error logging out. Please try again.');
         }
-    }
 
-    document.addEventListener('DOMContentLoaded', () => {
-        initDashboard();
-        setupEventListeners();
-        setInterval(() => {
-            if (!state.startDate || !state.endDate || new Date(state.endDate) >= new Date()) {
-                loadDashboardData();
+        function updateTopCategoriesChart(categories = []) {
+            const ctx = document.getElementById('topCategoriesChart');
+            if (!ctx) return;
+            
+            createChart(ctx, 'bar', {
+                labels: categories.map(c => c?.category_name || 'Unknown').slice(0, 10),
+                datasets: [{
+                    data: categories.map(c => c?.total_sold || 0).slice(0, 10),
+                    backgroundColor: '#22c55e',
+                    borderRadius: 6,
+                    barThickness: 24
+                }]
+            }, {
+                ...CHART_DEFAULTS,
+                scales: {
+                    y: { 
+                        beginAtZero: true,
+                        border: { display: false },
+                        grid: { color: '#f1f5f9' },
+                        ticks: { color: '#64748b', font: { size: 11 } }
+                    },
+                    x: { 
+                        border: { display: false },
+                        grid: { display: false },
+                        ticks: { color: '#64748b', font: { size: 11 }, maxRotation: 45, minRotation: 45 }
+                    }
+                }
+            });
+        }
+
+        function updateTopBrandsChart(brands = []) {
+            const ctx = document.getElementById('topBrandsChart');
+            if (!ctx) return;
+            
+            createChart(ctx, 'bar', {
+                labels: brands.map(b => b?.brand_name || 'Unknown').slice(0, 5),
+                datasets: [{
+                    data: brands.map(b => b?.total_sold || 0).slice(0, 5),
+                    backgroundColor: '#a855f7',
+                    borderRadius: 6,
+                    barThickness: 24
+                }]
+            }, {
+                ...CHART_DEFAULTS,
+                scales: {
+                    y: { 
+                        beginAtZero: true,
+                        border: { display: false },
+                        grid: { color: '#f1f5f9' },
+                        ticks: { color: '#64748b', font: { size: 11 } }
+                    },
+                    x: { 
+                        border: { display: false },
+                        grid: { display: false },
+                        ticks: { color: '#64748b', font: { size: 11 }, maxRotation: 45, minRotation: 45 }
+                    }
+                }
+            });
+        }
+
+        function updateSalesChart(salesData = []) {
+            const ctx = document.getElementById('salesChart');
+            if (!ctx) return;
+            
+            createChart(ctx, 'line', {
+                labels: salesData.map((item, i) => item?.date?.trim() || `Period ${i + 1}`),
+                datasets: [
+                    {
+                        label: 'Sales',
+                        data: salesData.map(item => item?.sales || 0),
+                        borderColor: '#3b82f6',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        tension: 0.4,
+                        fill: true,
+                        borderWidth: 2,
+                        pointRadius: 4,
+                        pointHoverRadius: 6,
+                        pointBackgroundColor: '#3b82f6',
+                        yAxisID: 'y'
+                    },
+                    {
+                        label: 'Orders',
+                        data: salesData.map(item => item?.orders || 0),
+                        borderColor: '#22c55e',
+                        backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                        tension: 0.4,
+                        fill: true,
+                        borderWidth: 2,
+                        pointRadius: 4,
+                        pointHoverRadius: 6,
+                        pointBackgroundColor: '#22c55e',
+                        yAxisID: 'y1'
+                    }
+                ]
+            }, {
+                ...CHART_DEFAULTS,
+                scales: {
+                    y: { 
+                        beginAtZero: true, 
+                        position: 'left',
+                        border: { display: false },
+                        grid: { color: '#f1f5f9' },
+                        ticks: { color: '#64748b', font: { size: 11 } }
+                    },
+                    y1: { 
+                        beginAtZero: true, 
+                        position: 'right',
+                        border: { display: false },
+                        grid: { drawOnChartArea: false },
+                        ticks: { color: '#64748b', font: { size: 11 } }
+                    },
+                    x: {
+                        border: { display: false },
+                        grid: { display: false },
+                        ticks: { color: '#64748b', font: { size: 11 } }
+                    }
+                },
+                plugins: {
+                    ...CHART_DEFAULTS.plugins,
+                    legend: { 
+                        display: true, 
+                        position: 'top',
+                        align: 'end',
+                        labels: {
+                            usePointStyle: true,
+                            pointStyle: 'circle',
+                            padding: 15,
+                            font: { size: 12 },
+                            color: '#64748b'
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateRevenueChart(revenueData = []) {
+            const ctx = document.getElementById('revenueChart');
+            if (!ctx) return;
+            
+            createChart(ctx, 'bar', {
+                labels: revenueData.map(item => item?.month || 'Unknown'),
+                datasets: [{
+                    data: revenueData.map(item => item?.revenue || 0),
+                    backgroundColor: '#f59e0b',
+                    borderRadius: 6,
+                    barThickness: 32
+                }]
+            }, {
+                ...CHART_DEFAULTS,
+                scales: { 
+                    y: { 
+                        beginAtZero: true,
+                        border: { display: false },
+                        grid: { color: '#f1f5f9' },
+                        ticks: { color: '#64748b', font: { size: 11 } }
+                    },
+                    x: {
+                        border: { display: false },
+                        grid: { display: false },
+                        ticks: { color: '#64748b', font: { size: 11 } }
+                    }
+                }
+            });
+        }
+
+        function updateInventoryTable(inventory = []) {
+            const tbody = document.getElementById('inventory-table');
+            
+            tbody.innerHTML = inventory.length ? inventory.map(item => `
+                <tr>
+                    <td data-label="Product" class="text-slate-900">${item?.product_name || 'Unknown'}</td>
+                    <td data-label="Stock" class="text-slate-900">${item?.stock || 0}</td>
+                    <td data-label="Status" class="font-medium ${item?.status === 'Out of Stock' ? 'text-red-600' : item?.status === 'Low Stock' ? 'text-orange-500' : 'text-green-600'}">${item?.status || 'Unknown'}</td>
+                </tr>
+            `).join('') : '<tr><td colspan="3" data-label="No data" class="text-center text-slate-500">No inventory data</td></tr>';
+        }
+
+        function updateRecentOrdersTable(orders = []) {
+            const tbody = document.getElementById('recent-orders-table');
+            
+            tbody.innerHTML = orders.length ? orders.map(order => {
+                const statusClass = order?.status === 'Delivered' ? 'text-green-600' : 
+                                  order?.status === 'Pending' ? 'text-orange-500' : 
+                                  order?.status === 'Cancelled' ? 'text-red-600' : 'text-blue-600';
+                return `
+                    <tr>
+                        <td data-label="Order ID" class="text-slate-900 font-medium">#${order?.order_id || 'N/A'}</td>
+                        <td data-label="Customer" class="text-slate-900">${order?.user?.user_name || order?.user?.name || 'Guest'}</td>
+                        <td data-label="Amount" class="text-slate-900 font-medium">${(order?.total_price || 0).toFixed(2)}</td>
+                        <td data-label="Status" class="font-medium ${statusClass} capitalize">${order?.status || 'Pending'}</td>
+                    </tr>
+                `;
+            }).join('') : '<tr><td colspan="4" data-label="No data" class="text-center text-slate-500">No recent orders</td></tr>';
+        }
+
+        function updateCouponUsageTable(coupons = []) {
+            const tbody = document.getElementById('coupon-usage-table');
+            
+            tbody.innerHTML = coupons.length ? coupons.map(coupon => `
+                <tr>
+                    <td data-label="Code" class="text-slate-900 font-medium">${coupon?.coupon_code || 'N/A'}</td>
+                    <td data-label="Used" class="text-slate-900">${coupon?.used_count || 0}</td>
+                    <td data-label="Discount" class="text-slate-900 font-medium">${(coupon?.total_discount || 0).toFixed(2)}</td>
+                </tr>
+            `).join('') : '<tr><td colspan="3" data-label="No data" class="text-center text-slate-500">No coupon data</td></tr>';
+        }
+
+        function updateFilterButtons() {
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                if (btn.id === `${state.filter}-btn`) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+        }
+
+        async function exportData(format) {
+            try {
+                let url = `${API_BASE}/dashboard/export?format=${format}&filter=${state.filter}`;
+                if (state.filter === 'custom' || state.filter === 'yearly') {
+                    url += `&start_date=${encodeURIComponent(state.startDate)}&end_date=${encodeURIComponent(state.endDate)}`;
+                }
+                const response = await fetch(url);
+                if (!response.ok) throw new Error(`Failed to export ${format.toUpperCase()}`);
+                const blob = await response.blob();
+                const link = document.createElement('a');
+                link.href = window.URL.createObjectURL(blob);
+                link.download = `sales_report_${state.filter}_${new Date().toISOString().split('T')[0]}.${format}`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                window.URL.revokeObjectURL(link.href);
+            } catch (error) {
+                console.error(`Error exporting ${format}:`, error);
+                showErrorState(`Error exporting ${format.toUpperCase()}. Please try again.`);
             }
-        }, 30000);
-    });
-</script>
+        }
+
+        async function logoutAdmin() {
+            try {
+                const response = await fetch(`${API_BASE}/logout`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                if (response.ok) {
+                    window.location.href = `${API_BASE}/login`;
+                } else {
+                    throw new Error('Logout failed');
+                }
+            } catch (error) {
+                console.error('Error logging out:', error);
+                showErrorState('Error logging out. Please try again.');
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initDashboard();
+            window.addEventListener('popstate', setActiveSidebarItem);
+        });
+    </script>
 </body>
 </html>

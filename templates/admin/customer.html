@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Dashboard</title>
+    <title>Admin Dashboard - User Management</title>
     <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
@@ -28,36 +28,281 @@
             display: flex;
             justify-content: center;
             flex: 1;
-            margin-left: 16rem;
-            padding: 0 1.5rem;
+            margin-left: 0;
+            padding: 0 1rem;
         }
         .main-content {
-            max-width: 80rem;
+            max-width: 100%;
             width: 100%;
         }
         .pagination .disabled {
             pointer-events: none;
             opacity: 0.5;
         }
+        .sidebar {
+            background: linear-gradient(180deg, #1f2937 0%, #111827 100%);
+            transition: transform 0.3s ease;
+        }
+        .sidebar a {
+            display: flex;
+            align-items: center;
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            color: #d1d5db;
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 0.875rem;
+            transition: all 0.2s ease;
+            margin-bottom: 0.25rem;
+        }
+        .sidebar a:hover {
+            background: #374151;
+            color: white;
+        }
+        .sidebar a.active {
+            background: #3b82f6;
+            color: white;
+        }
+        .sidebar a i {
+            width: 20px;
+            margin-right: 0.75rem;
+        }
+        .sidebar-backdrop {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 49;
+        }
+        .sidebar.active + .sidebar-backdrop {
+            display: block;
+        }
+        .topbar {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            backdrop-filter: blur(8px);
+        }
+        .table-container {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .user-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .user-table th, .user-table td {
+            padding: 0.75rem;
+            text-align: left;
+        }
+        .user-table th {
+            background: #1f2937;
+            color: white;
+            font-weight: 600;
+        }
+        .user-table td {
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .user-table tr:hover {
+            background: #f9fafb;
+        }
+        /* Responsive table */
+        @media (max-width: 768px) {
+            .user-table {
+                display: block;
+            }
+            .user-table thead {
+                display: none;
+            }
+            .user-table tbody, .user-table tr, .user-table td {
+                display: block;
+                width: 100%;
+            }
+            .user-table tr {
+                margin-bottom: 1rem;
+                border: 1px solid #e5e7eb;
+                border-radius: 8px;
+                padding: 0.5rem;
+                background: white;
+            }
+            .user-table td {
+                padding: 0.5rem;
+                position: relative;
+                border-bottom: none;
+            }
+            .user-table td:before {
+                content: attr(data-label);
+                font-weight: 600;
+                color: #374151;
+                display: block;
+                margin-bottom: 0.25rem;
+            }
+            .user-table td:not(:last-child) {
+                border-bottom: 1px solid #e5e7eb;
+            }
+            /* Hide Phone No on mobile to reduce width */
+            .user-table td[data-label="Phone No"] {
+                display: none;
+            }
+        }
+        /* Other responsive adjustments */
+        @media (min-width: 769px) {
+            .main-content-wrapper {
+                margin-left: 16rem;
+            }
+        }
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+                position: fixed;
+                top: 0;
+                left: 0;
+                height: 100vh;
+                width: 240px;
+                z-index: 50;
+            }
+            .sidebar.active {
+                transform: translateX(0);
+            }
+            .search-form {
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+            .search-form input,
+            .search-form button {
+                width: 100%;
+                border-radius: 0.5rem;
+            }
+            .user-table th, .user-table td {
+                font-size: 0.75rem;
+            }
+            .pagination a {
+                padding: 0.375rem 0.75rem;
+                font-size: 0.75rem;
+            }
+            .main-content {
+                padding: 1rem;
+            }
+        }
+        @media (max-width: 576px) {
+            .sidebar {
+                width: 200px;
+            }
+            .sidebar a {
+                padding: 0.375rem;
+                font-size: 0.6875rem;
+            }
+            .sidebar a i {
+                margin-right: 0.5rem;
+            }
+            .topbar {
+                padding-left: 8px;
+                padding-right: 8px;
+            }
+            .topbar h1 {
+                font-size: 1rem;
+            }
+            .fa-chart-pie {
+                font-size: 1rem;
+            }
+            #toggle-sidebar {
+                padding: 0.375rem;
+            }
+            .user-table td {
+                padding: 0.4rem;
+                font-size: 0.6875rem;
+            }
+            .pagination a {
+                padding: 0.25rem 0.5rem;
+                font-size: 0.6875rem;
+            }
+            h3 {
+                font-size: 1.5rem;
+            }
+            .search-form input,
+            .search-form button {
+                padding: 0.375rem;
+                font-size: 0.75rem;
+            }
+        }
     </style>
 </head>
-<body class="bg-gray-100 font-sans">
-    <div class="container flex min-h-screen">
-        {{template "adminNavbar.html"}}
-        <!-- Sidebar -->
-        <div class="sidebar w-64 bg-gray-900 text-white p-4 flex flex-col fixed left-0 top-0 h-full">
-            <div class="sidebar-header mb-6">
-                <h2 class="text-2xl font-bold text-center">Admin Panel</h2>
-            </div>
-            <div class="sidebar-menu space-y-2 flex-grow">
-                {{template "adminSideBar.html"}}
+<body class="bg-gray-100 font-sans min-h-screen">
+    <!-- Navbar -->
+    <nav class="topbar fixed top-0 left-0 right-0 z-40 shadow-lg">
+        <div class="max-w-full mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center">
+                    <button id="toggle-sidebar" class="md:hidden text-white mr-3 focus:outline-none bg-blue-700 p-2 rounded-lg">
+                        <i class="fas fa-bars text-base"></i>
+                    </button>
+                    <div class="flex items-center">
+                        <i class="fas fa-chart-pie text-white text-lg mr-2"></i>
+                        <h1 class="text-white text-lg font-semibold">Admin</h1>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-2 sm:space-x-3">
+                    <div class="hidden md:flex items-center space-x-2 bg-blue-500/20 px-2 py-1 rounded-lg">
+                        <i class="fas fa-calendar text-blue-200 text-sm"></i>
+                        <span class="text-white text-xs sm:text-sm" id="current-date"></span>
+                    </div>
+                    <button onclick="logoutAdmin()" class="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 hover-scale transition-all">
+                        <i class="fas fa-sign-out-alt text-sm"></i>
+                        <span class="hidden sm:inline text-sm">Logout</span>
+                    </button>
+                </div>
             </div>
         </div>
-        
-        <br>
+    </nav>
+
+    <div class="container flex min-h-screen pt-20">
+        <!-- Sidebar -->
+        <aside class="sidebar w-64 bg-gray-900 text-white p-4 flex flex-col fixed left-0 top-0 h-full z-50 md:translate-x-0">
+            <div class="sidebar-header mb-6 pt-4">
+                <h2 class="text-2xl font-bold text-center">Admin Panel</h2>
+            </div>
+            <nav class="sidebar-menu space-y-2 flex-grow">
+                <a href="/admin/dashboard" class="sidebar-link" data-page="dashboard">
+                    <i class="fas fa-chart-line"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="/admin/user-management" class="sidebar-link" data-page="user-management">
+                    <i class="fas fa-users"></i>
+                    <span>Customers</span>
+                </a>
+                <a href="/admin/category" class="sidebar-link" data-page="category">
+                    <i class="fas fa-tags"></i>
+                    <span>Category</span>
+                </a>
+                <a href="/admin/products" class="sidebar-link" data-page="products">
+                    <i class="fas fa-box"></i>
+                    <span>Products</span>
+                </a>
+                <a href="/admin/orders" class="sidebar-link" data-page="orders">
+                    <i class="fas fa-shopping-cart"></i>
+                    <span>Orders</span>
+                </a>
+                <a href="/admin/returns" class="sidebar-link" data-page="returns">
+                    <i class="fas fa-undo"></i>
+                    <span>Return</span>
+                </a>
+                <a href="/admin/offers" class="sidebar-link" data-page="offers">
+                    <i class="fas fa-percent"></i>
+                    <span>Offers</span>
+                </a>
+                <a href="/admin/coupons" class="sidebar-link" data-page="coupons">
+                    <i class="fas fa-ticket-alt"></i>
+                    <span>Coupons</span>
+                </a>
+            </nav>
+        </aside>
+        <div class="sidebar-backdrop"></div>
+
         <!-- Main Content Wrapper for Centering -->
         <div class="main-content-wrapper">
-            <div class="main-content p-6 mt-10">
+            <div class="main-content p-6">
                 <h3 class="text-2xl font-semibold text-gray-800 mb-6">Customers</h3>
 
                 <form class="search-form flex mb-6" method="GET" action="/admin/user-management" id="searchForm">
@@ -66,9 +311,9 @@
                     <button type="button" id="clearSearch" class="ml-2 bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600 hover-scale transition-all">Clear</button>
                 </form>
 
-                <div class="overflow-x-auto bg-white rounded-lg shadow-md">
-                    <table class="w-full table-auto">
-                        <thead class="bg-gray-800 text-white">
+                <div class="table-container">
+                    <table class="user-table">
+                        <thead>
                             <tr>
                                 <th class="py-3 px-4 text-left">Name</th>
                                 <th class="py-3 px-4 text-left">Email</th>
@@ -79,18 +324,18 @@
                         </thead>
                         <tbody class="text-gray-700">
                             {{ range .users }}
-                            <tr class="hover:bg-gray-50 transition-colors">
-                                <td class="py-3 px-4">{{ .UserName }}</td>
-                                <td class="py-3 px-4">{{ .Email }}</td>
-                                <td class="py-3 px-4">{{ .Phone }}</td>
-                                <td class="py-3 px-4">
+                            <tr>
+                                <td data-label="Name" class="py-3 px-4">{{ .UserName }}</td>
+                                <td data-label="Email" class="py-3 px-4">{{ .Email }}</td>
+                                <td data-label="Phone No" class="py-3 px-4">{{ .Phone }}</td>
+                                <td data-label="Status" class="py-3 px-4">
                                     {{ if .IsBlocked }}
                                         <span class="text-red-500 font-medium">Blocked</span>
                                     {{ else }}
                                         <span class="text-green-500 font-medium">Active</span>
                                     {{ end }}
                                 </td>
-                                <td class="py-3 px-4">
+                                <td data-label="Action" class="py-3 px-4">
                                     {{ if .IsBlocked }}
                                     <button class="block-unblock-btn bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600 hover-scale transition-all" data-id="{{ .ID }}" data-action="unblock">Unblock</button>
                                     {{ else }}
@@ -100,7 +345,7 @@
                             </tr>
                             {{ else }}
                             <tr>
-                                <td colspan="6" class="py-3 px-4 text-center text-gray-500">No users found</td>
+                                <td colspan="5" data-label="No users" class="py-3 px-4 text-center text-gray-500">No users found</td>
                             </tr>
                             {{ end }}
                         </tbody>
@@ -108,7 +353,7 @@
                 </div>
 
                 <!-- Pagination -->
-                <div class="pagination flex justify-center items-center mt-6 space-x-2">
+                <div class="pagination flex justify-center items-center mt-6 space-x-2 flex-wrap">
                     <!-- Previous Button with Icon -->
                     <a href="/admin/user-management?page={{ .prevPage }}&limit={{ .limit }}{{ if .searchQuery }}&search={{ .searchQuery }}{{ end }}"
                        class="px-3 py-1 rounded bg-gray-200 text-gray-700 hover:bg-gray-300 transition-colors {{ if not .hasPrev }}disabled{{ end }}">
@@ -129,7 +374,7 @@
                     <!-- Next Button with Icon -->
                     <a href="/admin/user-management?page={{ .nextPage }}&limit={{ .limit }}{{ if .searchQuery }}&search={{ .searchQuery }}{{ end }}"
                        class="px-3 py-1 rounded bg-gray-200 text-gray-700 hover:bg-gray-300 transition-colors {{ if not .hasNext }}disabled{{ end }}">
-                         <i class="fas fa-chevron-right"></i>
+                        <i class="fas fa-chevron-right"></i>
                     </a>
                 </div>
             </div>
@@ -137,6 +382,62 @@
     </div>
 
     <script>
+        // Sidebar functionality
+        function setupSidebar() {
+            const toggleSidebar = document.getElementById('toggle-sidebar');
+            const sidebar = document.querySelector('.sidebar');
+            const backdrop = document.querySelector('.sidebar-backdrop');
+
+            if (toggleSidebar && sidebar && backdrop) {
+                toggleSidebar.addEventListener('click', () => {
+                    sidebar.classList.toggle('active');
+                });
+
+                backdrop.addEventListener('click', () => {
+                    sidebar.classList.remove('active');
+                });
+
+                document.querySelectorAll('.sidebar-link').forEach(link => {
+                    link.addEventListener('click', () => {
+                        if (window.innerWidth <= 768) {
+                            sidebar.classList.remove('active');
+                        }
+                    });
+                });
+            }
+        }
+
+        function setActiveSidebarItem() {
+            const currentPath = window.location.pathname.toLowerCase();
+            const sidebarLinks = document.querySelectorAll('.sidebar-link');
+            
+            sidebarLinks.forEach(link => {
+                link.classList.remove('active');
+                const linkHref = link.getAttribute('href').toLowerCase();
+                const dataPage = link.getAttribute('data-page').toLowerCase();
+                
+                if (currentPath === linkHref ||
+                    currentPath.includes(dataPage) ||
+                    (currentPath === '/admin' && dataPage === 'dashboard') ||
+                    (currentPath === '/admin/' && dataPage === 'dashboard')) {
+                    link.classList.add('active');
+                }
+            });
+        }
+
+        // Navbar date setup
+        function setupNavbar() {
+            const dateElement = document.getElementById('current-date');
+            if (dateElement) {
+                dateElement.textContent = new Date().toLocaleDateString('en-US', { 
+                    weekday: 'long', 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric' 
+                });
+            }
+        }
+
         document.addEventListener('DOMContentLoaded', () => {
             const searchForm = document.getElementById('searchForm');
             const searchInput = document.getElementById('searchInput');
@@ -161,6 +462,10 @@
                     await handleUserAction(button);
                 });
             });
+
+            setupSidebar();
+            setActiveSidebarItem();
+            setupNavbar();
         });
 
         async function handleUserAction(button) {
@@ -218,7 +523,7 @@
             button.dataset.action = isBlocking ? 'unblock' : 'block';
             button.disabled = false;
 
-            const statusCell = button.closest('tr').querySelector('td:nth-child(5)');
+            const statusCell = button.closest('tr').querySelector('td[data-label="Status"]');
             statusCell.innerHTML = isBlocking 
                 ? '<span class="text-red-500 font-medium">Blocked</span>' 
                 : '<span class="text-green-500 font-medium">Active</span>';
@@ -251,9 +556,7 @@
             }
         }
 
-        async function logout(event) {
-            event.preventDefault();
-            
+        async function logoutAdmin() {
             const confirmed = await Swal.fire({
                 title: 'Logout',
                 text: 'Are you sure you want to logout?',
@@ -292,6 +595,8 @@
                 });
             }
         }
+
+        window.addEventListener('popstate', setActiveSidebarItem);
     </script>
 </body>
 </html>

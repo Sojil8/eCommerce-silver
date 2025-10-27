@@ -97,7 +97,7 @@
             background: white;
             border-radius: 12px;
             border: 1px solid #e2e8f0;
-            overflow: hidden;
+            overflow-x: auto;
         }
         
         table {
@@ -204,8 +204,12 @@
         .pagination {
             display: flex;
             justify-content: center;
+            align-items: center;
             gap: 0.5rem;
             margin-top: 2rem;
+            flex-wrap: wrap;
+            padding: 0.5rem;
+            max-width: 100%;
         }
         
         .page-link {
@@ -213,7 +217,13 @@
             border-radius: 8px;
             text-decoration: none;
             font-weight: 500;
+            font-size: 0.875rem;
             transition: all 0.2s ease;
+            min-width: 40px;
+            text-align: center;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
         }
         
         .page-link.active {
@@ -228,6 +238,23 @@
         
         .page-link:not(.active):hover {
             background: #e5e7eb;
+            transform: translateY(-1px);
+        }
+        
+        .page-link.disabled {
+            background: #f3f4f6;
+            color: #9ca3af;
+            pointer-events: none;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+        
+        .pagination-ellipsis {
+            padding: 0.5rem;
+            color: #6b7280;
+            font-size: 0.875rem;
+            display: inline-flex;
+            align-items: center;
         }
         
         .action-buttons {
@@ -235,40 +262,250 @@
             gap: 0.5rem;
         }
         
+        .sidebar {
+            background: linear-gradient(180deg, #1f2937 0%, #111827 100%);
+            transition: transform 0.3s ease;
+        }
+        
+        .sidebar a {
+            display: flex;
+            align-items: center;
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            color: #d1d5db;
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 0.875rem;
+            transition: all 0.2s ease;
+            margin-bottom: 0.25rem;
+        }
+        
+        .sidebar a:hover {
+            background: #374151;
+            color: white;
+        }
+        
+        .sidebar a.active {
+            background: #3b82f6;
+            color: white;
+        }
+        
+        .sidebar a i {
+            width: 20px;
+            margin-right: 0.75rem;
+        }
+        
+        .sidebar-backdrop {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 49;
+        }
+        
+        .sidebar.active + .sidebar-backdrop {
+            display: block;
+        }
+        
+        .topbar {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            backdrop-filter: blur(8px);
+        }
+        
+        /* Responsive adjustments */
         @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+                position: fixed;
+                top: 0;
+                left: 0;
+                height: 100vh;
+                width: 240px;
+                z-index: 50;
+            }
+            .sidebar.active {
+                transform: translateX(0);
+            }
+            .main-content {
+                margin-left: 0 !important;
+            }
             .action-buttons {
                 flex-direction: column;
+                gap: 0.75rem;
             }
-            
             .modal-content {
                 margin: 10% 1rem;
-                width: auto;
+                width: calc(100% - 2rem);
+                padding: 1rem;
+            }
+            .pagination {
+                gap: 0.25rem;
+                padding: 0.25rem;
+            }
+            .page-link {
+                padding: 0.375rem 0.75rem;
+                font-size: 0.75rem;
+                min-width: 36px;
+            }
+            .pagination-ellipsis {
+                font-size: 0.75rem;
+                padding: 0.375rem;
+            }
+            th, td {
+                padding: 0.5rem;
+                font-size: 0.75rem;
+            }
+            .btn {
+                padding: 0.5rem 1rem;
+                font-size: 0.75rem;
+            }
+            .form-input {
+                padding: 0.5rem;
+                font-size: 0.75rem;
+            }
+            .form-label {
+                font-size: 0.875rem;
+            }
+        }
+        @media (max-width: 576px) {
+            .container-fluid {
+                padding-left: 8px;
+                padding-right: 8px;
+            }
+            .max-w-7xl {
+                padding-left: 8px;
+                padding-right: 8px;
+            }
+            h1 {
+                font-size: 1.5rem;
+            }
+            .page-link {
+                padding: 0.25rem 0.5rem;
+                font-size: 0.6875rem;
+                min-width: 32px;
+            }
+            .pagination-ellipsis {
+                font-size: 0.6875rem;
+                padding: 0.25rem;
+            }
+            .sidebar {
+                width: 200px;
+            }
+            .sidebar a {
+                padding: 0.375rem;
+                font-size: 0.6875rem;
+            }
+            .sidebar a i {
+                margin-right: 0.5rem;
+            }
+            .topbar {
+                padding-left: 8px;
+                padding-right: 8px;
+            }
+            .topbar h1 {
+                font-size: 1rem;
+            }
+            .fa-chart-pie {
+                font-size: 1rem;
+            }
+            #toggle-sidebar {
+                padding: 0.375rem;
+            }
+            .modal-content {
+                padding: 0.75rem;
+            }
+            .form-input {
+                padding: 0.375rem;
+                font-size: 0.6875rem;
+            }
+            .form-label {
+                font-size: 0.75rem;
             }
         }
     </style>
 </head>
 <body>
     <!-- Navbar -->
-    {{template "adminNavbar.html"}}
+    <nav class="topbar fixed top-0 left-0 right-0 z-40 shadow-lg">
+        <div class="max-w-full mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center">
+                    <button id="toggle-sidebar" class="md:hidden text-white mr-3 focus:outline-none bg-blue-700 p-2 rounded-lg">
+                        <i class="fas fa-bars text-base"></i>
+                    </button>
+                    <div class="flex items-center">
+                        <i class="fas fa-chart-pie text-white text-lg mr-2"></i>
+                        <h1 class="text-white text-lg font-semibold">Admin</h1>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-2 sm:space-x-3">
+                    <div class="hidden md:flex items-center space-x-2 bg-blue-500/20 px-2 py-1 rounded-lg">
+                        <i class="fas fa-calendar text-blue-200 text-sm"></i>
+                        <span class="text-white text-xs sm:text-sm" id="current-date"></span>
+                    </div>
+                    <button onclick="logoutAdmin()" class="btn btn-danger">
+                        <i class="fas fa-sign-out-alt text-sm"></i>
+                        <span class="hidden sm:inline text-sm">Logout</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
 
     <div class="flex min-h-screen">
         <!-- Sidebar -->
-        <div class="sidebar fixed left-0 top-0 h-full w-64 p-4 flex flex-col">
+        <aside class="sidebar fixed left-0 top-0 h-full w-64 p-4 flex flex-col z-50 md:translate-x-0">
+            <div class="flex items-center justify-center mb-6 pt-4">
+                <br>
+            </div>
             <nav class="space-y-1 flex-grow">
-                {{template "adminSideBar.html"}}
+                <a href="/admin/dashboard" class="sidebar-link" data-page="dashboard">
+                    <i class="fas fa-chart-line"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="/admin/user-management" class="sidebar-link" data-page="user-management">
+                    <i class="fas fa-users"></i>
+                    <span>Customers</span>
+                </a>
+                <a href="/admin/category" class="sidebar-link" data-page="category">
+                    <i class="fas fa-tags"></i>
+                    <span>Category</span>
+                </a>
+                <a href="/admin/products" class="sidebar-link" data-page="products">
+                    <i class="fas fa-box"></i>
+                    <span>Products</span>
+                </a>
+                <a href="/admin/orders" class="sidebar-link" data-page="orders">
+                    <i class="fas fa-shopping-cart"></i>
+                    <span>Orders</span>
+                </a>
+                <a href="/admin/returns" class="sidebar-link" data-page="returns">
+                    <i class="fas fa-undo"></i>
+                    <span>Return</span>
+                </a>
+                <a href="/admin/offers" class="sidebar-link" data-page="offers">
+                    <i class="fas fa-percent"></i>
+                    <span>Offers</span>
+                </a>
+                <a href="/admin/coupons" class="sidebar-link" data-page="coupons">
+                    <i class="fas fa-ticket-alt"></i>
+                    <span>Coupons</span>
+                </a>
             </nav>
-        </div>
+        </aside>
+        <div class="sidebar-backdrop"></div>
 
         <!-- Main Content -->
-        <main class="main-content ml-0 md:ml-64 pt-16 pb-8 flex-1">
+        <main class="main-content ms-0 md:ms-64 pt-20 pb-8 flex-1">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <!-- Header Section -->
                 <div class="mb-8">
-                    <br>
                     <div class="flex flex-col md:flex-row md:items-center md:justify-between">
                         <div>
                             <h1 class="text-2xl font-bold text-gray-900">Category Management</h1>
-                            
                         </div>
                         <button class="btn btn-success mt-4 md:mt-0" onclick="openAddModal()">
                             <i class="fas fa-plus"></i>
@@ -320,10 +557,32 @@
                 <!-- Pagination -->
                 <div class="pagination">
                     {{ $currentPage := .currentPage }}
-                    {{range $i := .pageRange}}
-                    <a href="/admin/category?page={{$i}}" class="page-link {{if eq $i $currentPage}}active{{end}}">
-                        {{$i}}
-                    </a>
+                    {{ $totalPages := .totalPages }}
+                    {{ $maxVisiblePages := 7 }}
+                    {{ $startPage := .startPage }}
+                    {{ $endPage := .endPage }}
+                    {{if gt $totalPages 1}}
+                        <a href="/admin/category?page={{sub $currentPage 1}}" class="page-link {{if le $currentPage 1}}disabled{{end}}">
+                            <i class="fas fa-chevron-left"></i> Previous
+                        </a>
+                        {{if gt $startPage 1}}
+                            <a href="/admin/category?page=1" class="page-link">1</a>
+                            {{if gt $startPage 2}}
+                                <span class="pagination-ellipsis">...</span>
+                            {{end}}
+                        {{end}}
+                        {{range $i := .pageRange}}
+                            <a href="/admin/category?page={{$i}}" class="page-link {{if eq $i $currentPage}}active{{end}}">{{$i}}</a>
+                        {{end}}
+                        {{if lt $endPage $totalPages}}
+                            {{if lt $endPage (sub $totalPages 1)}}
+                                <span class="pagination-ellipsis">...</span>
+                            {{end}}
+                            <a href="/admin/category?page={{$totalPages}}" class="page-link">{{$totalPages}}</a>
+                        {{end}}
+                        <a href="/admin/category?page={{add $currentPage 1}}" class="page-link {{if ge $currentPage $totalPages}}disabled{{end}}">
+                            Next <i class="fas fa-chevron-right"></i>
+                        </a>
                     {{end}}
                 </div>
             </div>
@@ -506,6 +765,91 @@
                 });
             }
         });
+
+        // Sidebar functionality
+        function setupSidebar() {
+            const toggleSidebar = document.getElementById('toggle-sidebar');
+            const sidebar = document.querySelector('.sidebar');
+            const backdrop = document.querySelector('.sidebar-backdrop');
+
+            if (toggleSidebar && sidebar && backdrop) {
+                toggleSidebar.addEventListener('click', () => {
+                    sidebar.classList.toggle('active');
+                });
+
+                backdrop.addEventListener('click', () => {
+                    sidebar.classList.remove('active');
+                });
+
+                document.querySelectorAll('.sidebar-link').forEach(link => {
+                    link.addEventListener('click', () => {
+                        if (window.innerWidth <= 768) {
+                            sidebar.classList.remove('active');
+                        }
+                    });
+                });
+            }
+        }
+
+        function setActiveSidebarItem() {
+            const currentPath = window.location.pathname.toLowerCase();
+            const sidebarLinks = document.querySelectorAll('.sidebar-link');
+            
+            sidebarLinks.forEach(link => {
+                link.classList.remove('active');
+                const linkHref = link.getAttribute('href').toLowerCase();
+                const dataPage = link.getAttribute('data-page').toLowerCase();
+                
+                if (currentPath === linkHref ||
+                    currentPath.includes(dataPage) ||
+                    (currentPath === '/admin' && dataPage === 'dashboard') ||
+                    (currentPath === '/admin/' && dataPage === 'dashboard')) {
+                    link.classList.add('active');
+                }
+            });
+        }
+
+        // Navbar date setup
+        function setupNavbar() {
+            const dateElement = document.getElementById('current-date');
+            if (dateElement) {
+                dateElement.textContent = new Date().toLocaleDateString('en-US', { 
+                    weekday: 'long', 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric' 
+                });
+            }
+        }
+
+        // Logout function
+        async function logoutAdmin() {
+            try {
+                const response = await fetch('/admin/logout', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include'
+                });
+
+                if (response.ok) {
+                    window.location.href = '/admin/login';
+                } else {
+                    const errorData = await response.json();
+                    Swal.fire('Error', errorData.message || 'Logout failed', 'error');
+                }
+            } catch (error) {
+                Swal.fire('Error', 'An error occurred during logout', 'error');
+            }
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            setupSidebar();
+            setActiveSidebarItem();
+            setupNavbar();
+        });
+
+        window.addEventListener('popstate', setActiveSidebarItem);
     </script>
 </body>
 </html>

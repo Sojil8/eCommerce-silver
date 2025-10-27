@@ -9,8 +9,74 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-        .sidebar { min-height: calc(100vh - 56px); }
-        .shadow-glow { box-shadow: 0 4px 15px rgba(0, 123, 255, 0.2); }
+        .sidebar {
+            background: linear-gradient(180deg, #1f2937 0%, #111827 100%);
+            transition: transform 0.3s ease;
+            min-height: calc(100vh - 56px);
+        }
+        .sidebar a {
+            display: flex;
+            align-items: center;
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            color: #d1d5db;
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 0.875rem;
+            transition: all 0.2s ease;
+            margin-bottom: 0.25rem;
+        }
+        .sidebar a:hover {
+            background: #374151;
+            color: white;
+        }
+        .sidebar a.active {
+            background: #3b82f6;
+            color: white;
+        }
+        .sidebar a i {
+            width: 20px;
+            margin-right: 0.75rem;
+        }
+        .sidebar-backdrop {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 49;
+        }
+        .sidebar.active + .sidebar-backdrop {
+            display: block;
+        }
+        .topbar {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            backdrop-filter: blur(8px);
+        }
+        .btn {
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            font-weight: 500;
+            font-size: 0.875rem;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+        }
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+        .shadow-glow {
+            box-shadow: 0 4px 15px rgba(0, 123, 255, 0.2);
+        }
         .hover-scale:hover {
             transform: scale(1.05);
             transition: transform 0.2s ease-in-out;
@@ -35,25 +101,170 @@
         .swal2-container {
             z-index: 9999;
         }
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+                position: fixed;
+                top: 0;
+                left: 0;
+                height: 100vh;
+                width: 240px;
+                z-index: 50;
+            }
+            .sidebar.active {
+                transform: translateX(0);
+            }
+            .main-content {
+                margin-left: 0 !important;
+            }
+            .coupon-table th, .coupon-table td {
+                padding: 0.5rem;
+                font-size: 0.75rem;
+            }
+            .swal2-popup {
+                width: 90% !important;
+                padding: 1rem !important;
+            }
+            .swal2-html-container input,
+            .swal2-html-container select {
+                padding: 0.5rem !important;
+                font-size: 0.75rem !important;
+            }
+            .swal2-html-container label {
+                font-size: 0.75rem !important;
+            }
+            .flex-container {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+        }
+        @media (max-width: 576px) {
+            .sidebar {
+                width: 200px;
+            }
+            .sidebar a {
+                padding: 0.375rem;
+                font-size: 0.6875rem;
+            }
+            .sidebar a i {
+                margin-right: 0.5rem;
+            }
+            .topbar {
+                padding-left: 8px;
+                padding-right: 8px;
+            }
+            .topbar h1 {
+                font-size: 1rem;
+            }
+            .fa-chart-pie {
+                font-size: 1rem;
+            }
+            #toggle-sidebar {
+                padding: 0.375rem;
+            }
+            .btn {
+                padding: 0.375rem 0.75rem;
+                font-size: 0.75rem;
+            }
+            .coupon-table th, .coupon-table td {
+                padding: 0.4rem;
+                font-size: 0.6875rem;
+            }
+            .swal2-popup {
+                padding: 0.75rem !important;
+            }
+            .swal2-html-container input,
+            .swal2-html-container select {
+                padding: 0.375rem !important;
+                font-size: 0.6875rem !important;
+            }
+            .swal2-html-container label {
+                font-size: 0.6875rem !important;
+            }
+            h1 {
+                font-size: 1.5rem;
+            }
+        }
     </style>
 </head>
 <body class="bg-gray-100 font-sans min-h-screen">
+    <!-- Navbar -->
+    <nav class="topbar fixed top-0 left-0 right-0 z-40 shadow-lg">
+        <div class="max-w-full mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center">
+                    <button id="toggle-sidebar" class="md:hidden text-white mr-3 focus:outline-none bg-blue-700 p-2 rounded-lg">
+                        <i class="fas fa-bars text-base"></i>
+                    </button>
+                    <div class="flex items-center">
+                        <i class="fas fa-chart-pie text-white text-lg mr-2"></i>
+                        <h1 class="text-white text-lg font-semibold">Admin</h1>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-2 sm:space-x-3">
+                    <div class="hidden md:flex items-center space-x-2 bg-blue-500/20 px-2 py-1 rounded-lg">
+                        <i class="fas fa-calendar text-blue-200 text-sm"></i>
+                        <span class="text-white text-xs sm:text-sm" id="current-date"></span>
+                    </div>
+                    <button onclick="logoutAdmin()" class="btn btn-danger">
+                        <i class="fas fa-sign-out-alt text-sm"></i>
+                        <span class="hidden sm:inline text-sm">Logout</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
 
-{{template "adminNavbar.html"}}
-<br>
-<br>
     <!-- Main Container -->
-    <div class="container-fluid">
+    <div class="container-fluid pt-20">
         <div class="row">
             <!-- Sidebar -->
-            <div class="col-md-2 sidebar bg-gray-900 text-white p-4">
-                {{template "adminSideBar.html"}}
-            </div>
+            <aside class="sidebar fixed left-0 top-0 h-full w-64 p-4 flex flex-col z-50 md:translate-x-0">
+                <div class="flex items-center justify-center mb-6 pt-4">
+                    <br>
+                </div>
+                <nav class="space-y-1 flex-grow">
+                    <a href="/admin/dashboard" class="sidebar-link" data-page="dashboard">
+                        <i class="fas fa-chart-line"></i>
+                        <span>Dashboard</span>
+                    </a>
+                    <a href="/admin/user-management" class="sidebar-link" data-page="user-management">
+                        <i class="fas fa-users"></i>
+                        <span>Customers</span>
+                    </a>
+                    <a href="/admin/category" class="sidebar-link" data-page="category">
+                        <i class="fas fa-tags"></i>
+                        <span>Category</span>
+                    </a>
+                    <a href="/admin/products" class="sidebar-link" data-page="products">
+                        <i class="fas fa-box"></i>
+                        <span>Products</span>
+                    </a>
+                    <a href="/admin/orders" class="sidebar-link" data-page="orders">
+                        <i class="fas fa-shopping-cart"></i>
+                        <span>Orders</span>
+                    </a>
+                    <a href="/admin/returns" class="sidebar-link" data-page="returns">
+                        <i class="fas fa-undo"></i>
+                        <span>Return</span>
+                    </a>
+                    <a href="/admin/offers" class="sidebar-link" data-page="offers">
+                        <i class="fas fa-percent"></i>
+                        <span>Offers</span>
+                    </a>
+                    <a href="/admin/coupons" class="sidebar-link" data-page="coupons">
+                        <i class="fas fa-ticket-alt"></i>
+                        <span>Coupons</span>
+                    </a>
+                </nav>
+            </aside>
+            <div class="sidebar-backdrop"></div>
 
             <!-- Main Content -->
-            <div class="col-md-10 main-content p-6">
+            <div class="col-md-10 main-content p-6 ms-auto md:ms-64">
                 <div class="bg-white rounded-lg shadow-md p-6">
-                    <div class="flex justify-between items-center mb-6">
+                    <div class="flex-container flex justify-between items-center mb-6">
                         <h1 class="text-3xl font-bold text-gray-900 tracking-tight">Coupon Management</h1>
                         <button onclick="showAddCouponModal()"
                             class="bg-indigo-600 text-white px-6 py-2 rounded-full hover:bg-indigo-700 hover-scale transition-all">
@@ -105,7 +316,7 @@
                                 {{end}}
                                 {{else}}
                                 <tr>
-                                    <td colspan="9" class="text-center text-gray-500 py-4">No coupons found.</td>
+                                    <td colspan="8" class="text-center text-gray-500 py-4">No coupons found.</td>
                                 </tr>
                                 {{end}}
                             </tbody>
@@ -294,7 +505,7 @@
                             const usageLimit = parseInt(formData.get('usage_limit'));
                             const expiryDate = formData.get('expirydate');
 
-                            if (discountPercentage <= 0 || minPurchaseAmount < 0  || usageLimit < 0) {
+                            if (discountPercentage <= 0 || minPurchaseAmount < 0 || usageLimit < 0) {
                                 Swal.showValidationMessage('Values must be positive (Discount Percentage must be greater than 0)');
                                 return false;
                             }
@@ -430,26 +641,113 @@
             });
         }
 
-        async function logout(event) {
-            event.preventDefault();
-            try {
-                const response = await fetch('/admin/logout', {
-                    method: 'POST',
-                    credentials: 'include'
+        function logoutAdmin() {
+            Swal.fire({
+                title: 'Are you sure?',
+                text: 'You will be logged out of the admin panel.',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#4f46e5',
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'Yes, log out!'
+            }).then(async (result) => {
+                if (result.isConfirmed) {
+                    try {
+                        const response = await fetch('/admin/logout', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            credentials: 'include'
+                        });
+
+                        if (response.ok) {
+                            window.location.href = '/admin/login';
+                        } else {
+                            const errorData = await response.json();
+                            console.error('Logout Error:', errorData);
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Logout Failed',
+                                text: errorData.message || 'Logout failed',
+                                confirmButtonColor: '#4f46e5'
+                            });
+                        }
+                    } catch (error) {
+                        console.error('Logout Network Error:', error);
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: 'Could not connect to the server. Please check your network.',
+                            confirmButtonColor: '#4f46e5'
+                        });
+                    }
+                }
+            });
+        }
+
+        // Sidebar functionality
+        function setupSidebar() {
+            const toggleSidebar = document.getElementById('toggle-sidebar');
+            const sidebar = document.querySelector('.sidebar');
+            const backdrop = document.querySelector('.sidebar-backdrop');
+
+            if (toggleSidebar && sidebar && backdrop) {
+                toggleSidebar.addEventListener('click', () => {
+                    sidebar.classList.toggle('active');
                 });
 
-                if (response.ok) {
-                    window.location.replace("/admin/login");
-                } else {
-                    const errorData = await response.json();
-                    console.error('Logout Error:', errorData);
-                    Swal.fire("Error", errorData.message || "Logout failed", "error");
-                }
-            } catch (error) {
-                console.error('Logout Network Error:', error);
-                Swal.fire("Error", "An error occurred while logging out", "error");
+                backdrop.addEventListener('click', () => {
+                    sidebar.classList.remove('active');
+                });
+
+                document.querySelectorAll('.sidebar-link').forEach(link => {
+                    link.addEventListener('click', () => {
+                        if (window.innerWidth <= 768) {
+                            sidebar.classList.remove('active');
+                        }
+                    });
+                });
             }
         }
+
+        function setActiveSidebarItem() {
+            const currentPath = window.location.pathname.toLowerCase();
+            const sidebarLinks = document.querySelectorAll('.sidebar-link');
+            
+            sidebarLinks.forEach(link => {
+                link.classList.remove('active');
+                const linkHref = link.getAttribute('href').toLowerCase();
+                const dataPage = link.getAttribute('data-page').toLowerCase();
+                
+                if (currentPath === linkHref ||
+                    currentPath.includes(dataPage) ||
+                    (currentPath === '/admin' && dataPage === 'dashboard') ||
+                    (currentPath === '/admin/' && dataPage === 'dashboard')) {
+                    link.classList.add('active');
+                }
+            });
+        }
+
+        // Navbar date setup
+        function setupNavbar() {
+            const dateElement = document.getElementById('current-date');
+            if (dateElement) {
+                dateElement.textContent = new Date().toLocaleDateString('en-US', { 
+                    weekday: 'long', 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric' 
+                });
+            }
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            setupSidebar();
+            setActiveSidebarItem();
+            setupNavbar();
+        });
+
+        window.addEventListener('popstate', setActiveSidebarItem);
     </script>
 </body>
 </html>
