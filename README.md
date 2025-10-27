@@ -18,31 +18,45 @@ This project implements essential eCommerce functionality such as product listin
 
 ## ✨ Features
 
-### 👤 User Side
-- User signup/login with **OTP verification**
-- Referral code system
-- Browse products (watches)
-- Cart management (Add/Update/Delete)
-- Apply coupons at checkout
-- Place orders & view order history
-- Download invoices (PDF)
+👤 User Side
 
-### 🛠️ Admin Side
-- Manage products (Add/Update/Delete)
-- Coupon management
-- Order & return request handling
-- Dashboard with analytics & reports
+🔐 OTP-based signup/login
 
+🤝 Referral code system
+
+🛍️ Browse and filter products (Watches)
+
+🛒 Cart management — Add / Update / Delete items
+
+🎟️ Apply coupons during checkout
+
+💳 Place orders and view order history
+
+📄 Download invoices (PDF)
+
+
+🛠️ Admin Side
+
+🧩 Product management — Add / Update / Delete products
+
+🎫 Coupon management
+
+📦 Order & Return request handling
+
+📊 Analytics Dashboard — Sales, Revenue, User Activity reports
 ---
 
+
 ## 📂 Project Structure
-├── controllers # All route handlers (User & Admin)
-├── database # Database connection and setup
-├── middleware # JWT authentication middleware
-├── models # GORM models (User, Product, Order, etc.)
-├── routes # Route definitions
-├── utils/helper # Helper functions (OTP, response handlers, etc.)
-├── main.go # Entry point
-├── go.mod # Go modules
+├── controllers         # All route handlers (User & Admin)
+├── database            # Database connection and setup
+├── middleware          # JWT authentication middleware
+├── models              # GORM models (User, Product, Order, etc.)
+├── routes              # Route definitions
+├── utils/helper        # Helper functions (OTP, responses, etc.)
+├── templates           # HTML templates (frontend)
+├── static              # CSS, JS, and images
+├── main.go             # Entry point
+├── go.mod              # Go modules
 ├── go.sum
-└── .env # Environment variables
+└── .env                # Environment variables
