@@ -60,3 +60,16 @@ This project implements essential eCommerce functionality such as product listin
 ├── go.mod              # Go modules
 ├── go.sum
 └── .env                # Environment variables
+
+How to Run the Project (Quick Start)
+1. Clone the repository
+2. Install dependencies
+3. Configure environment variables
+Create a .env file in the root:
+4.Create PostgreSQL database
+5. Start Redis
+6. Run the application
+go run main.go
+
+Now the Server runs on:http://localhost:8080
+
