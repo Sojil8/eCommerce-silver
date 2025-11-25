@@ -66,6 +66,7 @@ How to Run the Project (Quick Start)
 2. Install dependencies
 3. Configure environment variables
 Create a .env file in the root:
+
 4.Create PostgreSQL database
 5. Start Redis
 6. Run the application
