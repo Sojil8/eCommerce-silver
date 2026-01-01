@@ -66,10 +66,57 @@ How to Run the Project (Quick Start)
 2. Install dependencies
 3. Configure environment variables
 Create a .env file in the root:
+# ===============================
+# Application
+# ===============================
+PORT=8888
+SECRET_KEY=your_app_secret_key_here
+
+# ===============================
+# Database (PostgreSQL)
+# ===============================
+DB_HOST=localhost
+DB_USER=postgres
+DB_PASSWORD=your_db_password
+DB_NAME=ecommerce
+DB_PORT=5432
+DB_SSLMODE=disable
+
+# Or if you prefer full DSN
+DATABASE_URL=host=localhost user=postgres password=your_db_password dbname=ecommerce port=5432 sslmode=disable
+
+# ===============================
+# Email (SMTP)
+# ===============================
+EMAIL_USER=your_email@gmail.com
+EMAIL_PASS=your_app_password
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+
+# ===============================
+# Cloudinary
+# ===============================
+CLOUDINARY_URL=cloudinary://api_key:api_secret@cloud_name
+
+# ===============================
+# Google OAuth
+# ===============================
+GOOGLE_CLIENT_ID=your_google_client_id
+GOOGLE_CLIENT_SECRET=your_google_client_secret
+
+# ===============================
+# Razorpay
+# ===============================
+RAZORPAY_KEY_ID=rzp_test_xxxxxxxxxx
+RAZORPAY_KEY_SECRET=your_razorpay_secret
+
 
 4.Create PostgreSQL database
+
 5. Start Redis
+
 6. Run the application
+
 go run main.go
 
 Now the Server runs on:http://localhost:8080
