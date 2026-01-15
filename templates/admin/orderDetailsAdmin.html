@@ -3,10 +3,171 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Order Details | Admin Panel</title>
+    <title>Order Details - eCommerce</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #f8fafc;
+            color: #1e293b;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+            transition: all 0.2s ease;
+        }
+        
+        .card:hover {
+            border-color: #cbd5e1;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        }
+        
+        .sidebar {
+            background: linear-gradient(180deg, #1f2937 0%, #111827 100%);
+            transition: transform 0.3s ease;
+        }
+        
+        .sidebar a {
+            display: flex;
+            align-items: center;
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            color: #d1d5db;
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 0.875rem;
+            transition: all 0.2s ease;
+            margin-bottom: 0.25rem;
+        }
+        
+        .sidebar a:hover {
+            background: #374151;
+            color: white;
+        }
+        
+        .sidebar a.active {
+            background: #3b82f6;
+            color: white;
+        }
+        
+        .sidebar a i {
+            width: 20px;
+            margin-right: 0.75rem;
+        }
+        
+        .sidebar-backdrop {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 49;
+        }
+        
+        .sidebar.active + .sidebar-backdrop {
+            display: block;
+        }
+        
+        .topbar {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            backdrop-filter: blur(8px);
+        }
+        
+        .btn {
+            padding: 0.625rem 1.25rem;
+            border-radius: 8px;
+            font-weight: 500;
+            font-size: 0.875rem;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .btn-primary {
+            background: #3b82f6;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #2563eb;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(59, 130, 246, 0.3);
+        }
+        
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            backdrop-filter: blur(10px);
+        }
+        
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+        
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+        
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        thead {
+            background: #f8fafc;
+        }
+        
+        th {
+            padding: 0.75rem 1rem;
+            text-align: left;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        
+        td {
+            padding: 1rem;
+            border-top: 1px solid #f1f5f9;
+            font-size: 0.875rem;
+        }
+        
+        tbody tr {
+            transition: background 0.2s ease;
+        }
+        
+        tbody tr:hover {
+            background: #f8fafc;
+        }
+        
+        .section-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: #0f172a;
+            margin-bottom: 1rem;
+        }
+        
         .badge {
             display: inline-flex;
             align-items: center;
@@ -15,387 +176,453 @@
             font-size: 0.75rem;
             font-weight: 600;
         }
+        
         .badge-pending {
-            background-color: #FEF3C7;
-            color: #92400E;
+            background-color: #fef3c7;
+            color: #92400e;
         }
+        
         .badge-confirmed {
-            background-color: #DBEAFE;
-            color: #1E40AF;
+            background-color: #dbeafe;
+            color: #1e40af;
         }
+        
         .badge-shipped {
-            background-color: #E0E7FF;
-            color: #3730A3;
+            background-color: #e0e7ff;
+            color: #3730a3;
         }
+        
         .badge-delivered {
-            background-color: #D1FAE5;
-            color: #065F46;
+            background-color: #d1fae5;
+            color: #065f46;
         }
+        
         .badge-cancelled {
-            background-color: #FEE2E2;
-            color: #B91C1C;
+            background-color: #fee2e2;
+            color: #b91c1c;
         }
+        
         .badge-return {
-            background-color: #F3E8FF;
-            color: #6B21A8;
+            background-color: #f3e8ff;
+            color: #6b21a8;
+        }
+        
+        .badge-paid {
+            background-color: #d1fae5;
+            color: #065f46;
+        }
+        
+        .badge-pending-payment {
+            background-color: #fef3c7;
+            color: #92400e;
+        }
+        
+        .badge-failed {
+            background-color: #fee2e2;
+            color: #b91c1c;
+        }
+        
+        .badge-refunded {
+            background-color: #e0e7ff;
+            color: #3730a3;
+        }
+        
+        /* Responsive Table Styles */
+        @media (max-width: 768px) {
+            .data-table {
+                display: block;
+            }
+            .data-table thead {
+                display: none;
+            }
+            .data-table tbody, .data-table tr, .data-table td {
+                display: block;
+                width: 100%;
+            }
+            .data-table tr {
+                margin-bottom: 1rem;
+                border: 1px solid #e2e8f0;
+                border-radius: 8px;
+                padding: 0.5rem;
+                background: white;
+            }
+            .data-table td {
+                padding: 0.5rem;
+                position: relative;
+                border-bottom: none;
+            }
+            .data-table td:before {
+                content: attr(data-label);
+                font-weight: 600;
+                color: #374151;
+                display: block;
+                margin-bottom: 0.25rem;
+            }
+            .data-table td:not(:last-child) {
+                border-bottom: 1px solid #e2e8f0;
+            }
+            .data-table td[data-label="Variant"], .data-table td[data-label="Offer"] {
+                display: none;
+            }
+        }
+        
+        /* Responsive Adjustments */
+        @media (min-width: 769px) {
+            .main-content {
+                margin-left: 16rem;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+                position: fixed;
+                top: 0;
+                left: 0;
+                height: 100vh;
+                width: 240px;
+                z-index: 50;
+            }
+            .sidebar.active {
+                transform: translateX(0);
+            }
+            .main-content {
+                margin-left: 0 !important;
+                padding: 1rem;
+            }
+            .card {
+                padding: 1rem;
+            }
+            .section-title {
+                font-size: 1rem;
+            }
+            .data-table th, .data-table td {
+                font-size: 0.75rem;
+            }
+            .badge {
+                font-size: 0.6875rem;
+                padding: 0.2rem 0.5rem;
+            }
+            .sm\:grid-cols-3 {
+                grid-template-columns: 1fr;
+            }
+            .sm\:col-span-2 {
+                grid-column: auto;
+            }
+            .sm\:mt-0 {
+                margin-top: 0.5rem;
+            }
+        }
+        
+        @media (max-width: 576px) {
+            .sidebar {
+                width: 200px;
+            }
+            .sidebar a {
+                padding: 0.375rem;
+                font-size: 0.6875rem;
+            }
+            .sidebar a i {
+                margin-right: 0.5rem;
+            }
+            .topbar {
+                padding-left: 8px;
+                padding-right: 8px;
+            }
+            .topbar h1 {
+                font-size: 1rem;
+            }
+            .fa-shopping-cart {
+                font-size: 1rem;
+            }
+            #toggle-sidebar {
+                padding: 0.375rem;
+            }
+            .data-table td {
+                padding: 0.4rem;
+                font-size: 0.6875rem;
+            }
+            .btn {
+                padding: 0.5rem 1rem;
+                font-size: 0.75rem;
+            }
+            .badge {
+                font-size: 0.625rem;
+                padding: 0.15rem 0.4rem;
+            }
         }
     </style>
 </head>
-<body class="bg-gray-50 min-h-screen">
-    <!-- Admin Navigation -->
-    <nav class="bg-gray-800 shadow-sm">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between h-16">
-                <div class="flex">
-                    <div class="flex-shrink-0 flex items-center">
-                        <a href="/admin" class="text-2xl font-bold text-white">Silver Admin</a>
-                    </div>
-                    <div class="hidden sm:ml-6 sm:flex sm:space-x-8">
-                        <a href="/admin/dashboard" class="border-transparent text-gray-300 hover:border-gray-300 hover:text-gray-100 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
-                            Dashboard
-                        </a>
-                        <a href="/admin/products" class="border-transparent text-gray-300 hover:border-gray-300 hover:text-gray-100 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
-                            Products
-                        </a>
-                        <a href="/admin/orders" class="border-indigo-500 text-white inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
-                            Orders
-                        </a>
-                        <a href="/admin/users" class="border-transparent text-gray-300 hover:border-gray-300 hover:text-gray-100 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
-                            Users
-                        </a>
+<body>
+    <!-- Top Bar -->
+    <nav class="topbar fixed top-0 left-0 right-0 z-40 shadow-lg">
+        <div class="max-w-full mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center">
+                    <button id="toggle-sidebar" class="md:hidden text-white mr-3 focus:outline-none bg-blue-700 p-2 rounded-lg">
+                        <i class="fas fa-bars text-base"></i>
+                    </button>
+                    <div class="flex items-center">
+                        <i class="fas fa-shopping-cart text-white text-xl mr-3"></i>
+                        <h1 class="text-white text-xl font-semibold">Order Details</h1>
                     </div>
                 </div>
-                <div class="hidden sm:ml-6 sm:flex sm:items-center">
-                    <div class="ml-3 relative">
-                        <div>
-                            <button type="button" class="flex text-sm rounded-full focus:outline-none" id="user-menu-button" aria-expanded="false" aria-haspopup="true">
-                                <div class="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-500">
-                                    <i class="fa-solid fa-user"></i>
-                                </div>
-                            </button>
-                        </div>
-                        <div class="hidden absolute right-0 mt-2 w-48 rounded-md shadow-lg py-1 bg-white ring-1 ring-black ring-opacity-5 focus:outline-none" id="user-dropdown">
-                            <a href="/admin/profile" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                                Your Profile
-                            </a>
-                            <a href="/admin/settings" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                                Settings
-                            </a>
-                            <a href="/admin/logout" class="block px-4 py-2 text-sm text-red-600 hover:bg-gray-100">
-                                Sign out
-                            </a>
-                        </div>
+                <div class="flex items-center space-x-3">
+                    <div class="hidden md:flex items-center space-x-2 bg-blue-500/20 px-3 py-1 rounded-lg">
+                        <i class="fas fa-calendar text-blue-200"></i>
+                        <span class="text-white text-sm" id="current-date"></span>
                     </div>
-                </div>
-                <div class="-mr-2 flex items-center sm:hidden">
-                    <button type="button" class="mobile-menu-button inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none" aria-expanded="false">
-                        <i class="fa-solid fa-bars text-lg"></i>
+                    <button onclick="logout()" class="btn btn-danger">
+                        <i class="fas fa-sign-out-alt"></i>
+                        <span class="hidden sm:inline">Logout</span>
                     </button>
                 </div>
             </div>
         </div>
-        <div class="hidden sm:hidden mobile-menu">
-            <div class="pt-2 pb-3 space-y-1">
-                <a href="/admin/dashboard" class="block pl-3 pr-4 py-2 border-l-4 border-transparent text-base font-medium text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800">Dashboard</a>
-                <a href="/admin/products" class="block pl-3 pr-4 py-2 border-l-4 border-transparent text-base font-medium text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800">Products</a>
-                <a href="/admin/orders" class="block pl-3 pr-4 py-2 border-l-4 border-indigo-500 text-base font-medium text-indigo-700 bg-indigo-50">Orders</a>
-                <a href="/admin/users" class="block pl-3 pr-4 py-2 border-l-4 border-transparent text-base font-medium text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800">Users</a>
-                <a href="/admin/logout" class="block pl-3 pr-4 py-2 border-l-4 border-transparent text-base font-medium text-red-600 hover:bg-gray-50 hover:border-gray-300 hover:text-red-700">Sign out</a>
-            </div>
-        </div>
     </nav>
 
-    <!-- Order Details Content -->
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div class="mb-6">
-            <a href="/admin/orders" class="inline-flex items-center text-sm font-medium text-indigo-600 hover:text-indigo-500">
-                <i class="fa-solid fa-arrow-left mr-2"></i> Back to Orders
+    <!-- Sidebar -->
+    <aside class="sidebar fixed left-0 top-0 h-full w-64 p-4 flex flex-col z-50 md:translate-x-0">
+        <div class="sidebar-header mb-6 pt-4">
+            <h2 class="text-2xl font-bold text-center text-white">Admin Panel</h2>
+        </div>
+        <nav class="space-y-1 flex-grow">
+            <a href="/admin/dashboard" class="sidebar-link" data-page="dashboard">
+                <i class="fas fa-chart-line"></i>
+                <span>Dashboard</span>
             </a>
-        </div>
-        
-        <div class="bg-white shadow overflow-hidden sm:rounded-lg mb-6">
-            <div class="px-4 py-5 sm:px-6 flex justify-between items-center">
-                <div>
-                    <h2 class="text-lg leading-6 font-medium text-gray-900">Order #{{.Order.OrderIdUnique}}</h2>
-                    <p class="mt-1 max-w-2xl text-sm text-gray-500">
-                        Placed on {{.Order.OrderDate.Format "Jan 02, 2006 at 15:04"}}
-                    </p>
-                </div>
-                <div class="flex items-center space-x-4">
-                    <span class="badge 
-                        {{if eq .Order.Status "Pending"}}badge-pending
-                        {{else if eq .Order.Status "Confirmed"}}badge-confirmed
-                        {{else if eq .Order.Status "Shipped"}}badge-shipped
-                        {{else if eq .Order.Status "Delivered"}}badge-delivered
-                        {{else if eq .Order.Status "Cancelled"}}badge-cancelled
-                        {{else}}badge-return{{end}}">
-                        {{.Order.Status}}
-                    </span>
-                   
-                </div>
-            </div>
-            <div class="border-t border-gray-200">
-                <dl>
-                    <div class="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-                        <dt class="text-sm font-medium text-gray-500">Customer</dt>
-                        <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
-                            <div class="flex items-center">
-                                <div class="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 mr-3">
-                                    <i class="fa-solid fa-user"></i>
-                                </div>
-                                <div>
-                                    <p class="font-medium">{{.Order.User.UserName}}</p>
-                                    <p class="text-gray-500">{{.Order.User.Email}}</p>
-                                    <p class="text-gray-500">{{.Order.User.Phone}}</p>
-                                </div>
-                            </div>
-                        </dd>
-                    </div>
-                    <div class="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-                        <dt class="text-sm font-medium text-gray-500">Shipping Address</dt>
-                        <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
-                            {{if .Address.ID}}
-                            <p>{{.Address.Name}}</p>
-                            <p>{{.Address.Landmark}}</p>
-                            <p>{{.Address.City}}, {{.Address.State}} {{.Address.Pincode}}</p>
-                            <p>Phone: {{.Address.Phone}}</p>
-                            {{if .Address.AlternatePhone}}<p>Alt Phone: {{.Address.AlternatePhone}}</p>{{end}}
-                            {{if .Address.Instructions}}<p class="mt-2 text-gray-500">Instructions: {{.Address.Instructions}}</p>{{end}}
-                            {{else}}
-                            <p class="text-gray-500">No shipping address available</p>
-                            {{end}}
-                        </dd>
-                    </div>
-                    <div class="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-                        <dt class="text-sm font-medium text-gray-500">Payment Method</dt>
-                        <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
-                            {{.Order.PaymentMethod}}
-                        </dd>
-                    </div>
-                     <div class="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-                        <dt class="text-sm font-medium text-gray-500">Payment Status</dt>
-                        <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
-                            <span class="badge 
-                                {{if eq .Order.PaymentStatus "paid"}}badge-paid
-                                {{else if eq .Order.PaymentStatus "pending"}}badge-pending-payment
-                                {{else if eq .Order.PaymentStatus "failed"}}badge-failed
-                                {{else if eq .Order.PaymentStatus "refunded"}}badge-refunded
-                                {{else}}badge-pending-payment{{end}}">
-                                {{if eq .Order.PaymentStatus ""}}Payment Pending{{else}}{{.Order.PaymentStatus | title}}{{end}}
-                            </span>
-                        </dd>
-                    </div>                      
-                </dl>
-            </div>
-        </div>
+            <a href="/admin/user-management" class="sidebar-link" data-page="user-management">
+                <i class="fas fa-users"></i>
+                <span>Customers</span>
+            </a>
+            <a href="/admin/category" class="sidebar-link" data-page="category">
+                <i class="fas fa-tags"></i>
+                <span>Category</span>
+            </a>
+            <a href="/admin/products" class="sidebar-link" data-page="products">
+                <i class="fas fa-box"></i>
+                <span>Products</span>
+            </a>
+            <a href="/admin/orders" class="sidebar-link" data-page="orders">
+                <i class="fas fa-shopping-cart"></i>
+                <span>Orders</span>
+            </a>
+            <a href="/admin/returns" class="sidebar-link" data-page="returns">
+                <i class="fas fa-undo"></i>
+                <span>Return</span>
+            </a>
+            <a href="/admin/offers" class="sidebar-link" data-page="offers">
+                <i class="fas fa-percent"></i>
+                <span>Offers</span>
+            </a>
+            <a href="/admin/coupons" class="sidebar-link" data-page="coupons">
+                <i class="fas fa-ticket-alt"></i>
+                <span>Coupons</span>
+            </a>
+        </nav>
+    </aside>
+    <div class="sidebar-backdrop"></div>
 
-        <div class="bg-white shadow overflow-hidden sm:rounded-lg mb-6">
-            <div class="px-4 py-5 sm:px-6">
-                <h3 class="text-lg leading-6 font-medium text-gray-900">Order Items</h3>
+    <!-- Main Content -->
+    <main class="main-content pt-16 pb-8">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="mb-6">
+                <a href="/admin/orders" class="btn btn-primary">
+                    <i class="fas fa-arrow-left mr-2"></i>
+                    Back to Orders
+                </a>
             </div>
-            <div class="border-t border-gray-200">
-                <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-gray-200">
-                        <thead class="bg-gray-50">
-                            <tr>
-                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product</th>
-                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Variant</th>
-                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Offer</th>
-                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
-                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity</th>
-                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
-                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                            </tr>
-                        </thead>
-                        <tbody class="bg-white divide-y divide-gray-200">
-                            {{range .Order.OrderItems}}
-                            <tr>
-                                <td class="px-6 py-4 whitespace-nowrap">
-                                    <div class="flex items-center">
-                                        <div class="flex-shrink-0 h-10 w-10 bg-gray-100 rounded-md overflow-hidden">
-                                            {{if .Product.Images}}
-                                            <img src="{{index .Product.Images 0}}" alt="{{.Product.ProductName}}" class="h-full w-full object-cover">
-                                            {{else}}
-                                            <div class="h-full w-full flex items-center justify-center text-gray-400">
-                                                <i class="fa-solid fa-image"></i>
-                                            </div>
-                                            {{end}}
-                                        </div>
-                                        <div class="ml-4">
-                                            <div class="text-sm font-medium text-gray-900">{{.Product.ProductName}}</div>
-                                            <div class="text-sm text-gray-500">SKU: {{.Product.ID}}</div>
-                                        </div>
+
+            <!-- Order Details -->
+            <div class="card p-6 mb-6">
+                <div class="flex justify-between items-center mb-4">
+                    <div>
+                        <h2 class="section-title">Order #{{.Order.OrderIdUnique}}</h2>
+                        <p class="text-sm text-gray-500">
+                            Placed on {{.Order.OrderDate.Format "Jan 02, 2006 at 15:04"}}
+                        </p>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <span class="badge 
+                            {{if eq .Order.Status "Pending"}}badge-pending
+                            {{else if eq .Order.Status "Confirmed"}}badge-confirmed
+                            {{else if eq .Order.Status "Shipped"}}badge-shipped
+                            {{else if eq .Order.Status "Delivered"}}badge-delivered
+                            {{else if eq .Order.Status "Cancelled"}}badge-cancelled
+                            {{else}}badge-return{{end}}">
+                            {{.Order.Status}}
+                        </span>
+                    </div>
+                </div>
+                <div class="border-t border-slate-200">
+                    <dl>
+                        <div class="bg-slate-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                            <dt class="text-sm font-medium text-gray-500">Customer</dt>
+                            <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
+                                <div class="flex items-center">
+                                    <div class="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 mr-3">
+                                        <i class="fas fa-user"></i>
                                     </div>
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap">
-                                    <div class="text-sm text-gray-900">{{.Variants.Color}}</div>
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap">
-                                    <div class="text-sm text-gray-900">
-                                        {{if .OfferName}}
-                                        {{.OfferName}}
+                                    <div>
+                                        <p class="font-medium">{{.Order.User.UserName}}</p>
+                                        <p class="text-gray-500">{{.Order.User.Email}}</p>
+                                        <p class="text-gray-500">{{.Order.User.Phone}}</p>
+                                    </div>
+                                </div>
+                            </dd>
+                        </div>
+                        <div class="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                            <dt class="text-sm font-medium text-gray-500">Shipping Address</dt>
+                            <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
+                                {{if .Address.ID}}
+                                <p>{{.Address.Name}}</p>
+                                <p>{{.Address.Landmark}}</p>
+                                <p>{{.Address.City}}, {{.Address.State}} {{.Address.Pincode}}</p>
+                                <p>Phone: {{.Address.Phone}}</p>
+                                {{if .Address.AlternatePhone}}<p>Alt Phone: {{.Address.AlternatePhone}}</p>{{end}}
+                                {{if .Address.Instructions}}<p class="mt-2 text-gray-500">Instructions: {{.Address.Instructions}}</p>{{end}}
+                                {{else}}
+                                <p class="text-gray-500">No shipping address available</p>
+                                {{end}}
+                            </dd>
+                        </div>
+                        <div class="bg-slate-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                            <dt class="text-sm font-medium text-gray-500">Payment Method</dt>
+                            <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
+                                {{.Order.PaymentMethod}}
+                            </dd>
+                        </div>
+                        <div class="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                            <dt class="text-sm font-medium text-gray-500">Payment Status</dt>
+                            <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
+                                <span class="badge 
+                                    {{if eq .Order.PaymentStatus "paid"}}badge-paid
+                                    {{else if eq .Order.PaymentStatus "pending"}}badge-pending-payment
+                                    {{else if eq .Order.PaymentStatus "failed"}}badge-failed
+                                    {{else if eq .Order.PaymentStatus "refunded"}}badge-refunded
+                                    {{else}}badge-pending-payment{{end}}">
+                                    {{if eq .Order.PaymentStatus ""}}Payment Pending{{else}}{{.Order.PaymentStatus | title}}{{end}}
+                                </span>
+                            </dd>
+                        </div>
+                    </dl>
+                </div>
+            </div>
+
+            <!-- Order Items -->
+            <div class="card p-6 mb-6">
+                <h3 class="section-title">Order Items</h3>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Product</th>
+                            <th>Variant</th>
+                            <th>Offer</th>
+                            <th>Price</th>
+                            <th>Quantity</th>
+                            <th>Total</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {{range .Order.OrderItems}}
+                        <tr>
+                            <td data-label="Product" class="text-slate-900">
+                                <div class="flex items-center">
+                                    <div class="flex-shrink-0 h-10 w-10 bg-gray-100 rounded-md overflow-hidden">
+                                        {{if .Product.Images}}
+                                        <img src="{{index .Product.Images 0}}" alt="{{.Product.ProductName}}" class="h-full w-full object-cover">
                                         {{else}}
-                                        None
+                                        <div class="h-full w-full flex items-center justify-center text-gray-400">
+                                            <i class="fas fa-image"></i>
+                                        </div>
                                         {{end}}
                                     </div>
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap">
-                                    {{if .OfferName}}
-                                    <div class="text-sm text-gray-900 line-through">${{printf "%.2f" (add .Product.Price .Variants.ExtraPrice)}}</div>
-                                    <div class="text-sm text-green-600">${{printf "%.2f" (sub (add .Product.Price .Variants.ExtraPrice) .DiscountAmount)}}</div>
-                                    {{else}}
-                                    <div class="text-sm text-gray-900">${{printf "%.2f" (add .Product.Price .Variants.ExtraPrice)}}</div>
-                                    {{end}}
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap">
-                                    <div class="text-sm text-gray-900">{{.Quantity}}</div>
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap">
-                                    {{if .OfferName}}
-                                    <div class="text-sm text-gray-900 line-through">${{printf "%.2f" (mul (add .Product.Price .Variants.ExtraPrice) .Quantity)}}</div>
-                                    <div class="text-sm text-green-600">${{printf "%.2f" (mul (sub (add .Product.Price .Variants.ExtraPrice) .DiscountAmount) .Quantity)}}</div>
-                                    {{else}}
-                                    <div class="text-sm text-gray-900">${{printf "%.2f" (mul (add .Product.Price .Variants.ExtraPrice) .Quantity)}}</div>
-                                    {{end}}
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap">
-                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                                        {{if eq .Status "Active"}}bg-green-100 text-green-800
-                                        {{else if eq .Status "Cancelled"}}bg-red-100 text-red-800
-                                        {{else}}bg-yellow-100 text-yellow-800{{end}}">
-                                        {{.Status}}
-                                    </span>
-                                </td>
-                            </tr>
-                            {{end}}
-                        </tbody>
-                    </table>
-                </div>
+                                    <div class="ml-4">
+                                        <div class="text-sm font-medium text-gray-900">{{.Product.ProductName}}</div>
+                                        <div class="text-sm text-gray-500">SKU: {{.Product.ID}}</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td data-label="Variant" class="text-slate-900">{{.Variants.Color}}</td>
+                            <td data-label="Offer" class="text-slate-900">
+                                {{if .OfferName}}{{.OfferName}}{{else}}None{{end}}
+                            </td>
+                            <td data-label="Price" class="text-slate-900">
+                                {{if .OfferName}}
+                                <div class="text-sm text-gray-900 line-through">${{printf "%.2f" (add .Product.Price .Variants.ExtraPrice)}}</div>
+                                <div class="text-sm text-green-600">${{printf "%.2f" (sub (add .Product.Price .Variants.ExtraPrice) .DiscountAmount)}}</div>
+                                {{else}}
+                                <div class="text-sm text-gray-900">${{printf "%.2f" (add .Product.Price .Variants.ExtraPrice)}}</div>
+                                {{end}}
+                            </td>
+                            <td data-label="Quantity" class="text-slate-900">{{.Quantity}}</td>
+                            <td data-label="Total" class="text-slate-900">
+                                {{if .OfferName}}
+                                <div class="text-sm text-gray-900 line-through">${{printf "%.2f" (mul (add .Product.Price .Variants.ExtraPrice) .Quantity)}}</div>
+                                <div class="text-sm text-green-600">${{printf "%.2f" (mul (sub (add .Product.Price .Variants.ExtraPrice) .DiscountAmount) .Quantity)}}</div>
+                                {{else}}
+                                <div class="text-sm text-gray-900">${{printf "%.2f" (mul (add .Product.Price .Variants.ExtraPrice) .Quantity)}}</div>
+                                {{end}}
+                            </td>
+                            <td data-label="Status" class="text-slate-900">
+                                <span class="badge 
+                                    {{if eq .Status "Active"}}badge-delivered
+                                    {{else if eq .Status "Cancelled"}}badge-cancelled
+                                    {{else}}badge-pending{{end}}">
+                                    {{.Status}}
+                                </span>
+                            </td>
+                        </tr>
+                        {{end}}
+                    </tbody>
+                </table>
             </div>
-        </div>
 
-        <!-- Replace the existing Order Summary section -->
-<div class="bg-white shadow overflow-hidden sm:rounded-lg">
-    <div class="px-4 py-5 sm:px-6">
-        <h3 class="text-lg leading-6 font-medium text-gray-900">Order Summary</h3>
-        <p class="mt-1 text-sm text-gray-500">
-            {{if .AllItemsCancelled}}
-            Reflects the original order amounts at the time of placement (Order Cancelled)
-            {{else}}
-            Reflects the current order amounts for active items
-            {{end}}
-        </p>
-    </div>
-    <div class="border-t border-gray-200">
-        <dl>
-            <div class="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-                <dt class="text-sm font-medium text-gray-500">Subtotal</dt>
-                <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
+            <!-- Order Summary -->
+            <div class="card p-6">
+                <h3 class="section-title">Order Summary</h3>
+                <p class="text-sm text-gray-500 mb-4">
                     {{if .AllItemsCancelled}}
-                    ${{printf "%.2f" .OrderBackUp.Subtotal}}
+                    Reflects the original order amounts at the time of placement (Order Cancelled)
                     {{else}}
-                    ${{printf "%.2f" .CurrentSubtotal}}
+                    Reflects the current order amounts for active items
                     {{end}}
-                </dd>
-            </div>
-            <div class="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-                <dt class="text-sm font-medium text-gray-500">Offer Discount</dt>
-                <dd class="mt-1 text-sm text-green-600 sm:mt-0 sm:col-span-2">
-                    {{if .AllItemsCancelled}}
-                    -${{printf "%.2f" .OrderBackUp.OfferDiscount}}
-                    {{else}}
-                    -${{printf "%.2f" .CurrentOfferDiscount}}
-                    {{end}}
-                </dd>
-            </div>
-            {{if or (gt .OrderBackUp.CouponDiscount 0.0) (gt .Order.CouponDiscount 0.0)}}
-            <div class="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-                <dt class="text-sm font-medium text-gray-500">Coupon Discount</dt>
-                <dd class="mt-1 text-sm text-green-600 sm:mt-0 sm:col-span-2">
-                    {{if .AllItemsCancelled}}
-                    -${{printf "%.2f" .OrderBackUp.CouponDiscount}}
-                    {{else}}
-                    -${{printf "%.2f" .Order.CouponDiscount}}
-                    {{end}}
-                </dd>
-            </div>
-            {{end}}
-            <div class="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-                <dt class="text-sm font-medium text-gray-500">Shipping Cost</dt>
-                <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
-                    {{if .AllItemsCancelled}}
-                    ${{printf "%.2f" .OrderBackUp.ShippingCost}}
-                    {{else}}
-                    ${{printf "%.2f" .Order.ShippingCost}}
-                    {{end}}
-                </dd>
-            </div>
-            <div class="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-                <dt class="text-sm font-medium text-gray-500">Total</dt>
-                <dd class="mt-1 text-sm font-medium text-gray-900 sm:mt-0 sm:col-span-2">
-                    {{if .AllItemsCancelled}}
-                    ${{printf "%.2f" .OrderBackUp.TotalPrice}}
-                    {{else}}
-                    ${{printf "%.2f" .CurrentTotal}}
-                    {{end}}
-                </dd>
-            </div>
-        </dl>
-    </div>
-</div>
-    </div>
-
-    <!-- Toast Notification -->
-    <div id="toast" class="fixed bottom-4 right-4 z-50 transform transition-all duration-300 translate-y-16 opacity-0">
-        <div class="bg-white rounded-lg shadow-lg px-4 py-3 max-w-md flex items-center space-x-3 border-l-4 border-green-500">
-            <i class="fa-solid fa-circle-check text-green-500"></i>
-            <p class="text-sm font-medium text-gray-900" id="toast-message"></p>
-        </div>
-    </div>
-
-    <!-- Scripts -->
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            // User dropdown
-            const userMenuButton = document.getElementById('user-menu-button');
-            const userDropdown = document.getElementById('user-dropdown');
-            if (userMenuButton && userDropdown) {
-                userMenuButton.addEventListener('click', () => {
-                    userDropdown.classList.toggle('hidden');
-                });
-    
-                document.addEventListener('click', (event) => {
-                    if (!userMenuButton.contains(event.target) && !userDropdown.contains(event.target)) {
-                        userDropdown.classList.add('hidden');
-                    }
-                });
-            }
-
-            // Mobile menu
-            const mobileMenuButton = document.querySelector('.mobile-menu-button');
-            const mobileMenu = document.querySelector('.mobile-menu');
-            if (mobileMenuButton && mobileMenu) {
-                mobileMenuButton.addEventListener('click', () => {
-                    mobileMenu.classList.toggle('hidden');
-                });
-            }
-
-            
-        });
-
-        function showToast(message) {
-            const toast = document.getElementById('toast');
-            const toastMessage = document.getElementById('toast-message');
-            toastMessage.textContent = message;
-            
-            toast.classList.remove('translate-y-16', 'opacity-0');
-            toast.classList.add('translate-y-0', 'opacity-100');
-            
-            setTimeout(() => {
-                toast.classList.remove('translate-y-0', 'opacity-100');
-                toast.classList.add('translate-y-16', 'opacity-0');
-            }, 3000);
-        }
-    </script>
-</body>
-</html>
+                </p>
+                <div class="border-t border-slate-200">
+                    <dl>
+                        <div class="bg-slate-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                            <dt class="text-sm font-medium text-gray-500">Subtotal</dt>
+                            <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
+                                {{if .AllItemsCancelled}}
+                                ${{printf "%.2f" .OrderBackUp.Subtotal}}
+                                {{else}}
+                                ${{printf "%.2f" .CurrentSubtotal}}
+                                {{end}}
+                            </dd>
+                        </div>
+                        <div class="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                            <dt class="text-sm font-medium text-gray-500">Offer Discount</dt>
+                            <dd class="mt-1 text-sm text-green-600 sm:mt-0 sm:col-span-2">
+                                {{if .AllItemsCancelled}}
+                                -${{printf "%.2f" .OrderBackUp.OfferDiscount}}
+                                {{else}}
+                                -${{printf "%.2f" .CurrentOfferDiscount}}
+                                {{end}}
+                            </dd>
+                        </div>
+                        {{if or (gt .OrderBackUp.CouponDiscount 0.0) (gt .Order.CouponDiscount 0.0)}}
+                        <div class="bg-slate-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                            <dt class="text-sm font-medium text-gray-500">Coupon Discount</dt>
+                            <dd class="mt-1 text-sm text-green-600 sm:mt-0 sm:col-span-2">
+                                {{if .AllItemsCancelled}}
+                                -${{printf "%.2f" .OrderBackUp.CouponDiscount}}
+                                {{else}}
+                                -${{printf "%.2f" .Order.CouponDiscount}}
+                                {{end}}
+                            </dd>
+                        </div>
+                        {{end}}
+                        <div class="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                            <dt class="text-sm font-medium text-gray-500">Shipping Cost</dt>
+                           

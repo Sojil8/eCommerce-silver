@@ -2,172 +2,662 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Dashboard - Product Listing</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, shrink-to-fit=no">
+    <title>Product Listing - eCommerce</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
-        .sidebar { min-height: calc(100vh - 56px); }
-        .table img {
-            width: 50px;
-            height: 50px;
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #f8fafc;
+            color: #1e293b;
+            overflow-x: hidden; /* Prevent horizontal overflow */
+        }
+        
+        .card {
+            background: white;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+            transition: all 0.2s ease;
+        }
+        
+        .card:hover {
+            border-color: #cbd5e1;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        }
+        
+        .sidebar {
+            background: linear-gradient(180deg, #1f2937 0%, #111827 100%);
+            transition: transform 0.3s ease;
+            width: 16rem; /* Default width */
+        }
+        
+        .sidebar a {
+            display: flex;
+            align-items: center;
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            color: #d1d5db;
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 0.875rem;
+            transition: all 0.2s ease;
+            margin-bottom: 0.25rem;
+        }
+        
+        .sidebar a:hover {
+            background: #374151;
+            color: white;
+        }
+        
+        .sidebar a.active {
+            background: #3b82f6;
+            color: white;
+        }
+        
+        .sidebar a i {
+            width: 20px;
+            margin-right: 0.75rem;
+        }
+        
+        .sidebar-backdrop {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 49;
+        }
+        
+        .sidebar.active + .sidebar-backdrop {
+            display: block;
+        }
+        
+        .topbar {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            backdrop-filter: blur(8px);
+            padding: 0.5rem 1rem;
+        }
+        
+        .btn {
+            padding: 0.625rem 1.25rem;
+            border-radius: 8px;
+            font-weight: 500;
+            font-size: 0.875rem;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            touch-action: manipulation;
+            min-height: 44px; /* WCAG touch target size */
+        }
+        
+        .btn-primary {
+            background: #3b82f6;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #2563eb;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(59, 130, 246, 0.3);
+        }
+        
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: rgb(38, 0, 255);
+            backdrop-filter: blur(10px);
+        }
+        
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+        
+        .btn-warning {
+            background: #f59e0b;
+            color: white;
+        }
+        
+        .btn-warning:hover {
+            background: #d97706;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(245, 158, 11, 0.3);
+        }
+        
+        .btn-purple {
+            background: #7c3aed;
+            color: white;
+        }
+        
+        .btn-purple:hover {
+            background: #6d28d9;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(124, 58, 237, 0.3);
+        }
+        
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: #dc2626;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(239, 68, 68, 0.3);
+        }
+        
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+        }
+        
+        thead {
+            background: #f8fafc;
+        }
+        
+        th {
+            padding: 0.75rem 1rem;
+            text-align: left;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            white-space: nowrap;
+        }
+        
+        td {
+            padding: 1rem;
+            border-top: 1px solid #f1f5f9;
+            font-size: 0.875rem;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        tbody tr {
+            transition: background 0.2s ease;
+        }
+        
+        tbody tr:hover {
+            background: #f8fafc;
+        }
+        
+        .section-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: #0f172a;
+            margin-bottom: 1rem;
+        }
+        
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        
+        .badge-delivered {
+            background-color: #d1fae5;
+            color: #065f46;
+        }
+        
+        .badge-cancelled {
+            background-color: #fee2e2;
+            color: #b91c1c;
+        }
+        
+        .data-table img {
+            width: 40px;
+            height: 40px;
             object-fit: cover;
             margin-right: 5px;
+            border-radius: 4px;
+            loading: lazy;
         }
-        .shadow-glow { box-shadow: 0 4px 15px rgba(0, 123, 255, 0.2); }
-        .hover-scale:hover {
-            transform: scale(1.05);
-            transition: transform 0.2s ease-in-out;
+        
+        /* Responsive Table Styles */
+        @media (max-width: 768px) {
+            .data-table {
+                display: block;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+            .data-table thead {
+                display: none;
+            }
+            .data-table tbody, .data-table tr, .data-table td {
+                display: block;
+                width: 100%;
+            }
+            .data-table tr {
+                margin-bottom: 1rem;
+                border: 1px solid #e2e8f0;
+                border-radius: 8px;
+                padding: 0.5rem;
+                background: white;
+            }
+            .data-table td {
+                padding: 0.5rem 0.75rem;
+                position: relative;
+                border-bottom: none;
+            }
+            .data-table td:before {
+                content: attr(data-label);
+                font-weight: 600;
+                color: #374151;
+                display: block;
+                margin-bottom: 0.25rem;
+            }
+            .data-table td:not(:last-child) {
+                border-bottom: 1px solid #e2e8f0;
+            }
+            .data-table td[data-label="Description"], .data-table td[data-label="Images"] {
+                display: none;
+            }
+            .data-table img {
+                width: 32px;
+                height: 32px;
+            }
+            .data-table td[data-label="Action"] {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 0.5rem;
+            }
         }
-        .status-active {
-            color: #10b981;
-            font-weight: 600;
+        
+        /* Responsive Adjustments */
+        @media (min-width: 769px) {
+            .main-content {
+                margin-left: 16rem;
+            }
         }
-        .status-blocked {
-            color: #ef4444;
-            font-weight: 600;
+        
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+                position: fixed;
+                top: 0;
+                left: 0;
+                height: 100vh;
+                width: 240px;
+                z-index: 50;
+            }
+            .sidebar.active {
+                transform: translateX(0);
+            }
+            .main-content {
+                margin-left: 0 !important;
+                padding: 1rem;
+            }
+            .card {
+                padding: 1rem;
+            }
+            .section-title {
+                font-size: 1rem;
+            }
+            .data-table th, .data-table td {
+                font-size: 0.75rem;
+            }
+            .badge {
+                font-size: 0.6875rem;
+                padding: 0.2rem 0.5rem;
+            }
+            .btn {
+                padding: 0.5rem 1rem;
+                font-size: 0.75rem;
+                min-height: 40px;
+            }
+            input, button {
+                font-size: 0.75rem;
+                padding: 0.5rem;
+            }
+            .search-bar {
+                width: 100%;
+            }
+        }
+        
+        @media (max-width: 576px) {
+            .sidebar {
+                width: 200px;
+            }
+            .sidebar a {
+                padding: 0.5rem;
+                font-size: 0.75rem;
+            }
+            .sidebar a i {
+                margin-right: 0.5rem;
+                font-size: 0.875rem;
+            }
+            .topbar {
+                padding: 0.5rem;
+            }
+            .topbar h1 {
+                font-size: 0.875rem;
+            }
+            .fa-box {
+                font-size: 0.875rem;
+            }
+            #toggle-sidebar {
+                padding: 0.5rem;
+            }
+            .data-table td {
+                padding: 0.5rem 0.75rem;
+                font-size: 0.75rem;
+            }
+            .data-table img {
+                width: 28px;
+                height: 28px;
+            }
+            .btn {
+                padding: 0.4rem 0.8rem;
+                font-size: 0.75rem;
+                min-height: 36px;
+            }
+            input, button {
+                font-size: 0.75rem;
+                padding: 0.4rem;
+            }
+        }
+        
+        @media (max-width: 400px) {
+            .sidebar {
+                width: 180px;
+            }
+            .sidebar a {
+                padding: 0.4rem;
+                font-size: 0.6875rem;
+            }
+            .topbar {
+                padding: 0.4rem;
+            }
+            .topbar h1 {
+                font-size: 0.75rem;
+            }
+            .btn {
+                padding: 0.3rem 0.6rem;
+                font-size: 0.6875rem;
+            }
+            .data-table td {
+                font-size: 0.6875rem;
+            }
+            .data-table img {
+                width: 24px;
+                height: 24px;
+            }
+        }
+        
+        @media (min-width: 1280px) {
+            .main-content {
+                margin-left: 18rem;
+            }
+            .sidebar {
+                width: 18rem;
+            }
+            .section-title {
+                font-size: 1.25rem;
+            }
+            .btn {
+                font-size: 0.9375rem;
+                padding: 0.75rem 1.5rem;
+            }
+            .data-table th, .data-table td {
+                font-size: 0.9375rem;
+            }
+            .data-table img {
+                width: 48px;
+                height: 48px;
+            }
         }
     </style>
 </head>
-<body class="bg-gray-100 font-sans">
-    <nav class="navbar navbar-expand-lg bg-gray-800 text-white shadow-md">
-        {{template "adminNavbar.html"}}
-    </nav>
-<br>
-    <div class="container-fluid">
-        <div class="row">
-            <div class="col-md-2 sidebar bg-gray-900 text-white p-4">
-                {{template "adminSideBar.html"}}
-            </div>
-
-            <div class="col-md-10 main-content p-6">
-                <div class="content bg-white rounded-lg shadow-md p-6">
-                    <div class="flex justify-between items-center mb-6">
-                        <h4 class="text-2xl font-semibold text-gray-800">Product Listing</h4>
-                        <div class="flex items-center space-x-4">
-                            <div class="flex w-96">
-                                <input type="text" class="form-control rounded-l-lg border-gray-300 focus:ring-blue-500 focus:border-blue-500 flex-grow" id="searchInput" placeholder="Search products..." value="{{ .SearchQuery }}">
-                                <button class="btn bg-blue-600 text-white rounded-none hover:bg-blue-700 transition-colors" onclick="searchProducts()">Search</button>
-                                <button class="btn bg-gray-500 text-white rounded-r-lg hover:bg-gray-600 transition-colors" onclick="clearSearch()">Clear</button>
-                            </div>
-                            <a href="/admin/products/add" class="btn bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 hover-scale transition-all">Add Product</a>
-                        </div>
+<body>
+    <!-- Top Bar -->
+    <nav class="topbar fixed top-0 left-0 right-0 z-40 shadow-lg" aria-label="Main navigation">
+        <div class="max-w-full mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center">
+                    <button id="toggle-sidebar" class="md:hidden text-white mr-3 focus:outline-none bg-blue-700 p-2 rounded-lg" aria-label="Toggle sidebar">
+                        <i class="fas fa-bars text-base" aria-hidden="true"></i>
+                    </button>
+                    <div class="flex items-center">
+                        <i class="fas fa-box text-white text-xl mr-3" aria-hidden="true"></i>
+                        <h1 class="text-white text-xl font-semibold">Product Listing</h1>
                     </div>
-                    <div class="overflow-x-auto">
-                        <table class="table table-striped table-bordered w-full">
-                            <thead class="bg-gray-800 text-white">
-                                <tr>
-                                    <th class="py-3 px-4">Product Name</th>
-                                    <th class="py-3 px-4">Category</th>
-                                    <th class="py-3 px-4">Sale Price</th>
-                                    <th class="py-3 px-4">Total Stock</th>
-                                    <th class="py-3 px-4">Description</th>
-                                    <th class="py-3 px-4">Images</th>
-                                    <th class="py-3 px-4">Status</th>
-                                    <th class="py-3 px-4">Action</th>
-                                </tr>
-                            </thead>
-                            <tbody id="productTableBody">
-                                {{if .Products}}
-                                {{range .Products}}
-                                <tr class="hover:bg-gray-50 transition-colors">
-                                    <td class="py-3 px-4">{{.ProductName}}</td>
-                                    <td class="py-3 px-4">{{.CategoryName}}</td>
-                                    <td class="py-3 px-4">${{printf "%.2f" .Price}}</td>
-                                    <td class="py-3 px-4">{{.TotalStock}}</td>
-                                    <td class="py-3 px-4">{{.Description}}</td>
-                                    <td class="py-3 px-4">
-                                        {{if .Images}}
-                                        {{range .Images}}
-                                        <img src="{{.}}" alt="Product Image" class="inline-block rounded">
-                                        {{end}}
-                                        {{else}}
-                                        No images
-                                        {{end}}
-                                    </td>
-                                    <td class="py-3 px-4">
-                                        <span class="{{if .IsListed}}status-active{{else}}status-blocked{{end}}">
-                                            {{if .IsListed}}Active{{else}}Blocked{{end}}
-                                        </span>
-                                    </td>
-                                    <td class="py-3 px-4 space-x-2">
-                                        <a href="/admin/products/edit/{{.ID}}" class="btn bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 hover-scale transition-all">Edit</a>
-                                        <button class="btn {{if .IsListed}}bg-yellow-500{{else}}bg-green-500{{end}} text-white px-3 py-1 rounded hover:{{if .IsListed}}bg-yellow-600{{else}}bg-green-600{{end}} hover-scale transition-all" 
-                                                onclick="toggleProductStatus({{.ID}}, {{.IsListed}})">
-                                            {{if .IsListed}}Unlist{{else}}List{{end}}
-                                        </button>
-                                        <a href="/admin/products/details/{{.ID}}" class="btn bg-purple-500 text-white px-3 py-1 rounded hover:bg-purple-600 hover-scale transition-all">Details</a>
-                                    </td>
-                                </tr>
-                                {{end}}
-                                {{else}}
-                                <tr>
-                                    <td colspan="8" class="text-center py-4 text-gray-500">No products found</td>
-                                </tr>
-                                {{end}}
-                            </tbody>
-                        </table>
+                </div>
+                <div class="flex items-center space-x-3">
+                    <div class="hidden md:flex items-center space-x-2 bg-blue-500/20 px-3 py-1 rounded-lg">
+                        <i class="fas fa-calendar text-blue-200" aria-hidden="true"></i>
+                        <span class="text-white text-sm" id="current-date"></span>
                     </div>
-                    <div class="flex justify-center mt-6" id="pagination">
-                        <!-- Pagination -->
-                        {{if gt .TotalPages 1}}
-                        <nav aria-label="Page navigation">
-                            <ul class="pagination">
-                                {{if gt .CurrentPage 1}}
-                                <li class="page-item">
-                                    <a class="page-link" href="/admin/products?page={{sub .CurrentPage 1}}&search={{.SearchQuery}}" aria-label="Previous">
-                                        <span aria-hidden="true">«</span>
-                                    </a>
-                                </li>
-                                {{end}}
-                                {{range $i := until .TotalPages}}
-                                <li class="page-item {{if eq (add $i 1) $.CurrentPage}}active{{end}}">
-                                    <a class="page-link" href="/admin/products?page={{add $i 1}}&search={{$.SearchQuery}}">{{add $i 1}}</a>
-                                </li>
-                                {{end}}
-                                {{if lt .CurrentPage .TotalPages}}
-                                <li class="page-item">
-                                    <a class="page-link" href="/admin/products?page={{add .CurrentPage 1}}&search={{.SearchQuery}}" aria-label="Next">
-                                        <span aria-hidden="true">»</span>
-                                    </a>
-                                </li>
-                                {{end}}
-                            </ul>
-                        </nav>
-                        {{end}}
-                    </div>
+                    <button onclick="logout()" class="btn btn-danger" aria-label="Logout">
+                        <i class="fas fa-sign-out-alt" aria-hidden="true"></i>
+                        <span class="hidden sm:inline">Logout</span>
+                    </button>
                 </div>
             </div>
         </div>
-    </div>
+    </nav>
 
-    <div class="footer bg-gray-800 text-white text-center py-4 mt-6">
-        <p>© 2025 Admin Dashboard. All rights reserved.</p>
-    </div>
+    <!-- Sidebar -->
+    <aside class="sidebar fixed left-0 top-0 h-full p-4 flex flex-col z-50 md:translate-x-0" aria-label="Sidebar navigation">
+        <div class="sidebar-header mb-6 pt-4">
+            <h2 class="text-2xl font-bold text-center text-white">Admin Panel</h2>
+        </div>
+        <nav class="space-y-1 flex-grow">
+            <a href="/admin/dashboard" class="sidebar-link" data-page="dashboard">
+                <i class="fas fa-chart-line" aria-hidden="true"></i>
+                <span>Dashboard</span>
+            </a>
+            <a href="/admin/user-management" class="sidebar-link" data-page="user-management">
+                <i class="fas fa-users" aria-hidden="true"></i>
+                <span>Customers</span>
+            </a>
+            <a href="/admin/category" class="sidebar-link" data-page="category">
+                <i class="fas fa-tags" aria-hidden="true"></i>
+                <span>Category</span>
+            </a>
+            <a href="/admin/products" class="sidebar-link active" data-page="products">
+                <i class="fas fa-box" aria-hidden="true"></i>
+                <span>Products</span>
+            </a>
+            <a href="/admin/orders" class="sidebar-link" data-page="orders">
+                <i class="fas fa-shopping-cart" aria-hidden="true"></i>
+                <span>Orders</span>
+            </a>
+            <a href="/admin/returns" class="sidebar-link" data-page="returns">
+                <i class="fas fa-undo" aria-hidden="true"></i>
+                <span>Return</span>
+            </a>
+            <a href="/admin/offers" class="sidebar-link" data-page="offers">
+                <i class="fas fa-percent" aria-hidden="true"></i>
+                <span>Offers</span>
+            </a>
+            <a href="/admin/coupons" class="sidebar-link" data-page="coupons">
+                <i class="fas fa-ticket-alt" aria-hidden="true"></i>
+                <span>Coupons</span>
+            </a>
+        </nav>
+    </aside>
+    <div class="sidebar-backdrop" role="presentation"></div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- Main Content -->
+    <main class="main-content pt-16 pb-8" role="main">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="card p-6">
+                <div class="flex flex-col md:flex-row justify-between items-center mb-6">
+                    <h4 class="section-title">Product Listing</h4>
+                    <div class="flex flex-col md:flex-row items-center space-y-4 md:space-y-0 md:space-x-4 w-full md:w-auto">
+                        <div class="flex search-bar w-full md:w-auto">
+                            <input type="text" id="searchInput" class="border border-slate-200 rounded-l-lg p-2 flex-grow focus:ring-blue-500 focus:border-blue-500 text-sm" placeholder="Search products..." aria-label="Search products">
+                            <button onclick="searchProducts()" class="btn btn-primary rounded-none">Search</button>
+                            <button onclick="clearSearch()" class="btn btn-secondary rounded-r-lg">Clear</button>
+                        </div>
+                        <a href="/admin/products/add" class="btn btn-primary w-full md:w-auto">
+                            <i class="fas fa-plus" aria-hidden="true"></i>
+                            Add Product
+                        </a>
+                    </div>
+                </div>
+                <table class="data-table" role="grid">
+                    <thead>
+                        <tr>
+                            <th scope="col">Product Name</th>
+                            <th scope="col">Category</th>
+                            <th scope="col">Sale Price</th>
+                            <th scope="col">Total Stock</th>
+                            <th scope="col">Description</th>
+                            <th scope="col">Images</th>
+                            <th scope="col">Status</th>
+                            <th scope="col">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="productTableBody">
+                        {{if .Products}}
+                        {{range .Products}}
+                        <tr>
+                            <td data-label="Product Name" class="text-slate-900">{{.ProductName}}</td>
+                            <td data-label="Category" class="text-slate-900">{{.CategoryName}}</td>
+                            <td data-label="Sale Price" class="text-slate-900">${{printf "%.2f" .Price}}</td>
+                            <td data-label="Total Stock" class="text-slate-900">{{.TotalStock}}</td>
+                            <td data-label="Description" class="text-slate-900">{{.Description}}</td>
+                            <td data-label="Images" class="text-slate-900">
+                                {{if .Images}}
+                                {{range .Images}}
+                                <img src="{{.}}" alt="Product Image" class="inline-block">
+                                {{end}}
+                                {{else}}
+                                No images
+                                {{end}}
+                            </td>
+                            <td data-label="Status" class="text-slate-900">
+                                <span class="badge {{if .IsListed}}badge-delivered{{else}}badge-cancelled{{end}}">
+                                    {{if .IsListed}}Active{{else}}Blocked{{end}}
+                                </span>
+                            </td>
+                            <td data-label="Action" class="flex space-x-2">
+                                <a href="/admin/products/edit/{{.ID}}" class="btn btn-primary" aria-label="Edit product">
+                                    <i class="fas fa-edit" aria-hidden="true"></i>
+                                    <span class="hidden sm:inline">Edit</span>
+                                </a>
+                                <button onclick="toggleProductStatus({{.ID}}, {{.IsListed}})" class="btn {{if .IsListed}}btn-warning{{else}}btn-primary{{end}}" aria-label="{{if .IsListed}}Unlist{{else}}List{{end}} product">
+                                    <i class="fas fa-{{if .IsListed}}ban{{else}}check{{end}}" aria-hidden="true"></i>
+                                    <span class="hidden sm:inline">{{if .IsListed}}Unlist{{else}}List{{end}}</span>
+                                </button>
+                                <a href="/admin/products/details/{{.ID}}" class="btn btn-purple" aria-label="View product details">
+                                    <i class="fas fa-info-circle" aria-hidden="true"></i>
+                                    <span class="hidden sm:inline">Details</span>
+                                </a>
+                            </td>
+                        </tr>
+                        {{end}}
+                        {{else}}
+                        <tr>
+                            <td colspan="8" class="text-center py-4 text-gray-500">No products found</td>
+                        </tr>
+                        {{end}}
+                    </tbody>
+                </table>
+                <div class="flex justify-center mt-6" id="pagination">
+                    {{if gt .TotalPages 1}}
+                    <nav aria-label="Page navigation" class="flex space-x-2">
+                        {{if gt .CurrentPage 1}}
+                        <a href="/admin/products?page={{sub .CurrentPage 1}}&search={{.SearchQuery}}" class="btn btn-secondary" aria-label="Previous page">
+                            <i class="fas fa-chevron-left" aria-hidden="true"></i>
+                        </a>
+                        {{end}}
+                        {{range $i := until .TotalPages}}
+                        <a href="/admin/products?page={{add $i 1}}&search={{$.SearchQuery}}" class="btn {{if eq (add $i 1) $.CurrentPage}}btn-primary{{else}}btn-secondary{{end}}" aria-label="Page {{add $i 1}}">
+                            {{add $i 1}}
+                        </a>
+                        {{end}}
+                        {{if lt .CurrentPage .TotalPages}}
+                        <a href="/admin/products?page={{add .CurrentPage 1}}&search={{.SearchQuery}}" class="btn btn-secondary" aria-label="Next page">
+                            <i class="fas fa-chevron-right" aria-hidden="true"></i>
+                        </a>
+                        {{end}}
+                    </nav>
+                    {{end}}
+                </div>
+            </div>
+        </div>
+    </main>
+
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const searchInput = document.getElementById('searchInput');
-            searchInput.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    searchProducts();
-                }
-            });
+        // Set current date
+        document.getElementById('current-date').textContent = new Date().toLocaleDateString('en-US', { 
+            weekday: 'long', 
+            year: 'numeric', 
+            month: 'long', 
+            day: 'numeric' 
         });
 
+        // Sidebar toggle functionality
+        function setupSidebar() {
+            const toggleSidebar = document.getElementById('toggle-sidebar');
+            const sidebar = document.querySelector('.sidebar');
+            const backdrop = document.querySelector('.sidebar-backdrop');
+
+            if (toggleSidebar && sidebar && backdrop) {
+                toggleSidebar.addEventListener('click', () => {
+                    sidebar.classList.toggle('active');
+                });
+
+                backdrop.addEventListener('click', () => {
+                    sidebar.classList.remove('active');
+                });
+
+                document.querySelectorAll('.sidebar-link').forEach(link => {
+                    link.addEventListener('click', () => {
+                        if (window.innerWidth <= 768) {
+                            sidebar.classList.remove('active');
+                        }
+                    });
+                });
+            }
+        }
+
+        // Set active sidebar item based on current page
+        function setActiveSidebarItem() {
+            const currentPath = window.location.pathname.toLowerCase();
+            const sidebarLinks = document.querySelectorAll('.sidebar-link');
+            
+            sidebarLinks.forEach(link => {
+                link.classList.remove('active');
+                const linkHref = link.getAttribute('href').toLowerCase();
+                const dataPage = link.getAttribute('data-page').toLowerCase();
+                
+                if (currentPath === linkHref ||
+                    currentPath.includes(dataPage) ||
+                    (currentPath === '/admin' && dataPage === 'dashboard') ||
+                    (currentPath === '/admin/' && dataPage === 'dashboard')) {
+                    link.classList.add('active');
+                }
+            });
+        }
+
+        // Toggle product status with confirmation
         async function toggleProductStatus(id, isListed) {
             const action = isListed ? "unlist" : "list";
             const result = await Swal.fire({
                 title: `Are you sure you want to ${action} this product?`,
                 icon: "warning",
                 showCancelButton: true,
-                confirmButtonColor: "#3085d6",
-                cancelButtonColor: "#d33",
+                confirmButtonColor: "#3b82f6",
+                cancelButtonColor: "#ef4444",
                 confirmButtonText: `Yes, ${action} it!`
             });
 
@@ -176,6 +666,7 @@
                     const response = await fetch(`/admin/products/toggle/${id}`, {
                         method: 'PATCH',
                         headers: { 'Content-Type': 'application/json' },
+                        credentials: 'include'
                     });
                     const data = await response.json();
                     if (response.ok) {
@@ -191,22 +682,20 @@
             }
         }
 
+        // Search products
         function searchProducts() {
             const query = document.getElementById('searchInput').value.trim();
-            if (query) {
-                window.location.href = `/admin/products?page=1&search=${encodeURIComponent(query)}`;
-            } else {
-                window.location.href = '/admin/products?page=1';
-            }
+            window.location.href = `/admin/products?page=1&search=${encodeURIComponent(query)}`;
         }
 
+        // Clear search input
         function clearSearch() {
             document.getElementById('searchInput').value = '';
             window.location.href = '/admin/products?page=1';
         }
 
-        async function logout(event) {
-            event.preventDefault();
+        // Logout functionality
+        async function logout() {
             try {
                 const response = await fetch('/admin/logout', {
                     method: 'POST',
@@ -223,6 +712,21 @@
                 Swal.fire("Error", "An error occurred while logging out", "error");
             }
         }
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            setupSidebar();
+            setActiveSidebarItem();
+            window.addEventListener('popstate', setActiveSidebarItem);
+
+            const searchInput = document.getElementById('searchInput');
+            searchInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    searchProducts();
+                }
+            });
+        });
     </script>
 </body>
 </html>

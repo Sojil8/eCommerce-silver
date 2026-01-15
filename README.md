@@ -18,31 +18,106 @@ This project implements essential eCommerce functionality such as product listin
 
 ## ✨ Features
 
-### 👤 User Side
-- User signup/login with **OTP verification**
-- Referral code system
-- Browse products (watches)
-- Cart management (Add/Update/Delete)
-- Apply coupons at checkout
-- Place orders & view order history
-- Download invoices (PDF)
+👤 User Side
 
-### 🛠️ Admin Side
-- Manage products (Add/Update/Delete)
-- Coupon management
-- Order & return request handling
-- Dashboard with analytics & reports
+🔐 OTP-based signup/login
 
+🤝 Referral code system
+
+🛍️ Browse and filter products (Watches)
+
+🛒 Cart management — Add / Update / Delete items
+
+🎟️ Apply coupons during checkout
+
+💳 Place orders and view order history
+
+📄 Download invoices (PDF)
+
+
+🛠️ Admin Side
+
+🧩 Product management — Add / Update / Delete products
+
+🎫 Coupon management
+
+📦 Order & Return request handling
+
+📊 Analytics Dashboard — Sales, Revenue, User Activity reports
 ---
 
+
 ## 📂 Project Structure
-├── controllers # All route handlers (User & Admin)
-├── database # Database connection and setup
-├── middleware # JWT authentication middleware
-├── models # GORM models (User, Product, Order, etc.)
-├── routes # Route definitions
-├── utils/helper # Helper functions (OTP, response handlers, etc.)
-├── main.go # Entry point
-├── go.mod # Go modules
+├── controllers         # All route handlers (User & Admin)
+├── database            # Database connection and setup
+├── middleware          # JWT authentication middleware
+├── models              # GORM models (User, Product, Order, etc.)
+├── routes              # Route definitions
+├── utils/helper        # Helper functions (OTP, responses, etc.)
+├── templates           # HTML templates (frontend)
+├── static              # CSS, JS, and images
+├── main.go             # Entry point
+├── go.mod              # Go modules
 ├── go.sum
-└── .env # Environment variables
+└── .env                # Environment variables
+
+How to Run the Project (Quick Start)
+1. Clone the repository
+2. Install dependencies
+3. Configure environment variables
+Create a .env file in the root:
+# ===============================
+# Application
+# ===============================
+PORT=8888
+SECRET_KEY=your_app_secret_key_here
+
+# ===============================
+# Database (PostgreSQL)
+# ===============================
+DB_HOST=localhost
+DB_USER=postgres
+DB_PASSWORD=your_db_password
+DB_NAME=ecommerce
+DB_PORT=5432
+DB_SSLMODE=disable
+
+# Or if you prefer full DSN
+DATABASE_URL=host=localhost user=postgres password=your_db_password dbname=ecommerce port=5432 sslmode=disable
+
+# ===============================
+# Email (SMTP)
+# ===============================
+EMAIL_USER=your_email@gmail.com
+EMAIL_PASS=your_app_password
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+
+# ===============================
+# Cloudinary
+# ===============================
+CLOUDINARY_URL=cloudinary://api_key:api_secret@cloud_name
+
+# ===============================
+# Google OAuth
+# ===============================
+GOOGLE_CLIENT_ID=your_google_client_id
+GOOGLE_CLIENT_SECRET=your_google_client_secret
+
+# ===============================
+# Razorpay
+# ===============================
+RAZORPAY_KEY_ID=rzp_test_xxxxxxxxxx
+RAZORPAY_KEY_SECRET=your_razorpay_secret
+
+
+4.Create PostgreSQL database
+
+5. Start Redis
+
+6. Run the application
+
+go run main.go
+
+Now the Server runs on:http://localhost:8080
+
